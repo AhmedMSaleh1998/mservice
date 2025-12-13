@@ -49,8 +49,10 @@ class OtpSendController extends Controller
             if ($request->input('action') && $request->input('action') == OtpEnum::REGISTER->value) {
                 // Activate user
                 $user = User::where('phone', $request->phone)->first();
-                $user->active = true;
-                $user->save();
+                if ($user) {
+                    $user->active = true;
+                    $user->save();
+                }
             }
 
             return response()->json([
