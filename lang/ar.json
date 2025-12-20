@@ -5,5 +5,7 @@
   "doctor": "دكتور",
   "hospital": "مستشفى",
   "special clinic": "عيادة خاصة",
-  "special clinics": "عيادات تخصصية"
+  "special clinics": "عيادات تخصصية",
+  "Notification enabled must be true or false.": "قيمة الإشعارات يجب أن تكون صحيحة أو خاطئة.",
+  "Language must be either Arabic (ar) or English (en).": "اللغة يجب أن تكون العربية أو الإنجليزية."
 }

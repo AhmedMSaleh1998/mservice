@@ -9,7 +9,7 @@ class VerityOtpRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'phone' => ['required', 'string', 'regex:/^([0-9\s\-\+\(\)]*)$/', 'min:7'],
+            'phone' => ['required', 'string', 'regex:/^([0-9\s\-\+\(\)]*)$/', 'min:8'],
             'code' => ['required', 'string', 'size:6'],
             'action' => ['nullable', 'string'],
         ];

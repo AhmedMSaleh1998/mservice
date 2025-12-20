@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\SendOtpRequest;
 use App\Http\Requests\Api\VerityOtpRequest;
-use Illuminate\Http\Request;
 use Modules\Core\Enums\OtpEnum;
 use Modules\Core\Services\OtpService;
 use Modules\Users\Models\User;
@@ -48,9 +47,12 @@ class OtpSendController extends Controller
         if ($res) {
             if ($request->input('action') && $request->input('action') == OtpEnum::REGISTER->value) {
                 // Activate user
-                $user = User::where('phone', $request->phone)->first();
+                $user = User::where('phone', $request->phone)->orderByDesc('id')->first();
                 $user->active = true;
                 $user->save();
+
+                // delete previous phone
+                User::where(['phone' => $request->phone, 'active' => false, 'role_id' => 3])->delete();
             }
 
             return response()->json([

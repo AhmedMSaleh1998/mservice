@@ -20,23 +20,29 @@ class HomeController extends Controller
 
     public function index()
     {
-        $normalServices = $this->services->getNormalServices(2);
+        $services = $this->services->getAllServices(6);
+
+        $mainImages = [
+            "placehold.co/600x400@2x.png",
+            "placehold.co/600x400@2x.png",
+            "placehold.co/600x400@2x.png",
+        ];
 
         if (Auth::guard('sanctum')->check()) {
             $user = Auth::guard('sanctum')->user();
-            $featuredServices = $this->services->getFeaturedServices(6);
+//            $featuredServices = $this->services->getFeaturedServices(6);
             return response()->json([
                 'user' => NormalUserResource::make($user),
-                'main_image' => ['url' => null],
-                'featured_services' => ServicesResource::collection($featuredServices),
-                'normal_services' => ServicesResource::collection($normalServices),
+                'banner' => $mainImages,
+                'services' => ServicesResource::collection($services),
+                'news' => BlogResource::collection(Blog::latest()->limit(2)->get()),
             ]);
         }
 
         return response()->json([
             'user' => null,
-            'main_image' => ['url' => null],
-            'normal_services' => ServicesResource::collection($normalServices),
+            'banner' => $mainImages,
+            'services' => ServicesResource::collection($services),
             'news' => BlogResource::collection(Blog::latest()->limit(2)->get()),
         ]);
     }

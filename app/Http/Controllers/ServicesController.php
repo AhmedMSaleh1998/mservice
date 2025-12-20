@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Modules\Services\Resources\ServicesResource;
 use Modules\Services\Services\ServicesService;
 
 class ServicesController extends Controller
@@ -15,7 +16,7 @@ class ServicesController extends Controller
     public function index()
     {
         return response()->json([
-            'services' => $this->servicesService->getAllServices(),
+            'services' => ServicesResource::collection($this->servicesService->getAllServices()),
         ]);
     }
 }
