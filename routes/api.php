@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\MedicalGuideController;
 use App\Http\Controllers\Api\NewRegisterController;
 use App\Http\Controllers\Api\OtpSendController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\ProvincesController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\RestUnitsController;
 use App\Http\Controllers\Api\SettingsController;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Route;
 
 
 Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(function () {
+    Route::get('provinces', [ProvincesController::class, 'index']);
     Route::post('register-request', [NewRegisterController::class, 'register']);
 
     Route::controller(OtpSendController::class)->prefix('otp')->group(function () {
