@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Modules\Services\Models\RestUnit;
 use Modules\Services\Resources\RestUnitResource;
 use Modules\Services\Services\RestUnitService;
 
@@ -25,9 +26,13 @@ class RestUnitsController extends Controller
         ]);
 
         $units = $this->restUnitService->getList(100, $validated);
-        return response()->json([
-            'units' => RestUnitResource::collection($units),
-        ]);
+        return RestUnitResource::collection($units);
+    }
+
+    public function show($id)
+    {
+        $restUnit = RestUnit::findOrFail($id);
+        return RestUnitResource::make($restUnit);
     }
 
     public function booking(Request $request)

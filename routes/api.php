@@ -52,6 +52,7 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
             });
 
             Route::get('/rest-units', [RestUnitsController::class, 'index']);
+            Route::get('/rest-units/{id}', [RestUnitsController::class, 'show']);
             Route::post('rest-units/booking', [RestUnitsController::class, 'booking']);
         });
 
