@@ -7,6 +7,9 @@ use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Section;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -57,10 +60,54 @@ class RestUnitBookingResource extends Resource
                 TextColumn::make('id')->sortable(),
                 TextColumn::make('user.name')
                     ->label('User')
-                    ->searchable(),
+                    ->searchable()
+                    ->action(
+                        Action::make('viewUser')
+                            ->modalHeading('User Details')
+                            ->modalSubmitAction(false)
+                            ->modalCancelAction(fn (Action $action) => $action->label('Close'))
+                            ->infolist(fn (Schema $schema) => $schema
+                                ->components([
+                                    Section::make('User Info')
+                                        ->schema([
+                                            TextEntry::make('user.name')->label('Name'),
+                                            TextEntry::make('user.email')->label('Email'),
+                                            TextEntry::make('user.phone')->label('Phone'),
+                                        ])->columns(3),
+                                ])
+                            )
+                    ),
                 TextColumn::make('restUnit.name')
                     ->label('Rest Unit')
-                    ->searchable(),
+                    ->searchable()
+                    ->action(
+                        Action::make('viewRestUnit')
+                            ->modalHeading('Rest Unit Details')
+                            ->modalSubmitAction(false)
+                            ->modalCancelAction(fn (Action $action) => $action->label('Close'))
+                            ->infolist(fn (Schema $schema) => $schema
+                                ->components([
+                                    Section::make('General Info')
+                                        ->schema([
+                                            TextEntry::make('restUnit.name')->label('Name'),
+                                            TextEntry::make('restUnit.address')->label('Address'),
+                                            TextEntry::make('restUnit.province.name')->label('Province'),
+                                        ])->columns(3),
+                                    Section::make('Capacity')
+                                        ->schema([
+                                            TextEntry::make('restUnit.single_rooms')->label('Single Rooms'),
+                                            TextEntry::make('restUnit.double_rooms')->label('Double Rooms'),
+                                            TextEntry::make('restUnit.single_bed')->label('Single Beds'),
+                                        ])->columns(3),
+                                    Section::make('Pricing (Per Night)')
+                                        ->schema([
+                                            TextEntry::make('restUnit.single_room_price')->label('Single Room Price')->money('USD'),
+                                            TextEntry::make('restUnit.double_room_price')->label('Double Room Price')->money('USD'),
+                                            TextEntry::make('restUnit.single_bed_price')->label('Single Bed Price')->money('USD'),
+                                        ])->columns(3),
+                                ])
+                            )
+                    ),
                 TextColumn::make('unit_type')
                     ->label('Type')
                     ->badge()
