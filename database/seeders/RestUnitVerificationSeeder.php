@@ -26,6 +26,8 @@ class RestUnitVerificationSeeder extends Seeder
             'single_rooms' => 5,
             'double_rooms' => 2,
             'single_bed' => 0,
+            'single_room_price' => 100.00,
+            'double_room_price' => 200.00,
             'is_active' => true,
         ]);
 

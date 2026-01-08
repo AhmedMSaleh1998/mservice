@@ -21,8 +21,11 @@ class ResetUnitForm
                     ])
                     ->columnSpanFull(),
                 TextInput::make('single_rooms')->label(__('Single Rooms'))->numeric()->required()->columnSpanFull(),
+                TextInput::make('single_room_price')->label(__('Single Room Price'))->numeric()->prefix('$')->default(0)->columnSpanFull(),
                 TextInput::make('double_rooms')->label(__('Double Rooms'))->numeric()->required()->columnSpanFull(),
+                TextInput::make('double_room_price')->label(__('Double Room Price'))->numeric()->prefix('$')->default(0)->columnSpanFull(),
                 TextInput::make('single_bed')->label(__('Single Beds'))->numeric()->required()->columnSpanFull(),
+                TextInput::make('single_bed_price')->label(__('Single Bed Price'))->numeric()->prefix('$')->default(0)->columnSpanFull(),
                 Select::make('province_id')
                     ->relationship('province', 'name')
                     ->label(__('Province'))

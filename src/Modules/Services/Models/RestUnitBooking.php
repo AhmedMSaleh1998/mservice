@@ -19,6 +19,8 @@ class RestUnitBooking extends CustomModel
         'start_date',
         'end_date',
         'status',
+        'unit_type',
+        'total_price',
         'is_active'
     ];
 
@@ -35,5 +37,10 @@ class RestUnitBooking extends CustomModel
     public function restUnit(): BelongsTo
     {
         return $this->belongsTo(RestUnit::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\Users\Models\User::class);
     }
 }

@@ -40,7 +40,7 @@ class RestUnitQueryBuilder extends Builder
                    // (StartA <= EndB) and (EndA >= StartB)
                    $subQ->where('start_date', '<=', $endDate)
                         ->where('end_date', '>=', $startDate)
-                        ->where('status', 'active'); // Only consider active bookings
+                        ->where('status', '!=', 'cancelled'); // Consider active and pending bookings
                 });
             });
         });

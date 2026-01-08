@@ -16,8 +16,16 @@ class RestUnit extends CustomModel
     protected $table = 'rest_units';
     protected $fillable = [
         'name', 'address', 'province_id', 'single_rooms', 'double_rooms', 'single_bed', 'is_active',
+        'single_room_price', 'double_room_price', 'single_bed_price',
     ];
     public $translatable = ['name', 'address'];
+
+    protected $casts = [
+        'single_room_price' => 'float',
+        'double_room_price' => 'float',
+        'single_bed_price' => 'float',
+        'is_active' => 'boolean',
+    ];
 
     public function newEloquentBuilder($query): RestUnitQueryBuilder
     {

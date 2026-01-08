@@ -30,7 +30,35 @@ class RestUnitsController extends Controller
         ]);
     }
 
-    public function subscribe()
+    public function booking(Request $request)
     {
+        $validated = $request->validate([
+            'rest_unit_id' => 'required|exists:rest_units,id',
+            'unit_type' => 'required|string|in:single_rooms,double_rooms,single_bed',
+            'start_date' => 'required|date|after_or_equal:today',
+            'end_date' => 'required|date|after:start_date',
+        ]);
+
+        try {
+            $booking = $this->restUnitService->book([
+                'rest_unit_id' => $validated['rest_unit_id'],
+                'user_id' => auth('sanctum')->id(),
+                'start_date' => $validated['start_date'],
+                'end_date' => $validated['end_date'],
+                'unit_type' => $validated['unit_type'],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Booking request submitted successfully.',
+                'booking_id' => $booking->id,
+                'total_price' => $booking->total_price,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422); // Unprocessable Entity
+        }
     }
 }
