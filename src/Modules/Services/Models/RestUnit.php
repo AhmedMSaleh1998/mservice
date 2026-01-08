@@ -29,6 +29,11 @@ class RestUnit extends CustomModel
         return $this->belongsTo(Province::class);
     }
 
+    public function bookings()
+    {
+        return $this->hasMany(RestUnitBooking::class);
+    }
+
     public function scopeActive()
     {
         return $this->where('is_active', true);
