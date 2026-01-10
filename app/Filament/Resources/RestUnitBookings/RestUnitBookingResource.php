@@ -27,7 +27,7 @@ class RestUnitBookingResource extends Resource
     // I don't have Heroicon imported or know the Enum values. I'll stick to string if allowed, or null.
     // 'heroicon-o-calendar' string works in v3. If v4 allows string, it's fine.
     
-    protected static string|\UnitEnum|null $navigationGroup = 'Services';
+    protected static string|\UnitEnum|null $navigationGroup = 'Rest units';
 
     public static function form(Schema $schema): Schema
     {
