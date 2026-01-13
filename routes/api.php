@@ -58,6 +58,9 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
             Route::post('rest-units/booking', [RestUnitsController::class, 'booking']);
         });
 
+        Route::post('membership/request', [\App\Http\Controllers\Api\MembershipController::class, 'store']);
+
+
     });
 
 
