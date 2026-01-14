@@ -14,7 +14,7 @@ class CoursesResource extends CustomResource
         return [
             'id' => $this->resource->id,
             'title' => $this->resource->title,
-            'image' => MediaResource::make($this->resource->getMedia('image')->last() ?? []),
+            'image' => MediaResource::make($this->resource->getMedia('image')->last()),
             'start_date' => $this->resource->start_date->format('Y-m-d'),
             'end_date' => $this->resource->end_date->format('Y-m-d'),
             'type' => __($this->resource->type),

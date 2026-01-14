@@ -19,7 +19,7 @@ class NormalUserResource extends CustomResource
             'reg_number' => $this->resource->reg_number,
             'address' => $this->resource->address,
             'neqaba_address' => $this->resource->neqaba_address,
-            'photo' => MediaResource::make($this->resource->getMedia('photo')->last() ?? []),
+            'photo' => MediaResource::make($this->resource->getMedia('photo')->last()),
             'settings' => [
                 'lang' => $this->resource->lang,
                 'notification_enabled' => $this->resource->notification_enabled,

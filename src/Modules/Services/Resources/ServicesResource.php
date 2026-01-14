@@ -15,7 +15,7 @@ class ServicesResource extends CustomResource
             'id' => $this->resource->id,
             'title' => $this->resource->title,
             'description' => $this->resource->description,
-            'icon' => MediaResource::make($this->resource->getMedia('icon')->last() ?? []),
+            'icon' => MediaResource::make($this->resource->getMedia('icon')->last()),
         ];
     }
 }
