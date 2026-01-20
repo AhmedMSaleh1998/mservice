@@ -14,8 +14,8 @@ class MembershipService
 
     public function calculateCosts(string $deliveryMethod): array
     {
-        $printingCost = 4000;
-        $deliveryCost = ($deliveryMethod === 'delivery') ? 4000 : 0;
+        $printingCost = 500;
+        $deliveryCost = ($deliveryMethod === 'delivery') ? 100 : 0;
         $subscriptionCost = 0; // Assuming 0 based on user's image showing 4000,4000,4000 ? No wait image says 4000, 4000, 4000? Let's check image again.
         
         // Image "Payment Detail" strings:
@@ -34,7 +34,7 @@ class MembershipService
         
         // Let's implement logic to be flexible.
         
-        $subscriptionCost = 4000; // As per image text, but let's check total.
+        $subscriptionCost = 1000; // As per image text, but let's check total.
         
         // If total is 8000, then maybe only 2 apply?
         // Let's assume printing + delivery.
@@ -59,7 +59,8 @@ class MembershipService
                 'degree' => $data['degree'],
                 'registration_number' => $data['registration_number'],
                 'delivery_method' => $data['delivery_method'],
-                'address' => $data['delivery_method'] === 'delivery' ? $data['address'] : null,
+                'payment_method' => $data['payment_method'],
+                'user_address_id' => $data['address_id'] ?? null,
                 'printing_cost' => $costs['printing_cost'],
                 'delivery_cost' => $costs['delivery_cost'],
                 'subscription_cost' => $costs['subscription_cost'],

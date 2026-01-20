@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\LoginController;
 use App\Http\Controllers\Api\MedicalGuideController;
+use App\Http\Controllers\Api\MembershipController;
 use App\Http\Controllers\Api\NewRegisterController;
 use App\Http\Controllers\Api\OtpSendController;
 use App\Http\Controllers\Api\ProfileController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\Api\ProvincesController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\RestUnitsController;
 use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\UserAddressController;
 use App\Http\Controllers\ServicesController;
 use App\Http\Middleware\ValidateHeadersMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -58,8 +60,9 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
             Route::post('rest-units/booking', [RestUnitsController::class, 'booking']);
         });
 
-        Route::post('membership/request', [\App\Http\Controllers\Api\MembershipController::class, 'store']);
+        Route::post('membership/request', [MembershipController::class, 'store']);
 
+        Route::apiResource('user-addresses', UserAddressController::class)->only(['index', 'store']);
 
     });
 

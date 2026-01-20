@@ -4,6 +4,7 @@ namespace Modules\Memberships\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\Users\Resources\UserAddressResource;
 
 class MembershipRequestResource extends JsonResource
 {
@@ -16,7 +17,7 @@ class MembershipRequestResource extends JsonResource
             'degree' => $this->degree,
             'registration_number' => $this->registration_number,
             'delivery_method' => $this->delivery_method,
-            'address' => $this->address,
+            'address' => UserAddressResource::make($this->userAddress),
             'status' => $this->status,
             'costs' => [
                 'printing' => $this->printing_cost,

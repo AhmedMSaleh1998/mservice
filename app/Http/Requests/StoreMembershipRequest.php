@@ -22,9 +22,8 @@ class StoreMembershipRequest extends FormRequest
             'degree' => 'required|string|max:255',
             'registration_number' => 'required|string|max:50',
             'delivery_method' => 'required|in:delivery,pickup',
-            'address' => 'required_if:delivery_method,delivery|nullable|array',
-            'address.*.type' => 'nullable|string|in:clinic,home,other',
-            'address.*.value' => 'nullable|string',
+            'payment_method' => 'required|in:fawry,instapay',
+            'address_id' => 'required|exists:user_addresses,id',
         ];
     }
 }
