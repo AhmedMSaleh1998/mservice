@@ -15,9 +15,10 @@ class UserAddressResource extends CustomResource
             'id' => $this->resource->id,
             'district' => $this->resource->district,
             'street' => $this->resource->street,
-            'type' => $this->resource->type,
             'phone' => $this->resource->phone,
             'province' => ProvinceResource::make($this->resource->province),
+            'unit_number' => $this->resource->unit_number,
+            'address_name' => $this->resource->address_name,
         ];
     }
 }

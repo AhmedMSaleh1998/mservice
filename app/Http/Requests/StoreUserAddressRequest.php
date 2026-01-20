@@ -18,7 +18,8 @@ class StoreUserAddressRequest extends FormRequest
             'district' => ['required', 'string', 'max:255'],
             'street' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
-            'type' => ['required', 'in:clinic,home'],
+            'address_name' => ['required', 'string', 'max:255'],
+            'unit_number' => ['required', 'string', 'max:255'],
         ];
     }
 }

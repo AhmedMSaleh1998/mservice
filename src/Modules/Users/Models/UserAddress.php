@@ -13,7 +13,8 @@ class UserAddress extends Model
         'district',
         'street',
         'phone',
-        'type',
+        'unit_number',
+        'address_name',
     ];
 
     public function user(): BelongsTo
