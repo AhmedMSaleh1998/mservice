@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\BlogsController;
+use App\Http\Controllers\Api\CertificateRequestController;
+use App\Http\Controllers\Api\CertificatesController;
 use App\Http\Controllers\Api\ChangePasswordController;
 use App\Http\Controllers\Api\ChangePhoneController;
 use App\Http\Controllers\Api\CoursesController;
@@ -63,6 +65,9 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
         Route::post('membership/request', [MembershipController::class, 'store']);
 
         Route::apiResource('user-addresses', UserAddressController::class)->only(['index', 'store']);
+
+        Route::get('certificates', [CertificatesController::class, 'index']);
+        Route::post('certificate/request', [CertificateRequestController::class, 'store']);
 
     });
 
