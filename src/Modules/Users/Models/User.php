@@ -40,4 +40,9 @@ class User extends Authenticatable implements  HasMedia
         'active' => 'boolean',
         'notification_enabled' => 'boolean',
     ];
+
+    public function addresses(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(UserAddress::class);
+    }
 }

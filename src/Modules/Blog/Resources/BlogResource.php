@@ -14,7 +14,7 @@ class BlogResource extends CustomResource
             'id' => $this->resource->id,
             'title' => $this->resource->title,
             'slug' => $this->resource->slug,
-            'image' => MediaResource::make($this->resource->getMedia('image')->last() ?? []),
+            'image' => MediaResource::make($this->resource->getMedia('image')->last()),
             'description' => $this->resource->description,
             'content' => $this->when($this->isDetailedView(), $this->resource->content),
             'published_at' => $this->resource->created_at->format('Y-m-d H:i:s'),

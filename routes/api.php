@@ -1,23 +1,30 @@
 <?php
 
 use App\Http\Controllers\Api\BlogsController;
+use App\Http\Controllers\Api\CertificateRequestController;
+use App\Http\Controllers\Api\CertificatesController;
 use App\Http\Controllers\Api\ChangePasswordController;
 use App\Http\Controllers\Api\ChangePhoneController;
 use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\LoginController;
 use App\Http\Controllers\Api\MedicalGuideController;
+use App\Http\Controllers\Api\MembershipController;
 use App\Http\Controllers\Api\NewRegisterController;
 use App\Http\Controllers\Api\OtpSendController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\ProvincesController;
 use App\Http\Controllers\Api\RegisterController;
+use App\Http\Controllers\Api\RestUnitsController;
 use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\UserAddressController;
 use App\Http\Controllers\ServicesController;
 use App\Http\Middleware\ValidateHeadersMiddleware;
 use Illuminate\Support\Facades\Route;
 
 
 Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(function () {
+    Route::get('provinces', [ProvincesController::class, 'index']);
     Route::post('register-request', [NewRegisterController::class, 'register']);
 
     Route::controller(OtpSendController::class)->prefix('otp')->group(function () {
@@ -49,7 +56,18 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
             Route::controller(ServicesController::class)->group(function () {
                 Route::get('/', 'index');
             });
+
+            Route::get('/rest-units', [RestUnitsController::class, 'index']);
+            Route::get('/rest-units/{id}', [RestUnitsController::class, 'show']);
+            Route::post('rest-units/booking', [RestUnitsController::class, 'booking']);
         });
+
+        Route::post('membership/request', [MembershipController::class, 'store']);
+
+        Route::apiResource('user-addresses', UserAddressController::class)->only(['index', 'store']);
+
+        Route::get('certificates', [CertificatesController::class, 'index']);
+        Route::post('certificate/request', [CertificateRequestController::class, 'store']);
 
     });
 

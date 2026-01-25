@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Modules\Blog\Models\Blog;
+use Modules\Core\Models\Banner;
 use Modules\Blog\Resources\BlogResource;
 use Modules\Services\Resources\ServicesResource;
 use Modules\Services\Services\ServicesService;
@@ -22,11 +23,10 @@ class HomeController extends Controller
     {
         $services = $this->services->getAllServices(6);
 
-        $mainImages = [
-            "placehold.co/600x400@2x.png",
-            "placehold.co/600x400@2x.png",
-            "placehold.co/600x400@2x.png",
-        ];
+        $mainImages = Banner::where('active', true)
+            ->orderBy('sort_order')
+            ->pluck('image_path')
+            ->map(fn($path) => asset('storage/' . $path));
 
         if (Auth::guard('sanctum')->check()) {
             $user = Auth::guard('sanctum')->user();
