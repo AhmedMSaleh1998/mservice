@@ -15,7 +15,7 @@ class NewRegisterRequest extends FormRequest
                 'required',
                 'string',
                 'regex:/^([0-9\s\-\+\(\)]*)$/',
-                'min:7',
+                'min:11',
                 'unique:registration_requests'
             ],
             'national_id' => [

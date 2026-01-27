@@ -27,10 +27,12 @@ class ManagePanelProvider extends PanelProvider
             ->default()
             ->id('manage')
             ->path('manage')
-            ->login()
+            ->login(\App\Filament\Pages\Auth\ManageLogin::class)
+            ->brandLogo(asset('assets/medical-syndicate-logo.png'))
+            ->brandLogoHeight('3.5rem')
             ->viteTheme('resources/css/filament/manage/theme.css')
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::Zinc,
             ])
             ->resourceCreatePageRedirect('index')
             ->resourceEditPageRedirect('index')
