@@ -2,6 +2,7 @@
 
 namespace Modules\Services\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Core\Models\CustomModel;
 use Modules\Services\Builders\ServiceQueryBuilder;
@@ -13,7 +14,7 @@ class Service extends CustomModel implements HasMedia
 {
     use InteractsWithMedia, SoftDeletes, HasTranslations;
 
-    protected $fillable = ['title', 'description', 'is_active', 'is_featured'];
+    protected $fillable = ['title', 'description', 'service_type_id', 'is_active', 'is_featured'];
 
     protected $casts = [
         'is_active' => 'boolean',
@@ -24,6 +25,11 @@ class Service extends CustomModel implements HasMedia
     public function newEloquentBuilder($query): ServiceQueryBuilder
     {
         return new ServiceQueryBuilder($query);
+    }
+
+    public function serviceType(): BelongsTo
+    {
+        return $this->belongsTo(ServiceType::class);
     }
 
     public function scopeFeatured()

@@ -28,6 +28,26 @@ class ResetUnitResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    public static function getModelLabel(): string
+    {
+        return __('Rest Unit');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Rest Units');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return static::getPluralModelLabel();
+    }
+
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('Rest Units');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return ResetUnitForm::configure($schema);

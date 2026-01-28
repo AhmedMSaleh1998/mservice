@@ -21,7 +21,7 @@ class ServicesTable
         return $table
             ->columns([
                 ImageColumn::make('icon')
-                    ->label('Icon')
+                    ->label(__('Icon'))
                     ->getStateUsing(function ($record) {
                         $media = $record->getFirstMedia('icon');
                         return $media ? $media->getUrl() : '';
@@ -30,14 +30,19 @@ class ServicesTable
                     ->size(50)
                     ->defaultImageUrl(''),
                 TextColumn::make('title')
-                    ->label('Title')
+                    ->label(__('Title'))
                     ->getStateUsing(function ($record) {
                         return $record->getTranslation('title', app()->getLocale());
                     })
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('serviceType.name')
+                    ->label(__('Type'))
+                    ->getStateUsing(function ($record) {
+                        return $record->serviceType?->getTranslation('name', app()->getLocale());
+                    }),
                 TextColumn::make('description')
-                    ->label('Description')
+                    ->label(__('Description'))
                     ->getStateUsing(function ($record) {
                         $description = $record->getTranslation('description', app()->getLocale());
                         return Str::limit($description, 50);
@@ -45,11 +50,13 @@ class ServicesTable
                     ->searchable()
                     ->wrap(),
                 IconColumn::make('is_featured')
+                    ->label(__('Is Featured'))
                     ->boolean()
                     ->trueColor('success')
                     ->falseColor('danger')
                     ->sortable(),
                 IconColumn::make('is_active')
+                    ->label(__('Is Active'))
                     ->boolean()
                     ->trueColor('success')
                     ->falseColor('danger')

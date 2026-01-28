@@ -24,6 +24,26 @@ class ProvinceResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    public static function getModelLabel(): string
+    {
+        return __('Province');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Provinces');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return static::getPluralModelLabel();
+    }
+
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('Settings');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return ProvinceForm::configure($schema);

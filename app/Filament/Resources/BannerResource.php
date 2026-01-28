@@ -26,6 +26,26 @@ class BannerResource extends Resource
 
     protected static \UnitEnum|string|null $navigationGroup = 'Settings';
 
+    public static function getModelLabel(): string
+    {
+        return __('Banner');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Banners');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return static::getPluralModelLabel();
+    }
+
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('Settings');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema

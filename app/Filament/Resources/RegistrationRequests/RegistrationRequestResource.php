@@ -24,6 +24,21 @@ class RegistrationRequestResource extends Resource
 
     protected static ?string $navigationLabel = 'Registration Requests';
 
+    public static function getModelLabel(): string
+    {
+        return __('Registration Request');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Registration Requests');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return static::getPluralModelLabel();
+    }
+
     public static function form(Form|\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema
     {
         return $schema

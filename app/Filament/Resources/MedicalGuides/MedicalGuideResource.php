@@ -27,6 +27,26 @@ class MedicalGuideResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'title';
 
+    public static function getModelLabel(): string
+    {
+        return __('Medical Guide');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Medical Guides');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return static::getPluralModelLabel();
+    }
+
+    public static function getNavigationGroup(): UnitEnum|string|null
+    {
+        return __('Medical Guides');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return MedicalGuideForm::configure($schema);

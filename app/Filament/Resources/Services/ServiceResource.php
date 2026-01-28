@@ -24,6 +24,21 @@ class ServiceResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'Services';
 
+    public static function getModelLabel(): string
+    {
+        return __('Service');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Services');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return static::getPluralModelLabel();
+    }
+
     public static function form(Schema $schema): Schema
     {
         return ServiceForm::configure($schema);
