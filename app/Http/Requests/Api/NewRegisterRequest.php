@@ -4,35 +4,50 @@ namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-
 class NewRegisterRequest extends FormRequest
 {
 
     public function rules(): array
     {
         return [
-            'phone' => [
-                'required',
-                'string',
-                'regex:/^([0-9\s\-\+\(\)]*)$/',
-                'min:11',
-                'unique:registration_requests'
-            ],
-            'national_id' => [
-                'required',
-                'string',
-                'unique:users'
-            ],
+            //personal infromations
+            'full_name_ar' => ['required', 'string', 'max:255'],
+            'full_name_en' => ['required', 'string', 'max:255'],
+            'gender' => ['required', 'string', Rule::in(['male', 'female'])],
+            'nationality' => ['required', 'string', 'max:100'],
+            'religion' => ['required', 'string', 'max:100'],
+            'national_id' => ['required','string','unique:users','min:14',],
+            'issued_from' => ['required', 'string', 'max:100'],
+            'governorate' => ['required', 'string', 'max:100'],
+            'birth_date' => ['required', 'date'],
+            'birth_governorate' => ['required', 'string', 'max:100'],
 
-            'personal_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:2048'],
-            'dob_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:2048'],
-            'graduation_certificate_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:2048'],
-            'internship_certificate_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:2048'],
-            'syndicate_registration_form_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:2048'],
-            'practice_license_form_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:2048'],
-            'practice_exam_result_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:2048'],
-            'criminal_record_certificate_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:2048'],
-            'military_service_status_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:2048'],
+            //residence address
+            'residence_house_number' => ['required', 'string', 'max:10'],
+            'residence_street' => ['required', 'string', 'max:255'],
+            'residence_center' => ['required', 'string', 'max:100'],
+            'residence_governorate' => ['required', 'string', 'max:100'],
+            'residence_phone' => ['required','string','regex:/^([0-9\s\-\+\(\)]*)$/','max:25'],
+            'residence_mobile_1' => ['required','string','regex:/^([0-9\s\-\+\(\)]*)$/','min:11','unique:registration_requests'],
+            'residence_mobile_2' => ['required','string','regex:/^([0-9\s\-\+\(\)]*)$/','min:11','unique:registration_requests'],
+            'email' => ['required', 'email', 'max:255'],
+
+            //university data
+            'faculty' => ['required', 'string', 'max:255'],
+            'graduation_month' => ['required', 'string', 'max:2'],
+            'graduation_year' => ['required', 'string', 'max:10'],
+            'university' => ['required', 'string', 'max:255'],
+            'grade' => ['required', 'string', 'max:100'],
+            'first_foreign_language' => ['required', 'string', 'max:50'],
+            'second_foreign_language' => ['sometimes', 'string', 'max:50'],
+
+            //documents
+            'personal_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:5120'],
+            'national_id_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:5120'],
+            'graduation_certificate_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:5120'],
+            'internship_certificate_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:5120'],
+            'criminal_record_certificate_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:5120'],
+            'dob_image' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg', 'max:5120'],
         ];
     }
 

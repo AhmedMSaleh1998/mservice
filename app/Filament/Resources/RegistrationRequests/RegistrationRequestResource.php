@@ -220,15 +220,12 @@ class RegistrationRequestResource extends Resource
     protected static function getDocumentLabel($state): string
     {
         $labels = [
-            'dob_image' => 'Date of Birth Certificate',
             'personal_image' => 'Personal Photo',
-            'practice_exam_result_image' => 'Practice Exam Result',
-            'practice_license_form_image' => 'Practice License Form',
+            'national_id_image' => 'National ID Photo',
             'graduation_certificate_image' => 'Graduation Certificate',
             'internship_certificate_image' => 'Internship Certificate',
-            'military_service_status_image' => 'Military Service Status',
             'criminal_record_certificate_image' => 'Criminal Record Certificate',
-            'syndicate_registration_form_image' => 'Syndicate Registration Form',
+            'dob_image' => 'Date of Birth Certificate',
         ];
 
         foreach ($labels as $key => $label) {

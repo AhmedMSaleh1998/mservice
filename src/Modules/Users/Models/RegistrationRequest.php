@@ -10,6 +10,30 @@ class RegistrationRequest extends CustomModel
     protected $fillable = [
         'phone',
         'national_id',
+        'full_name_ar',
+        'full_name_en',
+        'gender',
+        'nationality',
+        'religion',
+        'governorate',
+        'issued_from',
+        'birth_governorate',
+        'birth_date',
+        'residence_governorate',
+        'residence_center',
+        'residence_street',
+        'residence_house_number',
+        'residence_phone',
+        'residence_mobile_1',
+        'residence_mobile_2',
+        'email',
+        'university',
+        'faculty',
+        'graduation_year',
+        'graduation_month',
+        'grade',
+        'first_foreign_language',
+        'second_foreign_language',
         'reg_code',
         'active',
         'documents',
@@ -18,6 +42,7 @@ class RegistrationRequest extends CustomModel
     protected $casts = [
         'active' => 'boolean',
         'documents' => 'array',
+        'birth_date' => 'date',
     ];
 
     public function newEloquentBuilder($query): OtpQueryBuilder
