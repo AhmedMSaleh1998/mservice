@@ -99,6 +99,11 @@ html[dir="rtl"] .fi-body.manage-login {
     --crumb-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 
+.fi-page-header-main-ctn .fi-header-heading,
+.fi-page-header-main-ctn .fi-header-subheading {
+    display: none !important;
+}
+
 .fi-breadcrumbs:where(.dark, .dark *) {
     --crumb-bg: color-mix(in oklab, var(--gray-900) 70%, var(--gray-800));
     --crumb-border: color-mix(in oklab, var(--gray-700) 55%, transparent);

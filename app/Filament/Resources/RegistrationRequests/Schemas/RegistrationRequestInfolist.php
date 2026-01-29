@@ -23,7 +23,6 @@ class RegistrationRequestInfolist
             ->components([
                 Section::make(__('Personal Information'))
                     ->collapsible()
-                    ->collapsed()
                     ->schema([
                         TextEntry::make('national_id')
                             ->label(__('National ID'))
