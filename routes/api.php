@@ -6,10 +6,14 @@ use App\Http\Controllers\Api\CertificatesController;
 use App\Http\Controllers\Api\ChangePasswordController;
 use App\Http\Controllers\Api\ChangePhoneController;
 use App\Http\Controllers\Api\CoursesController;
+use App\Http\Controllers\Api\GradesController;
 use App\Http\Controllers\Api\HomeController;
+use App\Http\Controllers\Api\LanguagesController;
 use App\Http\Controllers\Api\LoginController;
+use App\Http\Controllers\Api\MedicalUniversitiesController;
 use App\Http\Controllers\Api\MedicalGuideController;
 use App\Http\Controllers\Api\MembershipController;
+use App\Http\Controllers\Api\NationalitiesController;
 use App\Http\Controllers\Api\NewRegisterController;
 use App\Http\Controllers\Api\OtpSendController;
 use App\Http\Controllers\Api\ProfileController;
@@ -24,7 +28,11 @@ use Illuminate\Support\Facades\Route;
 
 
 Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(function () {
+    Route::get('nationalities', [NationalitiesController::class, 'index']);
     Route::get('provinces', [ProvincesController::class, 'index']);
+    Route::get('medical-universities', [MedicalUniversitiesController::class, 'index']);
+    Route::get('grades', [GradesController::class, 'index']);
+    Route::get('languages', [LanguagesController::class, 'index']);
     Route::post('register-request', [NewRegisterController::class, 'register']);
 
     Route::controller(OtpSendController::class)->prefix('otp')->group(function () {

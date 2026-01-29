@@ -1,13 +1,12 @@
 <?php
 
-namespace App\Filament\Resources\Provinces\Schemas;
+namespace App\Filament\Resources\Grades\Schemas;
 
-use AbdulmajeedJamaan\FilamentTranslatableTabs\TranslatableTab;
 use AbdulmajeedJamaan\FilamentTranslatableTabs\TranslatableTabs;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
-class ProvinceForm
+class GradeForm
 {
     public static function configure(Schema $schema): Schema
     {
@@ -15,9 +14,7 @@ class ProvinceForm
             ->components([
                 TranslatableTabs::make(__('Name'))
                     ->schema([
-                        TextInput::make('name')
-                            ->label(__('Name'))
-                            ->required(),
+                        TextInput::make('name')->required()->label(__('Name')),
                     ])
             ]);
     }

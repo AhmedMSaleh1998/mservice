@@ -13,6 +13,10 @@ class EgyptProvincesSeeder extends Seeder
      */
     public function run(): void
     {
+        if (DB::table('provinces')->exists()) {
+            return;
+        }
+
         $provinces = [
             ['name' => ['ar' => 'القاهرة', 'en' => 'Cairo']],
             ['name' => ['ar' => 'الجيزة', 'en' => 'Giza']],
