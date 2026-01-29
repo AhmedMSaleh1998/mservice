@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Modules\Core\Enums\GenderEnum;
 class NewRegisterRequest extends FormRequest
 {
 
@@ -13,9 +14,9 @@ class NewRegisterRequest extends FormRequest
             //personal infromations
             'full_name_ar' => ['required', 'string', 'max:255'],
             'full_name_en' => ['required', 'string', 'max:255'],
-            'gender' => ['required', 'string', Rule::in(['male', 'female'])],
+            'gender' => ['required', 'string', Rule::in(GenderEnum::values())],
             'nationality' => ['required', 'integer', 'exists:nationalities,id'],
-            'religion' => ['required', 'string', 'max:100'],
+            'religion' => ['required', 'integer', 'exists:religions,id'],
             'national_id' => ['required','string','unique:users','min:14',],
             'issued_from' => ['required', 'string', 'max:100'],
             'governorate' => ['required', 'integer', 'exists:provinces,id'],

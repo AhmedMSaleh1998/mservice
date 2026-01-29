@@ -15,7 +15,7 @@ class NewRegisterService
             'full_name_en' => $dto->fullNameEn,
             'gender' => $dto->gender,
             'nationality' => $dto->nationalityId,
-            'religion' => $dto->religion,
+            'religion' => $dto->religionId,
             'governorate' => $dto->governorateId,
             'issued_from' => $dto->issuedFrom,
             'birth_governorate' => $dto->birthGovernorateId,

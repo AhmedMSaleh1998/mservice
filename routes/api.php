@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\NewRegisterController;
 use App\Http\Controllers\Api\OtpSendController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ProvincesController;
+use App\Http\Controllers\Api\ReligionsController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\RestUnitsController;
 use App\Http\Controllers\Api\SettingsController;
@@ -33,6 +34,7 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
     Route::get('medical-universities', [MedicalUniversitiesController::class, 'index']);
     Route::get('grades', [GradesController::class, 'index']);
     Route::get('languages', [LanguagesController::class, 'index']);
+    Route::get('religions', [ReligionsController::class, 'index']);
     Route::post('register-request', [NewRegisterController::class, 'register']);
 
     Route::controller(OtpSendController::class)->prefix('otp')->group(function () {
