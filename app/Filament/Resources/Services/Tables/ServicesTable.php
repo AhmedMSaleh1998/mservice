@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Services\Tables;
 
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -10,9 +11,13 @@ use Filament\Actions\RestoreBulkAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
+use Modules\Services\Models\ServiceType;
 
 class ServicesTable
 {
@@ -40,6 +45,13 @@ class ServicesTable
                     ->label(__('Type'))
                     ->getStateUsing(function ($record) {
                         return $record->serviceType?->getTranslation('name', app()->getLocale());
+                    })
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        $locale = app()->getLocale();
+
+                        return $query->whereHas('serviceType', function (Builder $typeQuery) use ($search, $locale) {
+                            $typeQuery->where("name->$locale", 'like', "%{$search}%");
+                        });
                     }),
                 TextColumn::make('description')
                     ->label(__('Description'))
@@ -49,31 +61,39 @@ class ServicesTable
                     })
                     ->searchable()
                     ->wrap(),
-                IconColumn::make('is_featured')
-                    ->label(__('Is Featured'))
-                    ->boolean()
-                    ->trueColor('success')
-                    ->falseColor('danger')
-                    ->sortable(),
-                IconColumn::make('is_active')
+                // IconColumn::make('is_featured')
+                //     ->label(__('Is Featured'))
+                //     ->boolean()
+                //     ->trueColor('success')
+                //     ->falseColor('danger')
+                //     ->sortable(),
+                ToggleColumn::make('is_active')
                     ->label(__('Is Active'))
-                    ->boolean()
-                    ->trueColor('success')
-                    ->falseColor('danger')
+                    ->onColor('success')
+                    ->offColor('danger')
                     ->sortable(),
             ])
             ->filters([
-                TrashedFilter::make(),
+                SelectFilter::make('service_type_id')
+                    ->label(__('Service Type'))
+                    ->options(function () {
+                        return ServiceType::query()
+                            ->orderBy('id')
+                            ->get()
+                            ->mapWithKeys(function (ServiceType $type) {
+                                return [$type->id => $type->getTranslation('name', app()->getLocale())];
+                            })
+                            ->toArray();
+                    })
+                    ->searchable()
+                    ->preload(),
             ])
             ->recordActions([
-                EditAction::make(),
+                ActionGroup::make([
+                    EditAction::make(),
+                ]),
             ])
             ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                    ForceDeleteBulkAction::make(),
-                    RestoreBulkAction::make(),
-                ]),
             ]);
     }
 }

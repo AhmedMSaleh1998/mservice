@@ -39,6 +39,11 @@ class RegistrationRequestResource extends Resource
         return static::getPluralModelLabel();
     }
 
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('Services');
+    }
+
     public static function form(Form|\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema
     {
         return $schema

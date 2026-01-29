@@ -19,6 +19,10 @@ class ServiceForm
     {
         return $schema
             ->components([
+                TextInput::make('key')
+                    ->label(__('Key'))
+                    ->unique(ignoreRecord: true)
+                    ->required(),
                 TranslatableTabs::make('anyLabel')
                     ->schema([
                         TextInput::make("title")

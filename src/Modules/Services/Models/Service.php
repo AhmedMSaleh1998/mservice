@@ -14,7 +14,7 @@ class Service extends CustomModel implements HasMedia
 {
     use InteractsWithMedia, SoftDeletes, HasTranslations;
 
-    protected $fillable = ['title', 'description', 'service_type_id', 'is_active', 'is_featured'];
+    protected $fillable = ['title', 'description', 'key', 'service_type_id', 'is_active', 'is_featured'];
 
     protected $casts = [
         'is_active' => 'boolean',

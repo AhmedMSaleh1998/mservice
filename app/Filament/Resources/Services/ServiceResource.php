@@ -39,6 +39,11 @@ class ServiceResource extends Resource
         return static::getPluralModelLabel();
     }
 
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('Services');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return ServiceForm::configure($schema);
@@ -60,16 +65,7 @@ class ServiceResource extends Resource
     {
         return [
             'index' => ListServices::route('/'),
-            'create' => CreateService::route('/create'),
             'edit' => EditService::route('/{record}/edit'),
         ];
-    }
-
-    public static function getRecordRouteBindingEloquentQuery(): Builder
-    {
-        return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
     }
 }

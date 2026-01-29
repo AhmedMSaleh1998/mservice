@@ -39,6 +39,11 @@ class CertificateResource extends Resource
         return static::getPluralModelLabel();
     }
 
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('Services');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return CertificateForm::configure($schema);

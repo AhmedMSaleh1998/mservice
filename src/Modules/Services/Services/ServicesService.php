@@ -11,7 +11,9 @@ class ServicesService
      */
     private function baseQuery()
     {
-        return Service::query()->where('is_active', true);
+        return Service::query()
+            ->with('serviceType')
+            ->where('is_active', true);
     }
 
     /**

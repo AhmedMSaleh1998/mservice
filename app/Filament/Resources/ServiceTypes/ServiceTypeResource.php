@@ -37,6 +37,11 @@ class ServiceTypeResource extends Resource
         return static::getPluralModelLabel();
     }
 
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('Services');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return ServiceTypeForm::configure($schema);
