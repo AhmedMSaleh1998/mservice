@@ -12,6 +12,10 @@
     background-size: clamp(200px, 73vw, 1400px);
 }
 
+html[dir="rtl"] .fi-body.manage-login {
+    background-position: left 0% center;
+}
+
 .fi-body.manage-login .fi-simple-layout {
     position: relative;
     isolation: isolate;
