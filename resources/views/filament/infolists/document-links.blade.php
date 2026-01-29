@@ -18,10 +18,10 @@
     @foreach($documentTypes as $key => $label)
         @if(isset($documents[$key]) && !empty($documents[$key]))
             <div class="border rounded-lg p-4 bg-white dark:bg-gray-800">
-                <h4 class="font-medium text-gray-900 dark:text-white mb-2">{{ $label }}</h4>
+                <h4 class="font-medium text-gray-900 dark:text-white mb-2">{{ __($label) }}</h4>
                 <img
                         src="{{ Storage::disk('public')->url($documents[$key]) }}"
-                        alt="{{ $label }}"
+                        alt="{{ __($label) }}"
                         class="max-w-md rounded border cursor-pointer hover:shadow-lg transition"
                         loading="lazy"
                         onclick="window.open(this.src, '_blank')"
@@ -30,13 +30,13 @@
                     <a href="{{ Storage::disk('public')->url($documents[$key]) }}"
                        target="_blank"
                        class="text-blue-600 hover:underline text-sm">
-                        View Full Size
+                        {{ __('View Full Size') }}
                     </a>
                     <span class="text-gray-400">|</span>
                     <a href="{{ Storage::disk('public')->url($documents[$key]) }}"
                        download
                        class="text-blue-600 hover:underline text-sm">
-                        Download
+                        {{ __('Download') }}
                     </a>
                 </div>
             </div>

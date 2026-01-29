@@ -6,6 +6,7 @@ use App\Filament\Resources\RegistrationRequests\Pages\ListRegistrationRequests;
 use App\Filament\Resources\RegistrationRequests\Pages\ViewRegistrationRequest;
 use App\Models\RegistrationRequest;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
@@ -14,7 +15,11 @@ use Filament\Schemas\Components\Section;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Infolists;
-use Illuminate\Support\Facades\Storage;
+use Modules\Core\Models\Grade;
+use Modules\Core\Models\Language;
+use Modules\Core\Models\MedicalUniversity;
+use Modules\Core\Models\Nationality;
+use Modules\Core\Models\Province;
 
 class RegistrationRequestResource extends Resource
 {
@@ -48,25 +53,25 @@ class RegistrationRequestResource extends Resource
     {
         return $schema
             ->schema([
-                Section::make('Basic Information')
+                Section::make(__('Basic Information'))
                     ->schema([
                         Forms\Components\TextInput::make('phone')
-                            ->label('Phone Number')
+                            ->label(__('Phone Number'))
                             ->tel()
                             ->required()
                             ->disabled(),
 
                         Forms\Components\TextInput::make('national_id')
-                            ->label('National ID')
+                            ->label(__('National ID'))
                             ->required()
                             ->disabled(),
 
                         Forms\Components\TextInput::make('reg_code')
-                            ->label('Registration Code')
+                            ->label(__('Registration Code'))
                             ->disabled(),
 
                         Forms\Components\Toggle::make('active')
-                            ->label('Active Status')
+                            ->label(__('Active Status'))
                             ->inline(false),
                     ])
                     ->columns(2),
@@ -78,27 +83,27 @@ class RegistrationRequestResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('id')
-                    ->label('ID')
+                    ->label(__('ID'))
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('phone')
-                    ->label('Phone')
+                    ->label(__('Phone'))
                     ->searchable()
                     ->copyable(),
 
                 Tables\Columns\TextColumn::make('national_id')
-                    ->label('National ID')
+                    ->label(__('National ID'))
                     ->searchable()
                     ->copyable(),
 
                 Tables\Columns\TextColumn::make('reg_code')
-                    ->label('Registration Code')
+                    ->label(__('Registration Code'))
                     ->searchable()
                     ->badge()
                     ->color('gray'),
 
                 Tables\Columns\IconColumn::make('active')
-                    ->label('Status')
+                    ->label(__('Status'))
                     ->boolean()
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
@@ -106,50 +111,50 @@ class RegistrationRequestResource extends Resource
                     ->falseColor('danger'),
 
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Submitted At')
+                    ->label(__('Submitted At'))
                     ->dateTime()
                     ->sortable()
                     ->toggleable(),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('active')
-                    ->label('Status')
-                    ->placeholder('All requests')
-                    ->trueLabel('Active only')
-                    ->falseLabel('Inactive only'),
+                    ->label(__('Status'))
+                    ->placeholder(__('All requests'))
+                    ->trueLabel(__('Active only'))
+                    ->falseLabel(__('Inactive only')),
             ])
             ->actions([
-                ViewAction::make(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    Action::make('activate')
+                        ->label(__('Activate'))
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->action(function (RegistrationRequest $record) {
+                            $record->update(['active' => true]);
 
-                Action::make('activate')
-                    ->label('Activate')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->action(function (RegistrationRequest $record) {
-                        $record->update(['active' => true]);
+                            \Filament\Notifications\Notification::make()
+                                ->title(__('Registration Activated'))
+                                ->success()
+                                ->send();
+                        })
+                        ->visible(fn(RegistrationRequest $record) => !$record->active),
+                    Action::make('deactivate')
+                        ->label(__('Deactivate'))
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->action(function (RegistrationRequest $record) {
+                            $record->update(['active' => false]);
 
-                        \Filament\Notifications\Notification::make()
-                            ->title('Registration Activated')
-                            ->success()
-                            ->send();
-                    })
-                    ->visible(fn(RegistrationRequest $record) => !$record->active),
-
-                Action::make('deactivate')
-                    ->label('Deactivate')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->action(function (RegistrationRequest $record) {
-                        $record->update(['active' => false]);
-
-                        \Filament\Notifications\Notification::make()
-                            ->title('Registration Deactivated')
-                            ->warning()
-                            ->send();
-                    })
-                    ->visible(fn(RegistrationRequest $record) => $record->active),
+                            \Filament\Notifications\Notification::make()
+                                ->title(__('Registration Deactivated'))
+                                ->warning()
+                                ->send();
+                        })
+                        ->visible(fn(RegistrationRequest $record) => $record->active),
+                ]),
             ])
 //            ->bulkActions([
 //                Tables\Actions\BulkActionGroup::make([
@@ -177,23 +182,47 @@ class RegistrationRequestResource extends Resource
     {
         return $schema
             ->schema([
-                Section::make('Registration Information')
+                Section::make(__('Personal Information'))
+                    ->collapsible()
+                    ->collapsed()
                     ->schema([
-                        Infolists\Components\TextEntry::make('phone')
-                            ->label('Phone Number')
-                            ->copyable(),
-
                         Infolists\Components\TextEntry::make('national_id')
-                            ->label('National ID')
+                            ->label(__('National ID'))
                             ->copyable(),
 
-                        Infolists\Components\TextEntry::make('reg_code')
-                            ->label('Registration Code')
-                            ->badge()
-                            ->color('primary'),
+                        Infolists\Components\TextEntry::make('full_name_ar')
+                            ->label(__('Full Name (AR)')),
+
+                        Infolists\Components\TextEntry::make('full_name_en')
+                            ->label(__('Full Name (EN)')),
+
+                        Infolists\Components\TextEntry::make('gender')
+                            ->label(__('Gender')),
+
+                        Infolists\Components\TextEntry::make('nationality')
+                            ->label(__('Nationality'))
+                            ->formatStateUsing(fn ($state) => static::getLookupName($state, Nationality::class)),
+
+                        Infolists\Components\TextEntry::make('religion')
+                            ->label(__('Religion')),
+
+                        Infolists\Components\TextEntry::make('issued_from')
+                            ->label(__('Issued From')),
+
+                        Infolists\Components\TextEntry::make('governorate')
+                            ->label(__('Governorate'))
+                            ->formatStateUsing(fn ($state) => static::getLookupName($state, Province::class)),
+
+                        Infolists\Components\TextEntry::make('birth_governorate')
+                            ->label(__('Birth Governorate'))
+                            ->formatStateUsing(fn ($state) => static::getLookupName($state, Province::class)),
+
+                        Infolists\Components\TextEntry::make('birth_date')
+                            ->label(__('Birth Date'))
+                            ->date(),
 
                         Infolists\Components\IconEntry::make('active')
-                            ->label('Status')
+                            ->label(__('Status'))
                             ->boolean()
                             ->trueIcon('heroicon-o-check-circle')
                             ->falseIcon('heroicon-o-x-circle')
@@ -201,13 +230,66 @@ class RegistrationRequestResource extends Resource
                             ->falseColor('danger'),
 
                         Infolists\Components\TextEntry::make('created_at')
-                            ->label('Submitted At')
+                            ->label(__('Submitted At'))
                             ->dateTime(),
                     ])
-                    ->columns(2)
+                    ->columns(3)
                     ->columnSpanFull(),
 
-                Section::make('Submitted Documents')
+                Section::make(__('Residence Information'))
+                    ->collapsible()
+                    ->collapsed()
+                    ->schema([
+                        Infolists\Components\TextEntry::make('residence_house_number')
+                            ->label(__('House Number')),
+                        Infolists\Components\TextEntry::make('residence_street')
+                            ->label(__('Street')),
+                        Infolists\Components\TextEntry::make('residence_center')
+                            ->label(__('Center')),
+                        Infolists\Components\TextEntry::make('residence_governorate')
+                            ->label(__('Residence Governorate'))
+                            ->formatStateUsing(fn ($state) => static::getLookupName($state, Province::class)),
+                        Infolists\Components\TextEntry::make('residence_phone')
+                            ->label(__('Phone')),
+                        Infolists\Components\TextEntry::make('residence_mobile_1')
+                            ->label(__('Mobile 1')),
+                        Infolists\Components\TextEntry::make('residence_mobile_2')
+                            ->label(__('Mobile 2')),
+                        Infolists\Components\TextEntry::make('email')
+                            ->label(__('Email')),
+                    ])
+                    ->columns(3)
+                    ->columnSpanFull(),
+
+                Section::make(__('Academic Information'))
+                    ->collapsible()
+                    ->collapsed()
+                    ->schema([
+                        Infolists\Components\TextEntry::make('faculty')
+                            ->label(__('Faculty')),
+                        Infolists\Components\TextEntry::make('university')
+                            ->label(__('University'))
+                            ->formatStateUsing(fn ($state) => static::getLookupName($state, MedicalUniversity::class)),
+                        Infolists\Components\TextEntry::make('graduation_year')
+                            ->label(__('Graduation Year')),
+                        Infolists\Components\TextEntry::make('graduation_month')
+                            ->label(__('Graduation Month')),
+                        Infolists\Components\TextEntry::make('grade')
+                            ->label(__('Grade'))
+                            ->formatStateUsing(fn ($state) => static::getLookupName($state, Grade::class)),
+                        Infolists\Components\TextEntry::make('first_foreign_language')
+                            ->label(__('First Foreign Language'))
+                            ->formatStateUsing(fn ($state) => static::getLookupName($state, Language::class)),
+                        Infolists\Components\TextEntry::make('second_foreign_language')
+                            ->label(__('Second Foreign Language'))
+                            ->formatStateUsing(fn ($state) => static::getLookupName($state, Language::class)),
+                    ])
+                    ->columns(3)
+                    ->columnSpanFull(),
+
+                Section::make(__('Submitted Documents'))
+                    ->collapsible()
+                    ->collapsed()
                     ->schema([
                         Infolists\Components\ViewEntry::make('documents')
                             ->label('')
@@ -215,6 +297,25 @@ class RegistrationRequestResource extends Resource
                     ])
                 ->columnSpanFull()
             ]);
+    }
+
+    protected static function getLookupName($id, string $modelClass): ?string
+    {
+        if (! $id) {
+            return null;
+        }
+
+        $model = $modelClass::query()->find($id);
+
+        if (! $model) {
+            return (string) $id;
+        }
+
+        if (method_exists($model, 'getTranslation')) {
+            return $model->getTranslation('name', app()->getLocale());
+        }
+
+        return $model->name ?? (string) $id;
     }
 
     protected static function getDocumentLabel($state): string

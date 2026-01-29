@@ -8,7 +8,6 @@ use Modules\Core\Models\CustomModel;
 class RegistrationRequest extends CustomModel
 {
     protected $fillable = [
-        'phone',
         'national_id',
         'full_name_ar',
         'full_name_en',
