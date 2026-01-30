@@ -11,6 +11,7 @@ use Database\Seeders\MedicalUniversitiesSeeder;
 use Database\Seeders\GradesSeeder;
 use Database\Seeders\LanguagesSeeder;
 use Database\Seeders\ReligionsSeeder;
+use Database\Seeders\PaymentMethodsSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -35,6 +36,7 @@ class DatabaseSeeder extends Seeder
             GradesSeeder::class,
             LanguagesSeeder::class,
             ReligionsSeeder::class,
+            PaymentMethodsSeeder::class,
             ServicesSeeder::class,
         ]);
     }

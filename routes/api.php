@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\MembershipController;
 use App\Http\Controllers\Api\NationalitiesController;
 use App\Http\Controllers\Api\NewRegisterController;
 use App\Http\Controllers\Api\OtpSendController;
+use App\Http\Controllers\Api\PaymentMethodsController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ProvincesController;
 use App\Http\Controllers\Api\ReligionsController;
@@ -34,6 +35,7 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
     Route::get('medical-universities', [MedicalUniversitiesController::class, 'index']);
     Route::get('grades', [GradesController::class, 'index']);
     Route::get('languages', [LanguagesController::class, 'index']);
+    Route::get('payment-methods', [PaymentMethodsController::class, 'index']);
     Route::get('religions', [ReligionsController::class, 'index']);
     Route::post('register-request', [NewRegisterController::class, 'register']);
 
