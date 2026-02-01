@@ -10,6 +10,7 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Arr;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -46,9 +47,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // Handle Validation Exceptions
         $exceptions->renderable(function (ValidationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
+
+                $errors = $e->errors();
+                $firstError = Arr::flatten($errors)[0] ?? null;
+
                 return response()->json([
-                    'message' => 'Validation failed',
-                    'errors' => $e->errors()
+                    'message' => $firstError,
+                    'errors'  => $errors,
                 ], 422);
             }
         });
