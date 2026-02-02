@@ -1,45 +1,46 @@
 @php
-    $documentTypes = [
-        'personal_image' => 'Personal Photo',
-        'dob_image' => 'Date of Birth Certificate',
-        'graduation_certificate_image' => 'Graduation Certificate',
-        'internship_certificate_image' => 'Internship Certificate',
-        'practice_exam_result_image' => 'Practice Exam Result',
-        'practice_license_form_image' => 'Practice License Form',
-        'military_service_status_image' => 'Military Service Status',
-        'criminal_record_certificate_image' => 'Criminal Record Certificate',
-        'syndicate_registration_form_image' => 'Syndicate Registration Form',
-    ];
+    use Illuminate\Support\Str;
 
-    $documents = $getState();
+    $documents = $getState() ?? [];
+    $documents = array_filter($documents, fn ($value) => ! empty($value));
+
+    $documentTypes = [];
+    $record = $getRecord();
+    if ($record && method_exists($record, 'getDocumentTypes')) {
+        $documentTypes = $record->getDocumentTypes();
+    }
 @endphp
 
 <div class="space-y-4">
-    @foreach($documentTypes as $key => $label)
-        @if(isset($documents[$key]) && !empty($documents[$key]))
-            <div class="border rounded-lg p-4 bg-white dark:bg-gray-800">
-                <h4 class="font-medium text-gray-900 dark:text-white mb-2">{{ __($label) }}</h4>
-                <img
-                        src="{{ Storage::disk('public')->url($documents[$key]) }}"
-                        alt="{{ __($label) }}"
-                        class="max-w-md rounded border cursor-pointer hover:shadow-lg transition"
-                        loading="lazy"
-                        onclick="window.open(this.src, '_blank')"
-                />
-                <div class="mt-2 flex gap-2">
-                    <a href="{{ Storage::disk('public')->url($documents[$key]) }}"
-                       target="_blank"
-                       class="text-blue-600 hover:underline text-sm">
-                        {{ __('View Full Size') }}
-                    </a>
-                    <span class="text-gray-400">|</span>
-                    <a href="{{ Storage::disk('public')->url($documents[$key]) }}"
-                       download
-                       class="text-blue-600 hover:underline text-sm">
-                        {{ __('Download') }}
-                    </a>
-                </div>
+    @forelse($documents as $key => $path)
+        @php
+            $label = $documentTypes[$key]
+                ?? Str::of($key)->replace('_', ' ')->title()->toString();
+        @endphp
+        <div class="border rounded-lg p-4 bg-white dark:bg-gray-800">
+            <h4 class="font-medium text-gray-900 dark:text-white mb-2">{{ __($label) }}</h4>
+            <img
+                    src="{{ Storage::disk('public')->url($path) }}"
+                    alt="{{ __($label) }}"
+                    class="max-w-md rounded border cursor-pointer hover:shadow-lg transition"
+                    loading="lazy"
+                    onclick="window.open(this.src, '_blank')"
+            />
+            <div class="mt-2 flex gap-2">
+                <a href="{{ Storage::disk('public')->url($path) }}"
+                   target="_blank"
+                   class="text-blue-600 hover:underline text-sm">
+                    {{ __('View Full Size') }}
+                </a>
+                <span class="text-gray-400">|</span>
+                <a href="{{ Storage::disk('public')->url($path) }}"
+                   download
+                   class="text-blue-600 hover:underline text-sm">
+                    {{ __('Download') }}
+                </a>
             </div>
-        @endif
-    @endforeach
+        </div>
+    @empty
+        <p class="text-sm text-gray-500">{{ __('No documents uploaded.') }}</p>
+    @endforelse
 </div>
