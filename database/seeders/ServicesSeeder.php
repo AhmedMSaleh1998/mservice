@@ -47,20 +47,6 @@ class ServicesSeeder extends Seeder
 
         $services = [
             [
-                'key' => 'courses',
-                'title' => [
-                    'ar' => 'الكورسات',
-                    'en' => 'Courses',
-                ],
-            ],
-            [
-                'key' => 'medical_guide',
-                'title' => [
-                    'ar' => 'الدليل الطبي',
-                    'en' => 'Medical Guide',
-                ],
-            ],
-            [
                 'key' => 'membership-id',
                 'title' => [
                     'ar' => 'اشتخراج كارنية عضوية',
