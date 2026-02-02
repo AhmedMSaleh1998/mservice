@@ -38,8 +38,8 @@ class NewRegisterRequest extends FormRequest
             'residence_center' => ['required', 'string', 'max:100'],
             'residence_governorate' => ['required', 'integer', 'exists:provinces,id'],
             'residence_phone' => ['required','string','regex:/^([0-9\s\-\+\(\)]*)$/','max:10','unique:registration_requests'],
-            'residence_mobile_1' => ['required','string','regex:/^([0-9\s\-\+\(\)]*)$/','min:11','unique:registration_requests'],
-            'residence_mobile_2' => ['sometimes','string','regex:/^([0-9\s\-\+\(\)]*)$/','min:11','unique:registration_requests'],
+            'residence_mobile_1' => ['required','string','regex:/^([0-9\s\-\+\(\)]*)$/','min:10','unique:registration_requests'],
+            'residence_mobile_2' => ['sometimes','string','regex:/^([0-9\s\-\+\(\)]*)$/','min:10','unique:registration_requests'],
             'email' => ['required', 'email', 'max:255'],
 
             //university data
