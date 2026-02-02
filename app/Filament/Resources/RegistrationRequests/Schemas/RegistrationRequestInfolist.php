@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\RegistrationRequests\Schemas;
 
+use App\Support\CountryCodeOptions;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
@@ -79,10 +80,16 @@ class RegistrationRequestInfolist
                             ->formatStateUsing(fn ($state) => static::getLookupName($state, Province::class)),
                         TextEntry::make('residence_phone')
                             ->label(__('Phone')),
+                        TextEntry::make('residence_mobile_1_country_code')
+                            ->label(__('Mobile 1 Country Code'))
+                            ->formatStateUsing(fn ($state) => CountryCodeOptions::label($state)),
                         TextEntry::make('residence_mobile_1')
-                            ->label(__('Mobile 1')),
+                            ->label(__('Mobile 1 Number')),
+                        TextEntry::make('residence_mobile_2_country_code')
+                            ->label(__('Mobile 2 Country Code'))
+                            ->formatStateUsing(fn ($state) => CountryCodeOptions::label($state)),
                         TextEntry::make('residence_mobile_2')
-                            ->label(__('Mobile 2')),
+                            ->label(__('Mobile 2 Number')),
                         TextEntry::make('email')
                             ->label(__('Email')),
                     ])

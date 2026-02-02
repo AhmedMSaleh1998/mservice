@@ -3,12 +3,14 @@
 namespace App\Filament\Resources\RegistrationRequests\Schemas;
 
 use Carbon\Carbon;
+use App\Support\CountryCodeOptions;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Validation\Rule;
 use Modules\Core\Enums\GenderEnum;
 use Modules\Core\Models\Grade;
@@ -122,20 +124,49 @@ class RegistrationRequestForm
                             ->maxLength(10)
                             ->rule('regex:/^([0-9\\s\\-\\+\\(\\)]*)$/')
                             ->unique(ignoreRecord: true),
-                        TextInput::make('residence_mobile_1')
-                            ->label(__('Mobile 1'))
-                            ->tel()
+                        Select::make('residence_mobile_1_country_code')
+                            ->label(__('Mobile 1 Country Code'))
                             ->required()
-                            ->minLength(10)
-                            ->rule('regex:/^([0-9\\s\\-\\+\\(\\)]*)$/')
-                            ->unique(ignoreRecord: true),
-                        TextInput::make('residence_mobile_2')
-                            ->label(__('Mobile 2'))
+                            ->searchable()
+                            ->preload()
+                            ->native(false)
+                            ->options(CountryCodeOptions::options()),
+                        TextInput::make('residence_mobile_1')
+                            ->label(__('Mobile 1 Number'))
                             ->tel()
+                            ->numeric()
+                            ->required()
+                            ->maxLength(10)
+                            ->rule('regex:/^\\d{1,10}$/')
+                            ->unique(
+                                ignoreRecord: true,
+                                modifyRuleUsing: fn ($rule, Get $get) => $rule->where(
+                                    'residence_mobile_1_country_code',
+                                    $get('residence_mobile_1_country_code')
+                                )
+                            ),
+                        Select::make('residence_mobile_2_country_code')
+                            ->label(__('Mobile 2 Country Code'))
                             ->nullable()
-                            ->minLength(10)
-                            ->rule('regex:/^([0-9\\s\\-\\+\\(\\)]*)$/')
-                            ->unique(ignoreRecord: true),
+                            ->searchable()
+                            ->preload()
+                            ->native(false)
+                            ->requiredWith('residence_mobile_2')
+                            ->options(CountryCodeOptions::options()),
+                        TextInput::make('residence_mobile_2')
+                            ->label(__('Mobile 2 Number'))
+                            ->tel()
+                            ->numeric()
+                            ->nullable()
+                            ->maxLength(10)
+                            ->rule('regex:/^\\d{1,10}$/')
+                            ->unique(
+                                ignoreRecord: true,
+                                modifyRuleUsing: fn ($rule, Get $get) => $rule->where(
+                                    'residence_mobile_2_country_code',
+                                    $get('residence_mobile_2_country_code')
+                                )
+                            ),
                         TextInput::make('email')
                             ->label(__('Email'))
                             ->email()

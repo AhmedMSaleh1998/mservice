@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\RegistrationRequests\Tables;
 
 use App\Models\RegistrationRequest;
+use App\Support\CountryCodeOptions;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
@@ -20,7 +21,10 @@ class RegistrationRequestsTable
                 TextColumn::make('residence_mobile_1')
                     ->label(__('Phone'))
                     ->searchable()
-                    ->copyable(),
+                    ->copyable()
+                    ->formatStateUsing(fn ($state, RegistrationRequest $record) => $record->residence_mobile_1_country_code
+                        ? trim((CountryCodeOptions::shortLabel($record->residence_mobile_1_country_code) ?? $record->residence_mobile_1_country_code) . ' ' . $state)
+                        : $state),
                 TextColumn::make('national_id')
                     ->label(__('National ID'))
                     ->searchable()

@@ -38,8 +38,25 @@ class NewRegisterRequest extends FormRequest
             'residence_center' => ['required', 'string', 'max:100'],
             'residence_governorate' => ['required', 'integer', 'exists:provinces,id'],
             'residence_phone' => ['required','string','regex:/^([0-9\s\-\+\(\)]*)$/','max:10','unique:registration_requests'],
-            'residence_mobile_1' => ['required','string','regex:/^([0-9\s\-\+\(\)]*)$/','min:10','unique:registration_requests'],
-            'residence_mobile_2' => ['sometimes','string','regex:/^([0-9\s\-\+\(\)]*)$/','min:10','unique:registration_requests'],
+            'residence_mobile_1_country_code' => ['required', 'string', 'regex:/^\+[0-9]{1,4}$/'],
+            'residence_mobile_1' => [
+                'required',
+                'string',
+                'regex:/^\d{1,10}$/',
+                'max:10',
+                Rule::unique('registration_requests', 'residence_mobile_1')
+                    ->where(fn ($query) => $query->where('residence_mobile_1_country_code', $this->input('residence_mobile_1_country_code'))),
+            ],
+            'residence_mobile_2_country_code' => ['nullable', 'string', 'regex:/^\+[0-9]{1,4}$/', 'required_with:residence_mobile_2'],
+            'residence_mobile_2' => [
+                'nullable',
+                'string',
+                'regex:/^\d{1,10}$/',
+                'max:10',
+                'required_with:residence_mobile_2_country_code',
+                Rule::unique('registration_requests', 'residence_mobile_2')
+                    ->where(fn ($query) => $query->where('residence_mobile_2_country_code', $this->input('residence_mobile_2_country_code'))),
+            ],
             'email' => ['required', 'email', 'max:255'],
 
             //university data
@@ -87,7 +104,9 @@ class NewRegisterRequest extends FormRequest
             'residence_center' => __('Center'),
             'residence_governorate' => __('Residence Governorate'),
             'residence_phone' => __('Residence Phone'),
+            'residence_mobile_1_country_code' => __('Mobile 1 Country Code'),
             'residence_mobile_1' => __('Mobile 1'),
+            'residence_mobile_2_country_code' => __('Mobile 2 Country Code'),
             'residence_mobile_2' => __('Mobile 2'),
             'email' => __('Email'),
             'faculty' => __('Faculty'),
