@@ -47,10 +47,24 @@ class ServicesSeeder extends Seeder
 
         $services = [
             [
-                'key' => 'ads',
+                'key' => 'courses',
                 'title' => [
-                    'ar' => 'الاعلانات',
-                    'en' => 'Ads',
+                    'ar' => 'الكورسات',
+                    'en' => 'Courses',
+                ],
+            ],
+            [
+                'key' => 'medical_guide',
+                'title' => [
+                    'ar' => 'الدليل الطبي',
+                    'en' => 'Medical Guide',
+                ],
+            ],
+            [
+                'key' => 'membership-id',
+                'title' => [
+                    'ar' => 'اشتخراج كارنية عضوية',
+                    'en' => 'Membership ID',
                 ],
             ],
             [
@@ -58,6 +72,13 @@ class ServicesSeeder extends Seeder
                 'title' => [
                     'ar' => 'الشهادات',
                     'en' => 'Certificate',
+                ],
+            ],
+            [
+                'key' => 'ads',
+                'title' => [
+                    'ar' => 'الاعلانات',
+                    'en' => 'Ads',
                 ],
             ],
             [
@@ -79,13 +100,6 @@ class ServicesSeeder extends Seeder
                 'title' => [
                     'ar' => 'المستندات والاجراءات',
                     'en' => 'Documents and Procedures',
-                ],
-            ],
-            [
-                'key' => 'membership-id',
-                'title' => [
-                    'ar' => 'اشتخراج كارنية عضوية',
-                    'en' => 'Membership ID',
                 ],
             ],
         ];
