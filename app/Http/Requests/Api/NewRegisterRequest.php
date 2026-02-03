@@ -8,6 +8,13 @@ use Modules\Core\Enums\GenderEnum;
 use Carbon\Carbon;
 class NewRegisterRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $birthDate = $this->extractBirthDateFromNationalId($this->input('national_id'));
+        if (!is_null($birthDate)) {
+            $this->merge(['birth_date' => $birthDate]);
+        }
+    }
 
     public function rules(): array
     {
@@ -18,11 +25,22 @@ class NewRegisterRequest extends FormRequest
             'gender' => ['required', 'string', Rule::in(GenderEnum::values())],
             'nationality' => ['required', 'integer', 'exists:nationalities,id'],
             'religion' => ['required', 'integer', 'exists:religions,id'],
-            'national_id' => ['required','string','unique:users','min:14','max:14'],
+            'national_id' => [
+                'bail',
+                'required',
+                'string',
+                'regex:/^\d{14}$/',
+                'unique:registration_requests',
+                function ($attribute, $value, $fail) {
+                    if (is_null($this->extractBirthDateFromNationalId($value))) {
+                        $fail(__('National ID birth date is invalid.'));
+                    }
+                },
+            ],
             'issued_from' => ['required', 'string', 'max:100'],
             'governorate' => ['required', 'integer', 'exists:provinces,id'],
             'birth_date' => [
-                'required',
+                'nullable',
                 'date',
                 function ($attribute, $value, $fail) {
                     if (Carbon::parse($value)->age < 23) {
@@ -123,5 +141,45 @@ class NewRegisterRequest extends FormRequest
             'criminal_record_certificate_image' => __('Criminal Record Certificate'),
             'dob_image' => __('Date of Birth Certificate'),
         ];
+    }
+
+    private function extractBirthDateFromNationalId(?string $nationalId): ?string
+    {
+        if (!is_string($nationalId)) {
+            return null;
+        }
+
+        $nationalId = trim($nationalId);
+        if (!preg_match('/^\d{14}$/', $nationalId)) {
+            return null;
+        }
+
+        $centuryCode = (int) $nationalId[0];
+        $centuryBase = match ($centuryCode) {
+            1 => 1800,
+            2 => 1900,
+            3 => 2000,
+            4 => 2100,
+            5 => 2200,
+            6 => 2300,
+            7 => 2400,
+            8 => 2500,
+            9 => 2600,
+            default => null,
+        };
+
+        if (is_null($centuryBase)) {
+            return null;
+        }
+
+        $year = $centuryBase + (int) substr($nationalId, 1, 2);
+        $month = (int) substr($nationalId, 3, 2);
+        $day = (int) substr($nationalId, 5, 2);
+
+        if (!checkdate($month, $day, $year)) {
+            return null;
+        }
+
+        return Carbon::createFromDate($year, $month, $day)->format('Y-m-d');
     }
 }
