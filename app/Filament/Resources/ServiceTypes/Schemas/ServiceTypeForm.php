@@ -14,8 +14,9 @@ class ServiceTypeForm
             ->components([
                 TranslatableTabs::make(__('Name'))
                     ->schema([
-                        TextInput::make('name')->required(),
-                    ]),
+                        TextInput::make('name')->required()->label(__('Name')),
+                    ])
+                    ->columnSpanFull(),
             ]);
     }
 }

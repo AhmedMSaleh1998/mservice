@@ -1,0 +1,54 @@
+<?php
+
+namespace Modules\Ads\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Ads\Builders\AdRequestQueryBuilder;
+use Modules\Core\Models\CustomModel;
+use Modules\Users\Models\User;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+
+class AdRequest extends CustomModel implements HasMedia
+{
+    use HasFactory, InteractsWithMedia;
+
+    protected $fillable = [
+        'user_id',
+        'ad_space_id',
+        'duration_months',
+        'price_per_month',
+        'total_amount',
+        'ad_text',
+        'design_image_path',
+        'status',
+        'payment_method',
+    ];
+
+    protected $casts = [
+        'duration_months' => 'integer',
+        'price_per_month' => 'decimal:2',
+        'total_amount' => 'decimal:2',
+    ];
+
+    public function newEloquentBuilder($query): AdRequestQueryBuilder
+    {
+        return new AdRequestQueryBuilder($query);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function adSpace(): BelongsTo
+    {
+        return $this->belongsTo(AdSpace::class);
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('design_image')->singleFile();
+    }
+}

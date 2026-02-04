@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\BlogsController;
+use App\Http\Controllers\Api\AdRequestsController;
+use App\Http\Controllers\Api\AdSpacesController;
 use App\Http\Controllers\Api\CertificateRequestController;
 use App\Http\Controllers\Api\CertificatesController;
 use App\Http\Controllers\Api\ChangePasswordController;
@@ -81,6 +83,13 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
         Route::get('certificates', [CertificatesController::class, 'index']);
         Route::post('certificate/request', [CertificateRequestController::class, 'store']);
 
+        Route::prefix('ads')->group(function () {
+            Route::get('/', [AdRequestsController::class, 'approved']);
+            Route::get('spaces', [AdSpacesController::class, 'index']);
+            Route::post('/', [AdRequestsController::class, 'store']);
+            Route::get('{adRequest}', [AdRequestsController::class, 'show']);
+            Route::post('{adRequest}/pay', [AdRequestsController::class, 'pay']);
+        });
     });
 
 
