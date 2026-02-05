@@ -2,17 +2,18 @@
 
 namespace App\Filament\Resources\MedicalGuides\Tables;
 
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
-use Illuminate\Support\Str;
 
 class MedicalGuidesTable
 {
@@ -20,28 +21,26 @@ class MedicalGuidesTable
     {
         return $table
             ->columns([
-                ImageColumn::make('image')
-                    ->label(__('Image'))
-                    ->getStateUsing(function ($record) {
-                        $media = $record->getFirstMedia('image');
-                        return $media ? $media->getUrl() : '';
-                    })
-                    ->circular()
-                    ->size(50)
-                    ->defaultImageUrl(''),
                 TextColumn::make('title')
-                    ->label(__('Title'))
+                    ->label(__('Doctor Name'))
                     ->getStateUsing(function ($record) {
                         return $record->getTranslation('title', app()->getLocale());
                     })
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('type')->label(__('Type'))->searchable(),
-                TextColumn::make('address')
-                    ->label(__('Address'))
+                TextColumn::make('description')
+                    ->label(__('Specialty'))
                     ->getStateUsing(function ($record) {
-                        return $record->getTranslation('address', app()->getLocale());
-                    }),
+                        $specialty = $record->specialty?->getTranslation('name', app()->getLocale());
+                        return $specialty ?: $record->getTranslation('description', app()->getLocale());
+                    })
+                    ->searchable(),
+                TextColumn::make('province_id')
+                    ->label(__('Province'))
+                    ->getStateUsing(function ($record) {
+                        return $record->province?->getTranslation('name', app()->getLocale());
+                    })
+                    ->sortable(),
                 IconColumn::make('is_active')
                     ->label(__('Is Active'))
                     ->boolean()
@@ -56,16 +55,16 @@ class MedicalGuidesTable
                     ->sortable(),
             ])
             ->filters([
-                TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
-                    ForceDeleteBulkAction::make(),
-                    RestoreBulkAction::make(),
                 ]),
             ]);
     }

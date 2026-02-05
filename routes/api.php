@@ -110,6 +110,7 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
     Route::prefix('medical-guides')->group(function () {
         Route::controller(MedicalGuideController::class)->group(function () {
             Route::get('/', 'index');
+            Route::get('/{medicalGuide}', 'show');
         });
     });
 

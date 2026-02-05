@@ -4,11 +4,9 @@ namespace Modules\MedicalGuide\Resources;
 
 use Illuminate\Http\Request;
 use Modules\Core\CustomResource;
-use Modules\Core\Resources\MediaResource;
 
-class MedicalGuideResource extends CustomResource
+class MedicalGuideDetailsResource extends CustomResource
 {
-
     public function data(Request $request): array
     {
         $places = $this->resource->relationLoaded('places') ? $this->resource->places : collect();
@@ -25,11 +23,13 @@ class MedicalGuideResource extends CustomResource
         return [
             'id' => $this->resource->id,
             'name' => $this->resource->title,
+            'specialty_id' => $this->resource->specialty_id,
             'specialty' => $specialty,
             'image' => $this->resource->getFirstMediaUrl('image') ?: null,
             'phone' => $primaryPhone,
             'province_id' => $provinceId,
             'province' => $provinceName,
+            'places' => MedicalGuidePlaceResource::collection($places),
         ];
     }
 }

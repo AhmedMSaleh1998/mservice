@@ -5,6 +5,9 @@ namespace App\Filament\Resources\MedicalGuides;
 use App\Filament\Resources\MedicalGuides\Pages\CreateMedicalGuide;
 use App\Filament\Resources\MedicalGuides\Pages\EditMedicalGuide;
 use App\Filament\Resources\MedicalGuides\Pages\ListMedicalGuides;
+use App\Filament\Resources\MedicalGuides\Pages\ViewMedicalGuide;
+use App\Filament\Resources\MedicalGuides\RelationManagers\DoctorPlacesRelationManager;
+use App\Filament\Resources\MedicalGuides\Schemas\MedicalGuideInfolist;
 use App\Filament\Resources\MedicalGuides\Schemas\MedicalGuideForm;
 use App\Filament\Resources\MedicalGuides\Tables\MedicalGuidesTable;
 use BackedEnum;
@@ -57,11 +60,29 @@ class MedicalGuideResource extends Resource
         return MedicalGuidesTable::configure($table);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return MedicalGuideInfolist::configure($schema);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            DoctorPlacesRelationManager::class,
+        ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery();
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => ListMedicalGuides::route('/'),
             'create' => CreateMedicalGuide::route('/create'),
+            'view' => ViewMedicalGuide::route('/{record}'),
             'edit' => EditMedicalGuide::route('/{record}/edit'),
         ];
     }

@@ -2,101 +2,122 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Modules\MedicalGuide\Models\MedicalGuide;
+use Modules\MedicalGuide\Models\MedicalSpecialty;
 
 class MedicalGuideSeeder extends Seeder
 {
     public function run(): void
     {
-        $items = [
-            [
-                'title' => [
-                    'ar' => 'المستشفى الجوي التخصصي',
-                    'en' => 'Specialized Air Hospital'
-                ],
-                'description' => [
-                  'ar' => 'مستشفى تخصصى',
-                  'en' => 'Specialized  Hospital'
-                ],
-                'type' => 'hospital',
-                'address' => [
-                    'ar' => 'شارع التسعين الجنوبي، التجمع الخامس، القاهرة',
-                    'en' => 'شارع التسعين الجنوبي، التجمع الخامس، القاهرة',
-                ],
-                'lat' => 30.009398,
-                'lng' => 31.434605,
-                'is_active' => true,
+        $specialties = [
+            'dermatology' => [
+                'ar' => 'جلدية وتجميل',
+                'en' => 'Dermatology and Cosmetic',
             ],
-            [
-                'title' => [
-                    'ar' => 'المستشفى الجوي التخصصي2',
-                    'en' => 'Specialized Air Hospital'
-                ],
-                'description' => [
-                    'ar' => 'مستشفى تخصصى',
-                    'en' => 'Specialized  Hospital'
-                ],
-                'type' => 'hospital',
-                'address' => [
-                    'ar' => 'شارع التسعين الجنوبي، التجمع الخامس، القاهرة',
-                    'en' => 'شارع التسعين الجنوبي، التجمع الخامس، القاهرة',
-                ],
-                'lat' => 30.009398,
-                'lng' => 31.434605,
-                'is_active' => true,
+            'cardiology' => [
+                'ar' => 'قلب واوعية دموية',
+                'en' => 'Cardiology',
             ],
+        ];
+
+        $specialtyModels = [];
+        foreach ($specialties as $key => $specialtyName) {
+            $specialtyModels[$key] = MedicalSpecialty::query()->create([
+                'name' => $specialtyName,
+                'is_active' => true,
+            ]);
+        }
+
+        $doctors = [
             [
                 'title' => [
                     'ar' => 'دكتور احمد محمد',
-                    'en' => 'doctor ahmed mohamed'
+                    'en' => 'Dr. Ahmed Mohamed',
                 ],
                 'description' => [
-                    'ar' => "Dermatology and Cosmetic Consultant",
-                    'en' => 'Specialized  Hospital'
+                    'ar' => 'استشاري جلدية وتجميل',
+                    'en' => 'Dermatology and Cosmetic Consultant',
                 ],
-                'type' => 'doctor',
-                'address' => [
-                    'ar' => 'شارع التسعين الجنوبي، التجمع الخامس، القاهرة',
-                    'en' => 'شارع التسعين الجنوبي، التجمع الخامس، القاهرة',
-                ],
-                'lat' => 30.009398,
-                'lng' => 31.434605,
+                'specialty_id' => $specialtyModels['dermatology']->getKey(),
+                'province_id' => 1,
                 'is_active' => true,
+                'is_featured' => true,
+                'places' => [
+                    [
+                        'name' => [
+                            'ar' => 'مستشفى كليوباترا',
+                            'en' => 'Cleopatra Hospital',
+                        ],
+                        'address' => [
+                            'ar' => 'شارع التسعين الجنوبي، التجمع الخامس، القاهرة',
+                            'en' => 'Teseen St., Fifth Settlement, Cairo',
+                        ],
+                        'lat' => 30.009398,
+                        'lng' => 31.434605,
+                        'phones' => ['010012345689', '010012345688'],
+                        'is_active' => true,
+                    ],
+                    [
+                        'name' => [
+                            'ar' => 'عيادة خاصة',
+                            'en' => 'Private Clinic',
+                        ],
+                        'address' => [
+                            'ar' => 'شارع التسعين الجنوبي، التجمع الخامس، القاهرة',
+                            'en' => 'Teseen St., Fifth Settlement, Cairo',
+                        ],
+                        'lat' => 30.008721,
+                        'lng' => 31.433921,
+                        'phones' => ['010012345687'],
+                        'is_active' => true,
+                    ],
+                ],
             ],
             [
                 'title' => [
-                    'ar' => 'دكتور احمد محمد2',
-                    'en' => 'doctor ahmed mohamed'
+                    'ar' => 'دكتور عمر حسن',
+                    'en' => 'Dr. Omar Hassan',
                 ],
                 'description' => [
-                    'ar' => "Dermatology and Cosmetic Consultant",
-                    'en' => 'Specialized  Hospital'
+                    'ar' => 'استشاري قلب واوعية دموية',
+                    'en' => 'Cardiology Consultant',
                 ],
-                'type' => 'doctor',
-                'address' => [
-                    'ar' => 'شارع التسعين الجنوبي، التجمع الخامس، القاهرة',
-                    'en' => 'شارع التسعين الجنوبي، التجمع الخامس، القاهرة',
-                ],
-                'lat' => 30.009398,
-                'lng' => 31.434605,
+                'specialty_id' => $specialtyModels['cardiology']->getKey(),
+                'province_id' => 1,
                 'is_active' => true,
+                'is_featured' => false,
+                'places' => [
+                    [
+                        'name' => [
+                            'ar' => 'مركز القلب الحديث',
+                            'en' => 'Modern Heart Center',
+                        ],
+                        'address' => [
+                            'ar' => 'مدينة نصر، القاهرة',
+                            'en' => 'Nasr City, Cairo',
+                        ],
+                        'lat' => 30.056120,
+                        'lng' => 31.339865,
+                        'phones' => ['010012345699'],
+                        'is_active' => true,
+                    ],
+                ],
             ],
-
         ];
 
-        foreach ($items as $item) {
-            \DB::table('medical_guides')->insert([
-                'title'       => json_encode($item['title']),
-                'description'       => json_encode($item['description']),
-                'type'       => $item['type'],
-                'address'    => json_encode($item['address']),
-                'lat'        => $item['lat'],
-                'lng'        => $item['lng'],
-                'is_active'  => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+        foreach ($doctors as $doctorData) {
+            $places = $doctorData['places'] ?? [];
+            unset($doctorData['places']);
+
+            $primaryPlace = $places[0] ?? null;
+            $doctorData['province_id'] = $doctorData['province_id'] ?? ($primaryPlace['province_id'] ?? null);
+
+            $doctor = MedicalGuide::query()->create($doctorData);
+
+            foreach ($places as $place) {
+                $doctor->places()->create($place);
+            }
         }
     }
 }
