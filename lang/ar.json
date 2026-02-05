@@ -150,5 +150,15 @@
   "Created At": "تاريخ الإنشاء",
   "No image uploaded.": "لا توجد صورة مرفوعة.",
   "Approve": "موافقة",
-  "Reject": "رفض"
+  "Reject": "رفض",
+  "Support": "الدعم",
+  "Support Ticket": "تذكرة دعم",
+  "Support Tickets": "تذاكر الدعم",
+  "Ticket": "التذكرة",
+  "Pending": "قيد الانتظار",
+  "Solved": "تم الحل",
+  "Mark as Solved": "تحديد كمحلولة",
+  "Contact Info": "بيانات التواصل",
+  "Contact Us": "تواصل معنا",
+  "Fax": "فاكس"
 }

@@ -141,5 +141,15 @@
   "Created At": "Created At",
   "No image uploaded.": "No image uploaded.",
   "Approve": "Approve",
-  "Reject": "Reject"
+  "Reject": "Reject",
+  "Support": "Support",
+  "Support Ticket": "Support Ticket",
+  "Support Tickets": "Support Tickets",
+  "Ticket": "Ticket",
+  "Pending": "Pending",
+  "Solved": "Solved",
+  "Mark as Solved": "Mark as Solved",
+  "Contact Info": "Contact Info",
+  "Contact Us": "Contact Us",
+  "Fax": "Fax"
 }

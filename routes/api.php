@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\CertificatesController;
 use App\Http\Controllers\Api\ChangePasswordController;
 use App\Http\Controllers\Api\ChangePhoneController;
 use App\Http\Controllers\Api\CoursesController;
+use App\Http\Controllers\Api\ContactUsController;
 use App\Http\Controllers\Api\GradesController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\LanguagesController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\Api\ReligionsController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\RestUnitsController;
 use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\SupportTicketsController;
 use App\Http\Controllers\Api\UserAddressController;
 use App\Http\Controllers\ServicesController;
 use App\Http\Middleware\ValidateHeadersMiddleware;
@@ -65,6 +67,8 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
         Route::post('auth/change-password', ChangePasswordController::class);
         Route::post('auth/change-phone', [ChangePhoneController::class, 'change']);
         Route::post('auth/change-phone-verify', [ChangePhoneController::class, 'verify']);
+
+        Route::post('support-tickets', [SupportTicketsController::class, 'store']);
 
         Route::prefix('services')->group(function () {
             Route::controller(ServicesController::class)->group(function () {
@@ -114,5 +118,6 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
         });
     });
 
+    Route::get('contact-us', [ContactUsController::class, 'show']);
     Route::get('home', [HomeController::class, 'index']);
 });
