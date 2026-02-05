@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ContactInfos\Schemas;
 
+use AbdulmajeedJamaan\FilamentTranslatableTabs\TranslatableTabs;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -13,10 +14,13 @@ class ContactInfoForm
     {
         return $schema
             ->components([
-                Textarea::make('address')
-                    ->label(__('Address'))
-                    ->rows(3)
-                    ->required()
+                TranslatableTabs::make(__('Address'))
+                    ->schema([
+                        Textarea::make('address')
+                            ->label(__('Address'))
+                            ->rows(3)
+                            ->required(),
+                    ])
                     ->columnSpanFull(),
                 TextInput::make('email')
                     ->label(__('Email'))

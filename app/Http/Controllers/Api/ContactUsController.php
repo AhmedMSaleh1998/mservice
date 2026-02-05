@@ -11,11 +11,16 @@ class ContactUsController extends Controller
     public function show(): JsonResponse
     {
         $contact = ContactInfo::query()->first();
+        $address = null;
+
+        if ($contact && filled($contact->address)) {
+            $address = $contact->getTranslation('address', app()->getLocale());
+        }
 
         return response()->json([
             'status' => 200,
             'data' => [
-                'address' => $contact?->address ?? config('contact.address'),
+                'address' => $address ?? config('contact.address'),
                 'email' => $contact?->email ?? config('contact.email'),
                 'phones' => $contact?->phones ?? config('contact.phones') ?? [],
                 'fax' => $contact?->fax ?? config('contact.fax'),
