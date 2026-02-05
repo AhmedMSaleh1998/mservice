@@ -42,14 +42,15 @@ class DoctorPlacesRelationManager extends RelationManager
                 TagsInput::make('phones')
                     ->label(__('Phones'))
                     ->placeholder(__('Add phone numbers'))
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                    ->required(),
                 LocationPicker::make('map')
                     ->latField('lat')
                     ->lngField('lng')
                     ->dehydrated(false)
                     ->columnSpanFull(),
-                TextInput::make('lat')->label(__('Latitude'))->numeric(),
-                TextInput::make('lng')->label(__('Longitude'))->numeric(),
+                TextInput::make('lat')->label(__('Latitude'))->numeric()->required(),
+                TextInput::make('lng')->label(__('Longitude'))->numeric()->required(),
                 Checkbox::make('is_active')->label(__('Is Active')),
             ]);
     }
