@@ -83,6 +83,7 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
         Route::post('membership/request', [MembershipController::class, 'store']);
 
         Route::apiResource('user-addresses', UserAddressController::class)->only(['index', 'store']);
+        Route::post('user-addresses/{userAddress}/update', [UserAddressController::class, 'update']);
 
         Route::get('certificates', [CertificatesController::class, 'index']);
         Route::post('certificate/request', [CertificateRequestController::class, 'store']);
