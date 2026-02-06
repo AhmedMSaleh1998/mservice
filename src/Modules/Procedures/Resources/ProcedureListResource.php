@@ -18,7 +18,8 @@ class ProcedureListResource extends CustomResource
         }
 
         return [
-            'title' => $this->resource->title,
+            'id'       => $this->id,
+            'title'    => $this->resource->title,
             'icon_url' => $iconUrl,
         ];
     }
