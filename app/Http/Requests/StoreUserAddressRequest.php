@@ -17,6 +17,8 @@ class StoreUserAddressRequest extends FormRequest
             'province_id' => ['required', 'exists:provinces,id'],
             'district' => ['required', 'string', 'max:255'],
             'street' => ['required', 'string', 'max:255'],
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required ', 'numeric', 'between:-180,180'],
             'phone' => ['nullable', 'string', 'max:20'],
             'address_name' => ['required', 'string', 'max:255'],
             'unit_number' => ['required', 'string', 'max:255'],

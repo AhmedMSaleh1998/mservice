@@ -12,6 +12,8 @@ class UserAddress extends Model
         'province_id',
         'district',
         'street',
+        'lat',
+        'lng',
         'phone',
         'unit_number',
         'address_name',

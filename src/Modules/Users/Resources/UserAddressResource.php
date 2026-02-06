@@ -15,6 +15,8 @@ class UserAddressResource extends CustomResource
             'id' => $this->resource->id,
             'district' => $this->resource->district,
             'street' => $this->resource->street,
+            'lat' => $this->resource->lat,
+            'lng' => $this->resource->lng,
             'phone' => $this->resource->phone,
             'province' => ProvinceResource::make($this->resource->province),
             'unit_number' => $this->resource->unit_number,
