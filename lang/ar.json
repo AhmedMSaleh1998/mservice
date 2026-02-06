@@ -160,5 +160,13 @@
   "Mark as Solved": "تحديد كمحلولة",
   "Contact Info": "بيانات التواصل",
   "Contact Us": "تواصل معنا",
-  "Fax": "فاكس"
+  "Fax": "فاكس",
+  "Procedure": "معاملة",
+  "Procedures": "المعاملات",
+  "Required Documents": "المستندات المطلوبة",
+  "Steps": "الخطوات والإجراءات",
+  "Conditions": "الشروط اللازمة",
+  "Attachment": "المرفق",
+  "Active": "مفعل",
+  "Inactive": "غير مفعل"
 }

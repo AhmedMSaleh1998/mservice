@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\OtpSendController;
 use App\Http\Controllers\Api\PaymentMethodsController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ProvincesController;
+use App\Http\Controllers\Api\ProceduresController;
 use App\Http\Controllers\Api\ReligionsController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\RestUnitsController;
@@ -84,6 +85,9 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
 
         Route::apiResource('user-addresses', UserAddressController::class)->only(['index', 'store']);
         Route::post('user-addresses/{userAddress}/update', [UserAddressController::class, 'update']);
+
+        Route::get('procedures', [ProceduresController::class, 'index']);
+        Route::get('procedures/{procedure}', [ProceduresController::class, 'show']);
 
         Route::get('certificates', [CertificatesController::class, 'index']);
         Route::post('certificate/request', [CertificateRequestController::class, 'store']);

@@ -151,5 +151,13 @@
   "Mark as Solved": "Mark as Solved",
   "Contact Info": "Contact Info",
   "Contact Us": "Contact Us",
-  "Fax": "Fax"
+  "Fax": "Fax",
+  "Procedure": "Procedure",
+  "Procedures": "Procedures",
+  "Required Documents": "Required Documents",
+  "Steps": "Steps",
+  "Conditions": "Conditions",
+  "Attachment": "Attachment",
+  "Active": "Active",
+  "Inactive": "Inactive"
 }
