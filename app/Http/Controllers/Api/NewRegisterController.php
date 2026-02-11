@@ -30,7 +30,7 @@ class NewRegisterController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Registration failed. Please try again.',
+                'message' => __('Registration failed. Please try again.'),
                 'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }

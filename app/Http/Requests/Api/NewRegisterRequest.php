@@ -99,8 +99,8 @@ class NewRegisterRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'phone.unique' => 'This phone number is already registered with an active account.',
-            'national_id.unique' => 'This national ID is already registered.',
+            'phone.unique' => __('This phone number is already registered with an active account.'),
+            'national_id.unique' => __('This national ID is already registered.'),
         ];
     }
 
