@@ -159,5 +159,7 @@
   "Conditions": "Conditions",
   "Attachment": "Attachment",
   "Active": "Active",
-  "Inactive": "Inactive"
+  "Inactive": "Inactive",
+  "Address is linked to existing requests": "Address is linked to existing requests",
+  "Address deleted successfully": "Address deleted successfully"
 }

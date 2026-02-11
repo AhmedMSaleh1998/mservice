@@ -48,4 +48,20 @@ class UserAddressController extends Controller
             'data' => UserAddressResource::make($address),
         ]);
     }
+
+    public function destroy(Request $request, UserAddress $userAddress): JsonResponse
+    {
+        $deleted = $this->userAddressService->delete($request->user(), $userAddress);
+
+        if (! $deleted) {
+            return response()->json([
+                'message' => __('Address is linked to existing requests'),
+                'status' => 409,
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => __('Address deleted successfully'),
+        ]);
+    }
 }

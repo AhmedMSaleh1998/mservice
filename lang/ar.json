@@ -168,5 +168,7 @@
   "Conditions": "الشروط اللازمة",
   "Attachment": "المرفق",
   "Active": "مفعل",
-  "Inactive": "غير مفعل"
+  "Inactive": "غير مفعل",
+  "Address is linked to existing requests": "العنوان مرتبط بطلبات قائمة",
+  "Address deleted successfully": "تم حذف العنوان بنجاح"
 }
