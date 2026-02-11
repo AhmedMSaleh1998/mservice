@@ -85,7 +85,7 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
 
         Route::apiResource('user-addresses', UserAddressController::class)->only(['index', 'store']);
         Route::post('user-addresses/{userAddress}/update', [UserAddressController::class, 'update']);
-        Route::post('user-addresses/{userAddress}/delete', [UserAddressController::class, 'destroy']);
+        Route::delete('user-addresses/{userAddress}', [UserAddressController::class, 'destroy']);
 
         Route::get('procedures', [ProceduresController::class, 'index']);
         Route::get('procedures/{procedure}', [ProceduresController::class, 'show']);
