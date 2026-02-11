@@ -5,19 +5,39 @@ namespace App\Http\Requests\Api;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Modules\Core\Enums\GenderEnum;
+use Modules\Core\Models\Nationality;
 use Carbon\Carbon;
 class NewRegisterRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
-        $birthDate = $this->extractBirthDateFromNationalId($this->input('national_id'));
-        if (!is_null($birthDate)) {
-            $this->merge(['birth_date' => $birthDate]);
+        if ($this->isEgyptianNationality()) {
+            $birthDate = $this->extractBirthDateFromNationalId($this->input('national_id'));
+            if (!is_null($birthDate)) {
+                $this->merge(['birth_date' => $birthDate]);
+            }
         }
     }
 
     public function rules(): array
     {
+        $nationalIdRules = [
+            'bail',
+            'required',
+            'string',
+            'max:50',
+            'unique:registration_requests,national_id',
+        ];
+
+        if ($this->isEgyptianNationality()) {
+            $nationalIdRules[] = 'regex:/^\d{14}$/';
+            $nationalIdRules[] = function ($attribute, $value, $fail) {
+                if (is_null($this->extractBirthDateFromNationalId($value))) {
+                    $fail(__('National ID birth date is invalid.'));
+                }
+            };
+        }
+
         return [
             //personal infromations
             'full_name_ar' => ['required', 'string', 'max:255'],
@@ -25,18 +45,7 @@ class NewRegisterRequest extends FormRequest
             'gender' => ['required', 'string', Rule::in(GenderEnum::values())],
             'nationality' => ['required', 'integer', 'exists:nationalities,id'],
             'religion' => ['required', 'integer', 'exists:religions,id'],
-            'national_id' => [
-                'bail',
-                'required',
-                'string',
-                'regex:/^\d{14}$/',
-                'unique:registration_requests',
-                function ($attribute, $value, $fail) {
-                    if (is_null($this->extractBirthDateFromNationalId($value))) {
-                        $fail(__('National ID birth date is invalid.'));
-                    }
-                },
-            ],
+            'national_id' => $nationalIdRules,
             'issued_from' => ['required', 'string', 'max:100'],
             'governorate' => ['required', 'integer', 'exists:provinces,id'],
             'birth_date' => [
@@ -181,5 +190,23 @@ class NewRegisterRequest extends FormRequest
         }
 
         return Carbon::createFromDate($year, $month, $day)->format('Y-m-d');
+    }
+
+    private function isEgyptianNationality(): bool
+    {
+        $nationalityId = $this->input('nationality');
+        if (! $nationalityId) {
+            return false;
+        }
+
+        $nationality = Nationality::query()->find($nationalityId);
+        if (! $nationality) {
+            return false;
+        }
+
+        $nameAr = (string) $nationality->getTranslation('name', 'ar');
+        $nameEn = (string) $nationality->getTranslation('name', 'en');
+
+        return str_contains($nameAr, 'مصر') || stripos($nameEn, 'egypt') !== false;
     }
 }

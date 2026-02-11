@@ -806,7 +806,7 @@
                         </div>
                         <div class="field">
                             <label for="national_id">{{ __('National ID') }}</label>
-                            <input id="national_id" name="national_id" type="text" required maxlength="14" pattern="\d{14}" inputmode="numeric" autocomplete="off">
+                            <input id="national_id" name="national_id" type="text" required maxlength="50" inputmode="text" autocomplete="off">
                             <div class="error" data-error-for="national_id"></div>
                         </div>
                         <div class="field">
@@ -830,8 +830,8 @@
                         </div>
                         <div class="field">
                             <label for="birth_date">{{ __('Birth Date') }}</label>
-                            <input id="birth_date" name="birth_date" type="date" readonly>
-                            <div class="hint">{{ __('Auto-filled from National ID.') }}</div>
+                            <input id="birth_date" name="birth_date" type="date">
+                            <div class="hint" data-birth-hint>{{ __('Auto-filled for Egyptian nationality only.') }}</div>
                             <div class="error" data-error-for="birth_date"></div>
                         </div>
                     </div>
@@ -1043,7 +1043,9 @@
         const alertBox = document.getElementById('form-alert');
         const successBox = document.getElementById('form-success');
         const birthDateInput = document.getElementById('birth_date');
+        const birthHint = document.querySelector('[data-birth-hint]');
         const nationalIdInput = document.getElementById('national_id');
+        const nationalitySelect = document.getElementById('nationality');
         const mobile2CodeInput = document.getElementById('residence_mobile_2_country_code');
         const mobile2Input = document.getElementById('residence_mobile_2');
         const sendingText = @json(__('Sending...'));
@@ -1075,8 +1077,46 @@
             return `${year}-${pad(month)}-${pad(day)}`;
         };
 
+        const isEgyptNationality = () => {
+            const option = nationalitySelect?.selectedOptions?.[0];
+            const label = option ? option.textContent.trim() : '';
+            return /مصر/i.test(label) || /egypt/i.test(label);
+        };
+
+        const applyNationalityRules = () => {
+            const egyptian = isEgyptNationality();
+            if (egyptian) {
+                nationalIdInput.maxLength = 14;
+                nationalIdInput.minLength = 14;
+                nationalIdInput.pattern = '\\\\d{14}';
+                nationalIdInput.inputMode = 'numeric';
+                birthDateInput.readOnly = true;
+                if (birthHint) {
+                    birthHint.style.display = '';
+                }
+                updateBirthDate();
+            } else {
+                nationalIdInput.removeAttribute('pattern');
+                nationalIdInput.removeAttribute('minLength');
+                nationalIdInput.maxLength = 50;
+                nationalIdInput.inputMode = 'text';
+                birthDateInput.readOnly = false;
+                if (birthHint) {
+                    birthHint.style.display = '';
+                }
+                const autoBirthDate = extractBirthDate(nationalIdInput.value.replace(/\\D/g, '').slice(0, 14));
+                if (autoBirthDate && birthDateInput.value === autoBirthDate) {
+                    birthDateInput.value = '';
+                    updatePreview('birth_date', '—');
+                }
+            }
+        };
+
         const updateBirthDate = () => {
-            const value = nationalIdInput.value.replace(/\D/g, '').slice(0, 14);
+            if (!isEgyptNationality()) {
+                return;
+            }
+            const value = nationalIdInput.value.replace(/\\D/g, '').slice(0, 14);
             nationalIdInput.value = value;
             const birthDate = extractBirthDate(value);
             birthDateInput.value = birthDate || '';
@@ -1231,6 +1271,9 @@
             state.input.setAttribute('aria-expanded', 'false');
             const selected = select.selectedOptions[0];
             state.input.value = selected && selected.value !== '' ? selected.textContent : '';
+            if (select === nationalitySelect) {
+                applyNationalityRules();
+            }
         };
 
         const openSearchableSelect = (select) => {
@@ -1424,7 +1467,7 @@
             document.querySelectorAll('select').forEach((select) => {
                 syncSearchableState(select);
             });
-            updateBirthDate();
+            applyNationalityRules();
             syncMobile2Required();
             stepButtons.forEach((btn) => btn.classList.remove('done'));
             showStep(0);
@@ -1594,6 +1637,9 @@
 
         form.addEventListener('input', syncPreview);
         nationalIdInput.addEventListener('input', updateBirthDate);
+        if (nationalitySelect) {
+            nationalitySelect.addEventListener('change', applyNationalityRules);
+        }
         mobile2Input.addEventListener('input', syncMobile2Required);
         mobile2CodeInput.addEventListener('change', syncMobile2Required);
         updateProgress();

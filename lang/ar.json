@@ -193,5 +193,6 @@
   "Registration failed. Please try again.": "فشل التسجيل. يرجى المحاولة مرة أخرى.",
   "Registration successfully": "تم التسجيل بنجاح",
   "Please select a value.": "يرجى اختيار قيمة.",
-  "Data will be cleared on refresh.": "سيتم مسح البيانات عند تحديث الصفحة."
+  "Data will be cleared on refresh.": "سيتم مسح البيانات عند تحديث الصفحة.",
+  "Auto-filled for Egyptian nationality only.": "يتم تعبئة تاريخ الميلاد تلقائيًا للجنسية المصرية فقط."
 }
