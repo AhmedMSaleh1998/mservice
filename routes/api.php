@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\BlogsController;
 use App\Http\Controllers\Api\AdRequestsController;
 use App\Http\Controllers\Api\AdSpacesController;
+use App\Http\Controllers\Api\BannersController;
 use App\Http\Controllers\Api\CertificateRequestController;
 use App\Http\Controllers\Api\CertificatesController;
 use App\Http\Controllers\Api\ChangePasswordController;
@@ -36,6 +37,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(function () {
     Route::get('nationalities', [NationalitiesController::class, 'index']);
+    Route::get('banners', [BannersController::class, 'index']);
     Route::get('provinces', [ProvincesController::class, 'index']);
     Route::get('medical-universities', [MedicalUniversitiesController::class, 'index']);
     Route::get('grades', [GradesController::class, 'index']);
