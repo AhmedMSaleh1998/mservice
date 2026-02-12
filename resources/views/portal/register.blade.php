@@ -379,6 +379,14 @@
             gap: 16px;
         }
 
+        .grid-two {
+            grid-template-columns: repeat(2, minmax(220px, 1fr));
+        }
+
+        .name-grid {
+            margin-bottom: 16px;
+        }
+
         .field {
             display: grid;
             gap: 6px;
@@ -401,6 +409,44 @@
             font-size: 14px;
             font-family: inherit;
             box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+            min-height: 46px;
+            line-height: 1.4;
+        }
+
+        .field input,
+        .field select,
+        .select-input {
+            height: 46px;
+        }
+
+        .field select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: none;
+        }
+
+        .field input[type="date"] {
+            appearance: none;
+            -webkit-appearance: none;
+            padding: 12px 14px;
+            line-height: 1.4;
+            padding-inline-end: 42px;
+        }
+
+        .field input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            opacity: 0.75;
+        }
+
+        .field input[type="date"]::-webkit-datetime-edit,
+        .field input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+        .field input[type="date"]::-webkit-datetime-edit-text,
+        .field input[type="date"]::-webkit-datetime-edit-month-field,
+        .field input[type="date"]::-webkit-datetime-edit-day-field,
+        .field input[type="date"]::-webkit-datetime-edit-year-field {
+            padding: 0;
+            line-height: 1.4;
         }
 
         .field-pair {
@@ -427,6 +473,7 @@
 
         .select-shell {
             position: relative;
+            width: 100%;
         }
 
         .select-input {
@@ -438,6 +485,8 @@
             font-size: 14px;
             font-family: inherit;
             box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+            min-height: 46px;
+            line-height: 1.4;
         }
 
         .select-input:focus {
@@ -518,6 +567,19 @@
             font-size: 12px;
             color: #c23d3d;
             min-height: 14px;
+        }
+
+        .field-hint-float {
+            position: relative;
+        }
+
+        .field-hint-float .hint {
+            position: absolute;
+            inset-inline-start: 0;
+            top: calc(100% + 6px);
+            bottom: auto;
+            max-width: 100%;
+            pointer-events: none;
         }
 
         .field input.is-invalid,
@@ -647,8 +709,23 @@
             font-size: 16px;
         }
 
+        html[dir="rtl"] .layout {
+            grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+            grid-template-areas: "side form";
+        }
+
+        html[dir="rtl"] .field-pair {
+            grid-template-columns: minmax(0, 1fr) minmax(140px, 0.6fr);
+        }
+
         @media (max-width: 960px) {
             .layout {
+                grid-template-columns: 1fr;
+                grid-template-areas: "form" "side";
+                justify-items: stretch;
+            }
+
+            html[dir="rtl"] .layout {
                 grid-template-columns: 1fr;
                 grid-template-areas: "form" "side";
             }
@@ -659,6 +736,20 @@
 
             .side-card {
                 position: static;
+            }
+
+            .page {
+                padding: 20px 16px 32px;
+            }
+
+            .card,
+            .form-card {
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .form-card {
+                padding: 22px;
             }
         }
 
@@ -675,15 +766,23 @@
             .btn {
                 width: 100%;
             }
-        }
 
-        html[dir="rtl"] .layout {
-            grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
-            grid-template-areas: "side form";
-        }
+            .grid-two {
+                grid-template-columns: 1fr;
+            }
 
-        html[dir="rtl"] .field-pair {
-            grid-template-columns: minmax(0, 1fr) minmax(140px, 0.6fr);
+            .lang-toggle {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .layout {
+                gap: 18px;
+            }
+
+            .field-pair {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -770,7 +869,7 @@
                         <h2>{{ __('Personal Information') }}</h2>
                         <span>1 / 4</span>
                     </div>
-                    <div class="grid">
+                    <div class="grid grid-two name-grid">
                         <div class="field">
                             <label for="full_name_ar">{{ __('Full Name (AR)') }}</label>
                             <input id="full_name_ar" name="full_name_ar" type="text" required maxlength="255" autocomplete="name">
@@ -781,6 +880,8 @@
                             <input id="full_name_en" name="full_name_en" type="text" required maxlength="255" autocomplete="name">
                             <div class="error" data-error-for="full_name_en"></div>
                         </div>
+                    </div>
+                    <div class="grid">
                         <div class="field">
                             <label for="gender">{{ __('Gender') }}</label>
                             <select id="gender" name="gender" required>
@@ -828,7 +929,7 @@
                             </select>
                             <div class="error" data-error-for="birth_governorate"></div>
                         </div>
-                        <div class="field">
+                        <div class="field field-hint-float">
                             <label for="birth_date">{{ __('Birth Date') }}</label>
                             <input id="birth_date" name="birth_date" type="date">
                             <div class="hint" data-birth-hint>{{ __('Auto-filled for Egyptian nationality only.') }}</div>
