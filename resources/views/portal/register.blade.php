@@ -1088,7 +1088,7 @@
             if (egyptian) {
                 nationalIdInput.maxLength = 14;
                 nationalIdInput.minLength = 14;
-                nationalIdInput.pattern = '\\\\d{14}';
+                nationalIdInput.pattern = '[0-9]{14}';
                 nationalIdInput.inputMode = 'numeric';
                 birthDateInput.readOnly = true;
                 if (birthHint) {
