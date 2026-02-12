@@ -966,7 +966,7 @@
                             </select>
                             <div class="error" data-error-for="residence_governorate"></div>
                         </div>
-                        <div class="field">
+                        <div class="field span-2">
                             <label for="residence_phone">{{ __('Residence Phone') }}</label>
                             <input id="residence_phone" name="residence_phone" type="tel" required maxlength="10" pattern="[0-9\s\-\+\(\)]*" inputmode="numeric">
                             <div class="error" data-error-for="residence_phone"></div>
