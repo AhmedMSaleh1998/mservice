@@ -451,13 +451,39 @@
 
         .field-pair {
             display: grid;
-            grid-template-columns: minmax(140px, 0.6fr) minmax(0, 1fr);
+            grid-template-columns: minmax(110px, 0.35fr) minmax(0, 1fr);
             gap: 12px;
             align-items: start;
         }
 
         .field-pair .field {
             margin: 0;
+        }
+
+        .combo-pair {
+            gap: 0;
+        }
+
+        .combo-pair .field:first-child input,
+        .combo-pair .field:first-child select,
+        .combo-pair .field:first-child .select-input {
+            border-start-end-radius: 0;
+            border-end-end-radius: 0;
+            border-inline-end: 0;
+        }
+
+        .combo-pair .field:last-child input,
+        .combo-pair .field:last-child select,
+        .combo-pair .field:last-child .select-input {
+            border-start-start-radius: 0;
+            border-end-start-radius: 0;
+        }
+
+        .combo-pair .field input:focus,
+        .combo-pair .field select:focus,
+        .combo-pair .select-input:focus {
+            position: relative;
+            z-index: 2;
         }
 
         .select-hidden {
@@ -715,7 +741,7 @@
         }
 
         html[dir="rtl"] .field-pair {
-            grid-template-columns: minmax(0, 1fr) minmax(140px, 0.6fr);
+            grid-template-columns: minmax(110px, 0.35fr) minmax(0, 1fr);
         }
 
         @media (max-width: 960px) {
@@ -782,6 +808,10 @@
 
             .field-pair {
                 grid-template-columns: 1fr;
+            }
+
+            .combo-pair {
+                grid-template-columns: minmax(96px, 0.4fr) minmax(0, 1fr);
             }
         }
     </style>
@@ -971,7 +1001,7 @@
                             <input id="residence_phone" name="residence_phone" type="tel" required maxlength="10" pattern="[0-9\s\-\+\(\)]*" inputmode="numeric">
                             <div class="error" data-error-for="residence_phone"></div>
                         </div>
-                        <div class="field-pair span-2">
+                        <div class="field-pair combo-pair span-2">
                             <div class="field">
                                 <label for="residence_mobile_1_country_code">{{ __('Mobile 1 Country Code') }}</label>
                                 <select id="residence_mobile_1_country_code" name="residence_mobile_1_country_code" required>
@@ -988,7 +1018,7 @@
                                 <div class="error" data-error-for="residence_mobile_1"></div>
                             </div>
                         </div>
-                        <div class="field-pair span-2">
+                        <div class="field-pair combo-pair span-2">
                             <div class="field">
                                 <label for="residence_mobile_2_country_code">{{ __('Mobile 2 Country Code') }}</label>
                                 <select id="residence_mobile_2_country_code" name="residence_mobile_2_country_code">
