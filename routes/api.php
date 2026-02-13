@@ -45,6 +45,11 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
     Route::get('payment-methods', [PaymentMethodsController::class, 'index']);
     Route::get('religions', [ReligionsController::class, 'index']);
     Route::post('register-request', [NewRegisterController::class, 'register']);
+    Route::get('register-request/{reg_code}/pdf', [NewRegisterController::class, 'downloadPdf'])
+        ->where('reg_code', 'EMS\\d+')
+        ->name('register-pdf');
+    Route::get('{reg_code}/pdf', [NewRegisterController::class, 'downloadPdf'])
+        ->where('reg_code', 'EMS\\d+');
 
     Route::controller(OtpSendController::class)->prefix('otp')->group(function () {
         Route::post('send', 'send');
