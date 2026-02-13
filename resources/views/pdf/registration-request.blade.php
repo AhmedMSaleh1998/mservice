@@ -1,8 +1,8 @@
 @php
     $dir = 'rtl';
     $birthDate = $request->birth_date?->format('d/m/Y') ?? '';
-    $mobile1 = trim(($labels['residence_mobile_1_country_code'] ?? $request->residence_mobile_1_country_code) . ' ' . $request->residence_mobile_1);
-    $mobile2 = trim(($labels['residence_mobile_2_country_code'] ?? $request->residence_mobile_2_country_code) . ' ' . $request->residence_mobile_2);
+    $mobile1 =  '0'.$request->residence_mobile_1;
+    $mobile2 =  '0'.$request->residence_mobile_2;
     $residenceAddressParts = array_filter([
         $labels['residence_governorate'] ?? $request->residence_governorate,
         $request->residence_center,

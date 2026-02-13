@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\UserAddressController;
 use App\Http\Controllers\ServicesController;
 use App\Http\Middleware\ValidateHeadersMiddleware;
 use Illuminate\Support\Facades\Route;
+use Modules\Users\Services\RegistrationRequestPdfService;
 
 
 Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(function () {
@@ -48,6 +49,10 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
     Route::get('register-request/{reg_code}/pdf', [NewRegisterController::class, 'downloadPdf'])
         ->where('reg_code', 'EMS\\d+')
         ->name('register-pdf');
+    Route::get('register-request/{reg_code}/pdf/{document}', [NewRegisterController::class, 'downloadPdf'])
+        ->where('reg_code', 'EMS\\d+')
+        ->where('document', RegistrationRequestPdfService::DOCUMENT_REGISTRATION_REQUEST . '|' . RegistrationRequestPdfService::DOCUMENT_LICENSE_REQUEST)
+        ->name('register-pdf-document');
     Route::get('{reg_code}/pdf', [NewRegisterController::class, 'downloadPdf'])
         ->where('reg_code', 'EMS\\d+');
 

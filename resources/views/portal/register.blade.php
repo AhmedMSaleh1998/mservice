@@ -735,6 +735,31 @@
             font-size: 16px;
         }
 
+        .success-downloads {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .success-downloads a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 12px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+            border: 1px solid rgba(21, 115, 86, 0.25);
+            background: rgba(255, 255, 255, 0.75);
+            color: var(--primary-strong);
+        }
+
+        .success-downloads a:hover {
+            background: #ffffff;
+            border-color: rgba(21, 115, 86, 0.45);
+        }
+
         html[dir="rtl"] .layout {
             grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
             grid-template-areas: "side form";
@@ -1179,6 +1204,7 @@
         const nationalitySelect = document.getElementById('nationality');
         const mobile2CodeInput = document.getElementById('residence_mobile_2_country_code');
         const mobile2Input = document.getElementById('residence_mobile_2');
+        const successPageBaseUrl = @json(route('portal.register.success'));
         const sendingText = @json(__('Sending...'));
         const nextText = @json(__('Next'));
         const submitText = @json(__('Submit Registration'));
@@ -1627,16 +1653,14 @@
                 const data = await response.json().catch(() => ({}));
 
                 if (response.ok && data.success) {
-                    successBox.innerHTML = `
-                        <strong>${data.message || ''}</strong>
-                        <div>${data.reg_code ? `${@json(__('Registration Code'))}: ${data.reg_code}` : ''}</div>
-                    `;
-                    successBox.classList.add('visible');
-                    form.reset();
-                    resetPreviews();
-                    resetFiles();
-                    showStep(0);
-                    stepButtons.forEach((btn) => btn.classList.remove('done'));
+                    const regCode = (data?.reg_code || data?.data?.reg_code || '').toString().trim();
+                    const successUrl = new URL(successPageBaseUrl, window.location.origin);
+                    successUrl.searchParams.set('lang', locale);
+                    if (regCode) {
+                        successUrl.searchParams.set('reg_code', regCode);
+                    }
+                    window.location.assign(successUrl.toString());
+                    return;
                 } else if (response.status === 422 && data.errors) {
                     let firstErrorStep = null;
                     let firstErrorField = null;

@@ -194,5 +194,17 @@
   "Registration successfully": "تم التسجيل بنجاح",
   "Please select a value.": "يرجى اختيار قيمة.",
   "Data will be cleared on refresh.": "سيتم مسح البيانات عند تحديث الصفحة.",
-  "Auto-filled for Egyptian nationality only.": "يتم تعبئة تاريخ الميلاد تلقائيًا للجنسية المصرية فقط."
+  "Auto-filled for Egyptian nationality only.": "يتم تعبئة تاريخ الميلاد تلقائيًا للجنسية المصرية فقط.",
+  "Registration Complete": "اكتمل التسجيل",
+  "You can now download your documents": "يمكنك الآن تحميل المستندات",
+  "Required documents before visiting the syndicate": "المستندات المطلوبة قبل التوجه إلى النقابة",
+  "Please download the following documents and fill all required data before heading to the syndicate.": "يجب عليك تحميل المستندات التالية وملء جميع البيانات المطلوبة قبل التوجه إلى النقابة.",
+  "Registration request form": "نموذج طلب القيد",
+  "Practice license request form": "نموذج طلب استخراج ترخيص مزاولة المهنة",
+  "Contains your general registration request data. Print and complete any missing fields.": "يحتوي على بيانات طلب القيد العام الخاصة بك. اطبعه واستكمل أي بيانات ناقصة.",
+  "Contains your practice license request. Print it and complete signatures and required entries.": "يحتوي على طلب استخراج ترخيص مزاولة المهنة. اطبعه واستكمل التوقيعات والبيانات المطلوبة.",
+  "Download Registration Request PDF": "تحميل نموذج طلب القيد",
+  "Download License Request PDF": "تحميل نموذج طلب الترخيص",
+  "Registration code is missing. Please go back and submit the registration form again.": "كود التسجيل غير متوفر. يرجى العودة وإرسال نموذج التسجيل مرة أخرى.",
+  "Back to Registration Form": "العودة إلى نموذج التسجيل"
 }

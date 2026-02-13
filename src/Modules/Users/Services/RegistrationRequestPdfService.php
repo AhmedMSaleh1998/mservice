@@ -12,20 +12,27 @@ use Modules\Core\Models\Province;
 use Modules\Core\Models\Religion;
 use Modules\Users\Models\RegistrationRequest;
 use Omaralalwi\Gpdf\Gpdf;
-use RuntimeException;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class RegistrationRequestPdfService
 {
+    public const DOCUMENT_REGISTRATION_REQUEST = 'registration-request';
+    public const DOCUMENT_LICENSE_REQUEST = 'license-request';
+
     public function __construct(
         private readonly Gpdf $gpdf
     ) {
     }
 
-    public function generate(RegistrationRequest $request): array
+    public function generate(
+        RegistrationRequest $request,
+        string $document = self::DOCUMENT_REGISTRATION_REQUEST
+    ): array
     {
+        $documentConfig = $this->resolveDocumentConfig($document, $request);
         $data = $this->buildViewData($request);
-        $html = view('pdf.registration-request', $data)->render();
+        $html = view($documentConfig['view'], $data)->render();
         $pdfContent = $this->gpdf->generate($html);
 
         if (! $this->looksLikePdf($pdfContent)) {
@@ -38,8 +45,23 @@ class RegistrationRequestPdfService
 
         return [
             'content' => $pdfContent,
-            'fileName' => $this->buildFileName($request),
+            'fileName' => $documentConfig['fileName'],
         ];
+    }
+
+    private function resolveDocumentConfig(string $document, RegistrationRequest $request): array
+    {
+        return match ($document) {
+            self::DOCUMENT_REGISTRATION_REQUEST => [
+                'view' => 'pdf.registration-request',
+                'fileName' => $this->buildFileName($request, self::DOCUMENT_REGISTRATION_REQUEST),
+            ],
+            self::DOCUMENT_LICENSE_REQUEST => [
+                'view' => 'pdf.registration-license-request',
+                'fileName' => $this->buildFileName($request, self::DOCUMENT_LICENSE_REQUEST),
+            ],
+            default => throw new RuntimeException("Unsupported PDF document type: {$document}"),
+        };
     }
 
     private function buildViewData(RegistrationRequest $request): array
@@ -68,7 +90,7 @@ class RegistrationRequestPdfService
         ];
     }
 
-    private function buildFileName(RegistrationRequest $request): string
+    private function buildFileName(RegistrationRequest $request, string $document): string
     {
         $code = $request->reg_code ?: (string) $request->id;
         $safeCode = preg_replace('/[^A-Za-z0-9_-]/', '-', (string) $code);
@@ -78,7 +100,13 @@ class RegistrationRequestPdfService
             $safeCode = (string) $request->id;
         }
 
-        return 'registration-request-' . $safeCode . '.pdf';
+        $prefix = match ($document) {
+            self::DOCUMENT_REGISTRATION_REQUEST => 'registration-request',
+            self::DOCUMENT_LICENSE_REQUEST => 'license-request',
+            default => 'registration-document',
+        };
+
+        return $prefix . '-' . $safeCode . '.pdf';
     }
 
     private function looksLikePdf(string $content): bool

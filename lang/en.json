@@ -185,5 +185,17 @@
   "Registration successfully": "Registration successfully",
   "Please select a value.": "Please select a value.",
   "Data will be cleared on refresh.": "Data will be cleared on refresh.",
-  "Auto-filled for Egyptian nationality only.": "Auto-filled for Egyptian nationality only."
+  "Auto-filled for Egyptian nationality only.": "Auto-filled for Egyptian nationality only.",
+  "Registration Complete": "Registration Complete",
+  "You can now download your documents": "You can now download your documents",
+  "Required documents before visiting the syndicate": "Required documents before visiting the syndicate",
+  "Please download the following documents and fill all required data before heading to the syndicate.": "Please download the following documents and fill all required data before heading to the syndicate.",
+  "Registration request form": "Registration request form",
+  "Practice license request form": "Practice license request form",
+  "Contains your general registration request data. Print and complete any missing fields.": "Contains your general registration request data. Print and complete any missing fields.",
+  "Contains your practice license request. Print it and complete signatures and required entries.": "Contains your practice license request. Print it and complete signatures and required entries.",
+  "Download Registration Request PDF": "Download Registration Request PDF",
+  "Download License Request PDF": "Download License Request PDF",
+  "Registration code is missing. Please go back and submit the registration form again.": "Registration code is missing. Please go back and submit the registration form again.",
+  "Back to Registration Form": "Back to Registration Form"
 }

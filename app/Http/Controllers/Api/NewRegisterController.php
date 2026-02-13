@@ -40,7 +40,10 @@ class NewRegisterController extends Controller
         }
     }
 
-    public function downloadPdf(string $reg_code)
+    public function downloadPdf(
+        string $reg_code,
+        string $document = RegistrationRequestPdfService::DOCUMENT_REGISTRATION_REQUEST
+    )
     {
         $registrationRequest = \Modules\Users\Models\RegistrationRequest::query()
             ->where('reg_code', $reg_code)
@@ -53,7 +56,7 @@ class NewRegisterController extends Controller
             ], 404);
         }
 
-        $result = $this->registrationRequestPdfService->generate($registrationRequest);
+        $result = $this->registrationRequestPdfService->generate($registrationRequest, $document);
         $fileName = $result['fileName'] ?? 'registration-request.pdf';
         $content = $result['content'] ?? '';
 
