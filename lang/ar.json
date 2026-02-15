@@ -206,5 +206,8 @@
   "Download Registration Request PDF": "تحميل نموذج طلب القيد",
   "Download License Request PDF": "تحميل نموذج طلب الترخيص",
   "Registration code is missing. Please go back and submit the registration form again.": "كود التسجيل غير متوفر. يرجى العودة وإرسال نموذج التسجيل مرة أخرى.",
-  "Back to Registration Form": "العودة إلى نموذج التسجيل"
+  "Back to Registration Form": "العودة إلى نموذج التسجيل",
+  "One Month":"شهر واحد",
+  "Two Months":"شهرين",
+  "Three Months":"ثلاث أشهر"
 }

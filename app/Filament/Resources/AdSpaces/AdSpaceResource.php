@@ -8,6 +8,7 @@ use App\Filament\Resources\AdSpaces\Pages\ListAdSpaces;
 use App\Filament\Resources\AdSpaces\Schemas\AdSpaceForm;
 use App\Filament\Resources\AdSpaces\Tables\AdSpacesTable;
 use BackedEnum;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -19,8 +20,6 @@ class AdSpaceResource extends Resource
     protected static ?string $model = AdSpace::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
-    protected static ?string $recordTitleAttribute = 'name';
 
     public static function getModelLabel(): string
     {
@@ -57,6 +56,11 @@ class AdSpaceResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with('service');
     }
 
     public static function getPages(): array

@@ -197,5 +197,8 @@
   "Download Registration Request PDF": "Download Registration Request PDF",
   "Download License Request PDF": "Download License Request PDF",
   "Registration code is missing. Please go back and submit the registration form again.": "Registration code is missing. Please go back and submit the registration form again.",
-  "Back to Registration Form": "Back to Registration Form"
+  "Back to Registration Form": "Back to Registration Form",
+  "One Month":"One Month",
+  "Two Months":"Two Months",
+  "Three Months":"Three Months"
 }

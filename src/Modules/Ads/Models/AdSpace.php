@@ -3,19 +3,17 @@
 namespace Modules\Ads\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Modules\Ads\Builders\AdSpaceQueryBuilder;
-use Modules\Core\Models\CustomModel;
-use Spatie\Translatable\HasTranslations;
+use Modules\Services\Models\Service;
 
-class AdSpace extends CustomModel
+class AdSpace extends Model
 {
-    use HasFactory, HasTranslations;
+    use HasFactory;
 
     protected $fillable = [
-        'name',
-        'width',
-        'height',
+        'service_id',
         'max_characters',
         'min_duration_months',
         'price_per_month',
@@ -24,8 +22,7 @@ class AdSpace extends CustomModel
     ];
 
     protected $casts = [
-        'width' => 'integer',
-        'height' => 'integer',
+        'service_id' => 'integer',
         'max_characters' => 'integer',
         'min_duration_months' => 'integer',
         'price_per_month' => 'decimal:2',
@@ -33,15 +30,13 @@ class AdSpace extends CustomModel
         'order' => 'integer',
     ];
 
-    public $translatable = ['name'];
-
-    public function newEloquentBuilder($query): AdSpaceQueryBuilder
-    {
-        return new AdSpaceQueryBuilder($query);
-    }
-
     public function requests(): HasMany
     {
         return $this->hasMany(AdRequest::class);
+    }
+
+    public function service(): BelongsTo
+    {
+        return $this->belongsTo(Service::class);
     }
 }
