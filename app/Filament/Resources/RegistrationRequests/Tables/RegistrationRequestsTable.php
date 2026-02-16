@@ -6,6 +6,7 @@ use App\Models\RegistrationRequest;
 use App\Support\CountryCodeOptions;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -57,6 +58,7 @@ class RegistrationRequestsTable
             ->recordActions([
                 ActionGroup::make([
                     ViewAction::make(),
+                    EditAction::make(),
                     Action::make('activate')
                         ->label(__('Activate'))
                         ->icon('heroicon-o-check-circle')

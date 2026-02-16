@@ -212,5 +212,8 @@
   "Three Months":"ثلاث أشهر",
   "Define pricing and placement rules for this ad space.": "حدد قواعد التسعير وظهور هذه المساحة الإعلانية.",
   "Maximum characters allowed in ad text.": "الحد الأقصى لعدد الأحرف المسموح بها في نص الإعلان.",
-  "Lower number appears first in the list.": "الرقم الأقل يظهر أولًا في القائمة."
+  "Lower number appears first in the list.": "الرقم الأقل يظهر أولًا في القائمة.",
+  "Role name": "اسم الدور",
+  "Users": "المستخدمين",
+  "Roles": "الادوار"
 }

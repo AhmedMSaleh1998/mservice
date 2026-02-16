@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * @property mixed $lang
@@ -23,7 +24,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  */
 class User extends Authenticatable implements  HasMedia
 {
-    use HasApiTokens, InteractsWithMedia;
+    use HasApiTokens, InteractsWithMedia , HasRoles;
 
     protected $fillable = [
         'name', 'phone', 'email', 'password', 'national_id', 'reg_number', 'role_id', 'active', 'lang', 'notification_enabled',

@@ -9,6 +9,7 @@
         "php": "^8.2",
         "abdulmajeed-jamaan/filament-translatable-tabs": "^4.0",
         "bezhansalleh/filament-language-switch": "^4.0",
+        "bezhansalleh/filament-shield": "^4.1",
         "filament/filament": "^4.0",
         "filament/spatie-laravel-media-library-plugin": "^4.0",
         "laravel/framework": "^12.0",
