@@ -2,14 +2,12 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
-use App\Models\Role;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Illuminate\Database\Eloquent\Builder;
 
 class UserForm
 {
@@ -53,7 +51,7 @@ class UserForm
                             ->default(false),
                         Toggle::make('active')
                             ->label(__('Active'))
-                            ->default(true),
+                            ->default(false),
                         TextInput::make('password')
                             ->label(__('Password'))
                             ->password()
@@ -81,23 +79,6 @@ class UserForm
                     ->columns([
                         'sm' => 2,
                         'lg' => 3,
-                    ])
-                    ->columnSpanFull(),
-                Section::make(__('Roles'))
-                    ->schema([
-                        Select::make('roles')
-                            ->label(__('Roles'))
-                            ->relationship(
-                                name: 'roles',
-                                titleAttribute: 'translated_name',
-                                modifyQueryUsing: fn (Builder $query): Builder => $query
-                                    ->where('guard_name', config('auth.defaults.guard', 'web'))
-                                    ->orderBy('name')
-                            )
-                            ->multiple()
-                            ->searchable()
-                            ->preload()
-                            ->required(),
                     ])
                     ->columnSpanFull(),
             ]);

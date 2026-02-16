@@ -1,37 +1,37 @@
 <?php
 
-namespace App\Filament\Resources\Users;
+namespace App\Filament\Resources\Employees;
 
-use App\Filament\Resources\Users\Pages\CreateUser;
-use App\Filament\Resources\Users\Pages\EditUser;
-use App\Filament\Resources\Users\Pages\ListUsers;
-use App\Filament\Resources\Users\Schemas\UserForm;
-use App\Filament\Resources\Users\Tables\UsersTable;
+use App\Filament\Resources\Employees\Pages\CreateEmployee;
+use App\Filament\Resources\Employees\Pages\EditEmployee;
+use App\Filament\Resources\Employees\Pages\ListEmployees;
+use App\Filament\Resources\Employees\Schemas\EmployeeForm;
+use App\Filament\Resources\Employees\Tables\EmployeesTable;
+use App\Models\Admin;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Modules\Users\Models\User;
 
-class UserResource extends Resource
+class EmployeeResource extends Resource
 {
-    protected static ?string $model = User::class;
+    protected static ?string $model = Admin::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Settings';
+    protected static \UnitEnum|string|null $navigationGroup = 'filament-shield::filament-shield.nav.group';
 
     protected static ?string $recordTitleAttribute = 'name';
 
     public static function getModelLabel(): string
     {
-        return __('User');
+        return __('Employee');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('Users');
+        return __('Employees');
     }
 
     public static function getNavigationLabel(): string
@@ -41,17 +41,17 @@ class UserResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Settings');
+        return __('filament-shield::filament-shield.nav.group');
     }
 
     public static function form(Schema $schema): Schema
     {
-        return UserForm::configure($schema);
+        return EmployeeForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return UsersTable::configure($table);
+        return EmployeesTable::configure($table);
     }
 
     public static function getRelations(): array
@@ -64,9 +64,9 @@ class UserResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListUsers::route('/'),
-            'create' => CreateUser::route('/create'),
-            'edit' => EditUser::route('/{record}/edit'),
+            'index' => ListEmployees::route('/'),
+            'create' => CreateEmployee::route('/create'),
+            'edit' => EditEmployee::route('/{record}/edit'),
         ];
     }
 }

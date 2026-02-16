@@ -11,7 +11,7 @@ class RolesSeeder extends Seeder
 {
     public function run(): void
     {
-        $guardName = (string) config('auth.defaults.guard', 'web');
+        $guardName = 'admin';
 
         $this->seedSuperAdminRole($guardName);
 
@@ -43,6 +43,7 @@ class RolesSeeder extends Seeder
 
         $existingRole = DB::table('roles')
             ->where('name', 'super_admin')
+            ->where('guard_name', $guardName)
             ->first();
 
         if ($existingRole) {

@@ -29,6 +29,8 @@ class ManagePanelProvider extends PanelProvider
             ->id('manage')
             ->path('manage')
             ->login(\App\Filament\Pages\Auth\ManageLogin::class)
+            ->authGuard('admin')
+            ->authPasswordBroker('admins')
             ->brandLogo(asset('assets/medical-syndicate-logo.png'))
             ->brandLogoHeight('3.5rem')
             ->viteTheme('resources/css/filament/manage/theme.css')
