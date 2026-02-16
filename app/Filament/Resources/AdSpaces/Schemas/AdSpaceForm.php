@@ -4,8 +4,9 @@ namespace App\Filament\Resources\AdSpaces\Schemas;
 
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Modules\Ads\Models\AdSpace;
 use Modules\Services\Models\Service;
 
 class AdSpaceForm
@@ -14,45 +15,78 @@ class AdSpaceForm
     {
         return $schema
             ->components([
-                Select::make('service_id')
-                    ->label(__('Service'))
-                    ->options(fn () => Service::query()
-                        ->where('is_active', true)
-                        ->orderBy('id')
-                        ->get()
-                        ->mapWithKeys(fn (Service $service) => [
-                            $service->id => $service->getTranslation('title', app()->getLocale())
-                                ?: ($service->getTranslation('title', 'en') ?: ($service->key ?? (string) $service->id)),
-                        ])
-                        ->all())
-                    ->searchable()
-                    ->preload()
-                    ->required(),
-                TextInput::make('max_characters')
-                    ->label(__('Max Characters'))
-                    ->numeric()
-                    ->minValue(0)
-                    ->minValue(1),
-                Select::make('min_duration_months')
-                    ->label(__('Minimum Months'))
-                    ->options([
-                        1 => __('One Month'),
-                        2 => __('Two Months'),
-                        3 => __('Three Months'),
+                Section::make(__('Service Section'))
+                    ->description(__('This ad will be shown in the selected service section.'))
+                    ->schema([
+                        Select::make('service_id')
+                            ->label(__('Service'))
+                            ->options(static::serviceOptions())
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->columnSpanFull(),
                     ])
-                    ->default(1),
-                TextInput::make('price_per_month')
-                    ->label(__('Price Per Month'))
-                    ->numeric()
-                    ->required()
-                    ->default(1)
-                    ->minValue(1),
-                TextInput::make('order')
-                    ->label(__('Order'))
-                    ->numeric()
-                    ->default(1)
-                    ->minValue(1),
+                    ->columns(12),
+                Section::make(__('Ad Space'))
+                    ->description(__('Define pricing and placement rules for this ad space.'))
+                    ->schema([
+                        TextInput::make('max_characters')
+                            ->label(__('Max Characters'))
+                            ->numeric()
+                            ->required()
+                            ->default(100)
+                            ->minValue(1)
+                            ->helperText(__('Maximum characters allowed in ad text.')),
+                        Select::make('min_duration_months')
+                            ->label(__('Minimum Months'))
+                            ->options(static::durationOptions())
+                            ->default(1)
+                            ->required(),
+                        TextInput::make('price_per_month')
+                            ->label(__('Price Per Month'))
+                            ->numeric()
+                            ->required()
+                            ->minValue(1)
+                            ->default(1)
+                            ->prefix(config('checkout.currency', 'EGP')),
+                        TextInput::make('order')
+                            ->label(__('Order'))
+                            ->numeric()
+                            ->required()
+                            ->minValue(1)
+                            ->default(function (?AdSpace $record): int {
+                                if ($record?->exists) {
+                                    return (int) $record->order;
+                                }
+
+                                return ((int) AdSpace::query()->max('order')) + 1;
+                            })
+                            ->helperText(__('Lower number appears first in the list.')),
+                    ])
+                    ->columns(2),
             ])
-            ->columns(2);
+            ->columns(1);
+    }
+
+    private static function serviceOptions(): array
+    {
+        return Service::query()
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get()
+            ->mapWithKeys(fn (Service $service) => [
+                $service->id => $service->getTranslation('title', app()->getLocale())
+                    ?: ($service->getTranslation('title', 'en') ?: ($service->key ?? (string) $service->id)),
+            ])
+            ->all();
+    }
+
+    private static function durationOptions(): array
+    {
+        return [
+            1 => __('One Month'),
+            2 => __('Two Months'),
+            3 => __('Three Months'),
+        ];
     }
 }

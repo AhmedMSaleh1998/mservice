@@ -4,6 +4,7 @@ namespace App\Filament\Resources\AdSpaces\Tables;
 
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -73,6 +74,7 @@ class AdSpacesTable
             ->recordActions([
                 ActionGroup::make([
                     EditAction::make(),
+                    ViewAction::make()
                 ]),
             ])
             ->toolbarActions([

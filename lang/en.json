@@ -200,5 +200,8 @@
   "Back to Registration Form": "Back to Registration Form",
   "One Month":"One Month",
   "Two Months":"Two Months",
-  "Three Months":"Three Months"
+  "Three Months":"Three Months",
+  "Define pricing and placement rules for this ad space.": "Define pricing and placement rules for this ad space.",
+  "Maximum characters allowed in ad text.": "Maximum characters allowed in ad text.",
+  "Lower number appears first in the list.": "Lower number appears first in the list."
 }
