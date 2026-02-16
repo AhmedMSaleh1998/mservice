@@ -45,7 +45,7 @@ class ManagePanelProvider extends PanelProvider
                 'Medical Guides',
                 'Rest units',
                 'Blogs',
-                __('filament-shield::filament-shield.nav.group'),
+                'Access Management',
                 'Settings',
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

@@ -205,8 +205,16 @@
   "Maximum characters allowed in ad text.": "Maximum characters allowed in ad text.",
   "Lower number appears first in the list.": "Lower number appears first in the list.",
   "Role name": "Role Name",
+  "Role": "Role",
   "Users": "Users",
   "Roles": "Roles",
   "Confirm Password": "Confirm Password",
-  "Employees": "Employees"
+  "Employees": "Employees",
+  "Access Management": "Access Management",
+  "Guard Name": "Guard Name",
+  "Team": "Team",
+  "Select a team ...": "Select a team ...",
+  "Permissions": "Permissions",
+  "Updated At": "Updated At",
+  "Global": "Global"
 }

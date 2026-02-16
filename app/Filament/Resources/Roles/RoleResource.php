@@ -41,6 +41,26 @@ class RoleResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    public static function getModelLabel(): string
+    {
+        return __('Role');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Roles');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return static::getPluralModelLabel();
+    }
+
+    public static function getNavigationGroup(): \UnitEnum|string|null
+    {
+        return __('Access Management');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -61,14 +81,14 @@ class RoleResource extends Resource
                                     ->columnSpanFull(),
 
                                 TextInput::make('guard_name')
-                                    ->label(__('filament-shield::filament-shield.field.guard_name'))
+                                    ->label(__('Guard Name'))
                                     ->default(Utils::getFilamentAuthGuard())
                                     ->nullable()
                                     ->maxLength(255),
 
                                 Select::make(config('permission.column_names.team_foreign_key'))
-                                    ->label(__('filament-shield::filament-shield.field.team'))
-                                    ->placeholder(__('filament-shield::filament-shield.field.team.placeholder'))
+                                    ->label(__('Team'))
+                                    ->placeholder(__('Select a team ...'))
                                     /** @phpstan-ignore-next-line */
                                     ->default(Filament::getTenant()?->id)
                                     ->options(fn (): array => in_array(Utils::getTenantModel(), [null, '', '0'], true) ? [] : Utils::getTenantModel()::pluck('name', 'id')->toArray())
@@ -95,6 +115,7 @@ class RoleResource extends Resource
                 TextColumn::make('translated_name')
                     ->weight(FontWeight::Medium)
                     ->label(__('Role name'))
+                    ->formatStateUsing(fn (mixed $state, Role $record): string => $record->getDisplayName(app()->getLocale()))
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->where(function (Builder $query) use ($search): void {
                             $query
@@ -104,19 +125,19 @@ class RoleResource extends Resource
                         });
                     }),
                 TextColumn::make('team.name')
-                    ->default('Global')
+                    ->default(__('Global'))
                     ->badge()
-                    ->color(fn (mixed $state): string => str($state)->contains('Global') ? 'gray' : 'primary')
-                    ->label(__('filament-shield::filament-shield.column.team'))
+                    ->color(fn (mixed $state): string => str($state)->contains(__('Global')) ? 'gray' : 'primary')
+                    ->label(__('Team'))
                     ->searchable()
                     ->visible(fn (): bool => static::shield()->isCentralApp() && Utils::isTenancyEnabled()),
                 TextColumn::make('permissions_count')
                     ->badge()
-                    ->label(__('filament-shield::filament-shield.column.permissions'))
+                    ->label(__('Permissions'))
                     ->counts('permissions')
                     ->color('primary'),
                 TextColumn::make('updated_at')
-                    ->label(__('filament-shield::filament-shield.column.updated_at'))
+                    ->label(__('Updated At'))
                     ->dateTime(),
             ])
             ->filters([

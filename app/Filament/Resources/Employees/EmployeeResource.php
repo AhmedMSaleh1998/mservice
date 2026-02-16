@@ -20,7 +20,7 @@ class EmployeeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
-    protected static \UnitEnum|string|null $navigationGroup = 'filament-shield::filament-shield.nav.group';
+    protected static \UnitEnum|string|null $navigationGroup = 'Access Management';
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -41,7 +41,7 @@ class EmployeeResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('filament-shield::filament-shield.nav.group');
+        return __('Access Management');
     }
 
     public static function form(Schema $schema): Schema

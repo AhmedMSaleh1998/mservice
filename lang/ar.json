@@ -214,7 +214,15 @@
   "Maximum characters allowed in ad text.": "الحد الأقصى لعدد الأحرف المسموح بها في نص الإعلان.",
   "Lower number appears first in the list.": "الرقم الأقل يظهر أولًا في القائمة.",
   "Role name": "اسم الدور",
+  "Role": "الدور",
   "Users": "المستخدمين",
   "Roles": "الادوار",
-  "Employees": "الموظفين"
+  "Employees": "الموظفين",
+  "Access Management": "إدارة الوصول",
+  "Guard Name": "اسم الحارس",
+  "Team": "الفريق",
+  "Select a team ...": "اختر فريقًا ...",
+  "Permissions": "الصلاحيات",
+  "Updated At": "تاريخ التحديث",
+  "Global": "عام"
 }
