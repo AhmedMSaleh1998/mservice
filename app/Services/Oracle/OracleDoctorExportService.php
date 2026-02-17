@@ -4,6 +4,7 @@ namespace App\Services\Oracle;
 
 use App\Models\RegistrationRequest;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use PDO;
 use Modules\Core\Models\Grade;
@@ -131,6 +132,29 @@ SQL;
             $registrationRequest->governorate,
             'governorate',
         );
+
+        Log::info('Oracle Doctor Payload Debug', [
+            'doctor_name' => (string) $registrationRequest->full_name_ar,
+            'eng_name' => (string) $registrationRequest->full_name_en,
+            'gender' => $gender,
+            'nationality_code' => $nationalityCode,
+            'regision' => (int) $registrationRequest->religion,
+            'id_no' => (string) $registrationRequest->national_id,
+            'birthdate' => $birthDate,
+            'born_gov' => $birthGovernorateCode,
+            'degree_code' => $gradeCode,
+            'university_code' => $universityCode,
+            'graduation_year' => (int) $registrationRequest->graduation_year,
+            'job_license_no' => (int) $licenseNumber,
+            'job_license_date' => $licenseDate,
+            'gov_id' => $governorateCode,
+            'address' => implode(' - ', $addressParts),
+            'mobphone' => $mobilePhone,
+            'homephone1' => (string) ($registrationRequest->residence_phone ?? ''),
+            'email' => (string) $registrationRequest->email,
+            // استبعد الصورة لو كبيرة قوي
+            'pic_base64_length' => strlen(base64_encode($imageContent)),
+        ]);
 
         return [
             'doctor_name' => (string) $registrationRequest->full_name_ar,
