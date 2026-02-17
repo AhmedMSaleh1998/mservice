@@ -153,7 +153,7 @@ SQL;
             'homephone1' => (string) ($registrationRequest->residence_phone ?? ''),
             'email' => (string) $registrationRequest->email,
             // استبعد الصورة لو كبيرة قوي
-            'p_pic_blob_length' => strlen(base64_encode($imageContent)),
+            'p_pic_blob' => base64_encode($imageContent),
         ]);
 
         return [
