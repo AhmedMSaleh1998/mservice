@@ -152,8 +152,7 @@ SQL;
             'mobphone' => $mobilePhone,
             'homephone1' => (string) ($registrationRequest->residence_phone ?? ''),
             'email' => (string) $registrationRequest->email,
-            // استبعد الصورة لو كبيرة قوي
-            'p_pic_blob' => base64_encode($imageContent),
+            'p_pic_blob_bytes_length' => strlen($imageContent),
         ]);
 
         return [
@@ -175,7 +174,7 @@ SQL;
             'mobphone' => $mobilePhone,
             'homephone1' => (string) ($registrationRequest->residence_phone ?? ''),
             'email' => (string) $registrationRequest->email,
-            'p_pic_blob' => base64_encode($imageContent),
+            'p_pic_blob' => $imageContent,
         ];
     }
 
@@ -225,14 +224,14 @@ SQL;
      */
     private function exportWithPdo(PDO $pdo, array $payload): string
     {
-        $base64Image = $this->resolveBase64ImagePayload($payload);
+        $binaryImage = $this->resolveBinaryImagePayload($payload);
         $statement = $pdo->prepare(self::EXPORT_SQL);
         $lobStream = fopen('php://temp', 'r+b');
         if (! is_resource($lobStream)) {
             throw new RuntimeException('Oracle export failed. Unable to allocate temporary stream for image blob.');
         }
 
-        if (fwrite($lobStream, $base64Image) === false) {
+        if (fwrite($lobStream, $binaryImage) === false) {
             fclose($lobStream);
             throw new RuntimeException('Oracle export failed. Unable to write image blob into temporary stream.');
         }
@@ -288,7 +287,7 @@ SQL;
      */
     private function exportWithOci8($connection, array $payload): string
     {
-        $base64Image = $this->resolveBase64ImagePayload($payload);
+        $binaryImage = $this->resolveBinaryImagePayload($payload);
         $statement = @oci_parse($connection, self::EXPORT_SQL);
 
         if ($statement === false) {
@@ -341,7 +340,7 @@ SQL;
         }
 
         try {
-            if (! $blobDescriptor->writeTemporary($base64Image, OCI_TEMP_BLOB)) {
+            if (! $blobDescriptor->writeTemporary($binaryImage, OCI_TEMP_BLOB)) {
                 $this->throwOciError($connection, 'Oracle export failed while preparing image blob.');
             }
 
@@ -403,36 +402,32 @@ SQL;
     /**
      * @param array<string, string|int> $payload
      */
-    private function resolveBase64ImagePayload(array $payload): string
+    private function resolveBinaryImagePayload(array $payload): string
     {
-        $b64 = (string) ($payload['p_pic_blob'] ?? $payload['pic_base64'] ?? '');
-        $b64 = trim($b64);
-
-        if ($b64 === '') {
-            throw new RuntimeException('Empty base64 image payload for Oracle export.');
+        $binary = (string) ($payload['p_pic_blob'] ?? '');
+        if ($binary !== '') {
+            return $binary;
         }
 
-        // لو جاي Data URI زي: data:image/png;base64,AAAA...
-        if (str_starts_with($b64, 'data:')) {
-            $commaPos = strpos($b64, ',');
-            if ($commaPos === false) {
-                throw new RuntimeException('Invalid data URI base64 payload.');
+        // Backward compatibility: in case old payload still provides base64.
+        $base64 = (string) ($payload['pic_base64'] ?? '');
+        if (str_starts_with($base64, 'data:')) {
+            $commaPos = strpos($base64, ',');
+            if ($commaPos !== false) {
+                $base64 = substr($base64, $commaPos + 1);
             }
-            $b64 = substr($b64, $commaPos + 1);
-            $b64 = trim($b64);
         }
 
-        // Normalize payload in case base64 includes line breaks/spaces.
-        $b64 = preg_replace('/\s+/', '', $b64) ?? '';
-        if ($b64 === '') {
-            throw new RuntimeException('Empty base64 image payload for Oracle export.');
+        $base64 = preg_replace('/\s+/', '', trim($base64)) ?? '';
+        if ($base64 === '') {
+            throw new RuntimeException('Empty image payload for Oracle export.');
         }
 
-        $binary = base64_decode($b64, true);
-        if ($binary === false || $binary === '') {
+        $decoded = base64_decode($base64, true);
+        if ($decoded === false || $decoded === '') {
             throw new RuntimeException('Invalid base64 image payload for Oracle export.');
         }
 
-        return $b64; // ارسال Base64 نصي على p_pic_blob
+        return $decoded;
     }
 }
