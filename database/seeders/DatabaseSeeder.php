@@ -5,14 +5,11 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Database\Seeders\ServicesSeeder;
-use Database\Seeders\EgyptProvincesSeeder;
-use Database\Seeders\NationalitiesSeeder;
-use Database\Seeders\MedicalUniversitiesSeeder;
-use Database\Seeders\GradesSeeder;
 use Database\Seeders\LanguagesSeeder;
 use Database\Seeders\ReligionsSeeder;
 use Database\Seeders\PaymentMethodsSeeder;
 use Database\Seeders\RolesSeeder;
+use Database\Seeders\LookupExcelSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -31,10 +28,7 @@ class DatabaseSeeder extends Seeder
         //]);
 
         $this->call([
-            EgyptProvincesSeeder::class,
-            NationalitiesSeeder::class,
-            MedicalUniversitiesSeeder::class,
-            GradesSeeder::class,
+            LookupExcelSeeder::class,
             LanguagesSeeder::class,
             ReligionsSeeder::class,
             PaymentMethodsSeeder::class,

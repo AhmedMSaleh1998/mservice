@@ -6,6 +6,10 @@ use App\Models\RegistrationRequest;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use PDO;
+use Modules\Core\Models\Grade;
+use Modules\Core\Models\MedicalUniversity;
+use Modules\Core\Models\Nationality;
+use Modules\Core\Models\Province;
 use RuntimeException;
 
 class OracleDoctorExportService
@@ -102,27 +106,71 @@ SQL;
             $registrationRequest->residence_house_number,
         ]);
 
+        $nationalityCode = $this->resolveLookupCode(
+            Nationality::class,
+            $registrationRequest->nationality,
+            'nationality',
+        );
+        $birthGovernorateCode = $this->resolveLookupCode(
+            Province::class,
+            $registrationRequest->birth_governorate,
+            'birth governorate',
+        );
+        $gradeCode = $this->resolveLookupCode(
+            Grade::class,
+            $registrationRequest->grade,
+            'grade',
+        );
+        $universityCode = $this->resolveLookupCode(
+            MedicalUniversity::class,
+            $registrationRequest->university,
+            'university',
+        );
+        $governorateCode = $this->resolveLookupCode(
+            Province::class,
+            $registrationRequest->governorate,
+            'governorate',
+        );
+
         return [
             'doctor_name' => (string) $registrationRequest->full_name_ar,
             'eng_name' => (string) $registrationRequest->full_name_en,
             'gender' => $gender,
-            'nationality_code' => 1,
+            'nationality_code' => $nationalityCode,
             'regision' => (int) $registrationRequest->religion,
             'id_no' => (string) $registrationRequest->national_id,
             'birthdate' => $birthDate,
-            'born_gov' => 1,
-            'degree_code' => 1,
-            'university_code' => 1,
+            'born_gov' => $birthGovernorateCode,
+            'degree_code' => $gradeCode,
+            'university_code' => $universityCode,
             'graduation_year' => (int) $registrationRequest->graduation_year,
             'job_license_no' => (int) $licenseNumber,
             'job_license_date' => $licenseDate,
-            'gov_id' => (int) $registrationRequest->governorate,
+            'gov_id' => $governorateCode,
             'address' => implode(' - ', $addressParts),
             'mobphone' => $mobilePhone,
             'homephone1' => (string) ($registrationRequest->residence_phone ?? ''),
             'email' => (string) $registrationRequest->email,
             'pic_base64' => base64_encode($imageContent),
         ];
+    }
+
+    private function resolveLookupCode(string $modelClass, mixed $selectedId, string $label): int
+    {
+        $id = (int) $selectedId;
+        if ($id <= 0) {
+            throw new RuntimeException(sprintf('Invalid %s value for Oracle export.', $label));
+        }
+
+        $record = $modelClass::query()->find($id);
+        if (! $record) {
+            throw new RuntimeException(sprintf('%s value not found for Oracle export.', ucfirst($label)));
+        }
+
+        $code = data_get($record, 'code');
+
+        // Fallback to record id for backward compatibility when code is not seeded yet.
+        return is_numeric($code) ? (int) $code : $id;
     }
 
     private function resolveImageContent(RegistrationRequest $registrationRequest): string

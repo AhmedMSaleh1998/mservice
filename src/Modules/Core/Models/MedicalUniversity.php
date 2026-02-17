@@ -12,6 +12,7 @@ class MedicalUniversity extends Model
     protected $table = 'medical_universities';
 
     protected $fillable = [
+        'code',
         'name',
     ];
 

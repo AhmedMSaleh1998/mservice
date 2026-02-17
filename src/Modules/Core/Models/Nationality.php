@@ -12,6 +12,7 @@ class Nationality extends Model
     protected $table = 'nationalities';
 
     protected $fillable = [
+        'code',
         'name',
     ];
 

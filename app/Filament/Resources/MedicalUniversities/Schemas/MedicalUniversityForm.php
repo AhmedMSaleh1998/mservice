@@ -12,9 +12,16 @@ class MedicalUniversityForm
     {
         return $schema
             ->components([
+                TextInput::make('code')
+                    ->label(__('Code'))
+                    ->numeric()
+                    ->required()
+                    ->unique(ignoreRecord: true),
                 TranslatableTabs::make(__('Name'))
                     ->schema([
-                        TextInput::make('name')->required(),
+                        TextInput::make('name')
+                            ->label(__('Name'))
+                            ->required(),
                     ])
             ]);
     }

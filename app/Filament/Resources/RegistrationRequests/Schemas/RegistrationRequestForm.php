@@ -14,6 +14,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Support\Facades\Schema as DatabaseSchema;
 use Illuminate\Validation\Rule;
 use Modules\Core\Enums\GenderEnum;
 use Modules\Core\Models\Grade;
@@ -392,8 +393,18 @@ class RegistrationRequestForm
 
     private static function lookupOptions(string $modelClass): array
     {
-        return $modelClass::query()
-            ->orderBy('id')
+        $query = $modelClass::query();
+        $table = (new $modelClass())->getTable();
+
+        if (DatabaseSchema::hasColumn($table, 'code')) {
+            $query
+                ->whereNotNull('code')
+                ->orderBy('code');
+        } else {
+            $query->orderBy('id');
+        }
+
+        return $query
             ->get()
             ->mapWithKeys(function ($model) {
                 $name = method_exists($model, 'getTranslation')

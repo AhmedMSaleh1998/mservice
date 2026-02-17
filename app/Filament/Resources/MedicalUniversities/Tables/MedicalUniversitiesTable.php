@@ -15,9 +15,16 @@ class MedicalUniversitiesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->whereNotNull('code')->orderBy('code'))
             ->columns([
+                TextColumn::make('code')
+                    ->label(__('Code'))
+                    ->numeric()
+                    ->sortable()
+                    ->searchable(),
                 TextColumn::make('name')
                     ->label(__('Name'))
+                    ->searchable()
             ])
             ->filters([
                 //
