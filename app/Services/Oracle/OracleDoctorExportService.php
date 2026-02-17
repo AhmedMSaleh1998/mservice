@@ -405,11 +405,28 @@ SQL;
      */
     private function resolveBase64ImagePayload(array $payload): string
     {
-        $base64Image = (string) ($payload['pic_base64'] ?? '');
-        if ($base64Image === '' || base64_decode($base64Image, true) === false) {
+        $b64 = (string) ($payload['pic_base64'] ?? '');
+        $b64 = trim($b64);
+
+        if ($b64 === '') {
+            throw new RuntimeException('Empty base64 image payload for Oracle export.');
+        }
+
+        // لو جاي Data URI زي: data:image/png;base64,AAAA...
+        if (str_starts_with($b64, 'data:')) {
+            $commaPos = strpos($b64, ',');
+            if ($commaPos === false) {
+                throw new RuntimeException('Invalid data URI base64 payload.');
+            }
+            $b64 = substr($b64, $commaPos + 1);
+            $b64 = trim($b64);
+        }
+
+        $binary = base64_decode($b64, true);
+        if ($binary === false || $binary === '') {
             throw new RuntimeException('Invalid base64 image payload for Oracle export.');
         }
 
-        return $base64Image;
+        return $binary; // bytes جاهزة للـ BLOB
     }
 }
