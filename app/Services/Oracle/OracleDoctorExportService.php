@@ -227,6 +227,16 @@ SQL;
     {
         $binaryImage = $this->decodeImagePayload($payload);
         $statement = $pdo->prepare(self::EXPORT_SQL);
+        $lobStream = fopen('php://temp', 'r+b');
+        if (! is_resource($lobStream)) {
+            throw new RuntimeException('Oracle export failed. Unable to allocate temporary stream for image blob.');
+        }
+
+        if (fwrite($lobStream, $binaryImage) === false) {
+            fclose($lobStream);
+            throw new RuntimeException('Oracle export failed. Unable to write image blob into temporary stream.');
+        }
+        rewind($lobStream);
 
         $statement->bindValue(':p_doctor_name', $payload['doctor_name']);
         $statement->bindValue(':p_eng_name', $payload['eng_name']);
@@ -246,10 +256,10 @@ SQL;
         $statement->bindValue(':p_mobphone', $payload['mobphone']);
         $statement->bindValue(':p_homephone1', $payload['homephone1']);
         $statement->bindValue(':p_email', $payload['email']);
-        $statement->bindValue(':p_pic_blob', $binaryImage, PDO::PARAM_LOB);
+        $statement->bindParam(':p_pic_blob', $lobStream, PDO::PARAM_LOB);
 
-        $registerNo = null;
-        $statement->bindParam(':p_register_no', $registerNo, PDO::PARAM_INT | PDO::PARAM_INPUT_OUTPUT, 40);
+        $registerNo = '';
+        $statement->bindParam(':p_register_no', $registerNo, PDO::PARAM_STR | PDO::PARAM_INPUT_OUTPUT, 40);
 
         $pdo->beginTransaction();
         try {
@@ -261,6 +271,8 @@ SQL;
             }
 
             throw new RuntimeException('Oracle export failed. ' . $exception->getMessage(), previous: $exception);
+        } finally {
+            fclose($lobStream);
         }
 
         if (blank($registerNo)) {
