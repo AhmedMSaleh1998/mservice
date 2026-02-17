@@ -71,6 +71,7 @@ class RegistrationRequest extends Model
         'active',
         'documents',
         'reg_code',
+        'oracle_register_no',
     ];
 
 

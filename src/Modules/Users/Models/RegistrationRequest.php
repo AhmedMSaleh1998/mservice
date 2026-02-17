@@ -70,6 +70,7 @@ class RegistrationRequest extends CustomModel
         'license_image',
         'status',
         'reg_code',
+        'oracle_register_no',
         'active',
         'documents',
     ];

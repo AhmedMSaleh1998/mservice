@@ -4,6 +4,7 @@ namespace App\Filament\Resources\RegistrationRequests\Tables;
 
 use App\Models\Admin;
 use App\Models\RegistrationRequest;
+use App\Services\Oracle\OracleDoctorExportService;
 use App\Support\CountryCodeOptions;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -37,6 +38,11 @@ class RegistrationRequestsTable
                     ->searchable()
                     ->badge()
                     ->color('gray'),
+                TextColumn::make('oracle_register_no')
+                    ->label(__('Oracle Register Number'))
+                    ->searchable()
+                    ->copyable()
+                    ->toggleable(),
                 TextColumn::make('status')
                     ->label(__('Status'))
                     ->badge()
@@ -106,13 +112,29 @@ class RegistrationRequestsTable
                                 return;
                             }
 
+                            try {
+                                $oracleRegisterNo = app(OracleDoctorExportService::class)
+                                    ->exportRegistrationRequest($record);
+                            } catch (\Throwable $exception) {
+                                report($exception);
+
+                                Notification::make()
+                                    ->title(__('There is a problem exporting data to Oracle. Please try again.'))
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
                             $record->update([
                                 'status' => RegistrationRequest::STATUS_APPROVED,
                                 'active' => true,
+                                'oracle_register_no' => $oracleRegisterNo,
                             ]);
 
                             Notification::make()
-                                ->title(__('Registration approved successfully'))
+                                ->title(__('Registration approved and exported successfully'))
+                                ->body(__('Oracle register number: :number', ['number' => $oracleRegisterNo]))
                                 ->success()
                                 ->send();
                         })

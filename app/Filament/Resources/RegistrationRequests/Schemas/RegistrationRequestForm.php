@@ -291,8 +291,10 @@ class RegistrationRequestForm
                     ->schema([
                         TextInput::make('license_number')
                             ->label(__('License Number'))
+                            ->numeric()
                             ->required(fn (?RegistrationRequest $record): bool => static::shouldRequireLicenseData($record))
-                            ->maxLength(100),
+                            ->maxLength(20)
+                            ->rule('regex:/^\d+$/'),
                         DatePicker::make('license_date')
                             ->label(__('License Date'))
                             ->required(fn (?RegistrationRequest $record): bool => static::shouldRequireLicenseData($record)),

@@ -30,6 +30,9 @@ class RegistrationRequestInfolist
                         TextEntry::make('national_id')
                             ->label(__('National ID'))
                             ->copyable(),
+                        TextEntry::make('oracle_register_no')
+                            ->label(__('Oracle Register Number'))
+                            ->copyable(),
                         TextEntry::make('full_name_ar')
                             ->label(__('Full Name (AR)')),
                         TextEntry::make('full_name_en')

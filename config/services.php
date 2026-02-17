@@ -38,4 +38,12 @@ return [
         'key' => env('GOOGLE_MAPS_API_KEY', 'AIzaSyBaZBOxrXVrT2bdxdz2VbT_G4iZIygOuIY'),
     ],
 
+    'oracle' => [
+        'host' => env('ORACLE_HOST'),
+        'port' => env('ORACLE_PORT', '1521'),
+        'service_name' => env('ORACLE_SERVICE_NAME'),
+        'username' => env('ORACLE_USERNAME'),
+        'password' => env('ORACLE_PASSWORD'),
+    ],
+
 ];
