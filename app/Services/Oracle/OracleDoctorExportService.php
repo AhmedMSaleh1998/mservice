@@ -153,7 +153,7 @@ SQL;
             'homephone1' => (string) ($registrationRequest->residence_phone ?? ''),
             'email' => (string) $registrationRequest->email,
             // استبعد الصورة لو كبيرة قوي
-            'pic_base64_length' => strlen(base64_encode($imageContent)),
+            'p_pic_blob_length' => strlen(base64_encode($imageContent)),
         ]);
 
         return [
@@ -175,7 +175,7 @@ SQL;
             'mobphone' => $mobilePhone,
             'homephone1' => (string) ($registrationRequest->residence_phone ?? ''),
             'email' => (string) $registrationRequest->email,
-            'pic_base64' => base64_encode($imageContent),
+            'p_pic_blob' => base64_encode($imageContent),
         ];
     }
 
@@ -405,7 +405,7 @@ SQL;
      */
     private function resolveBase64ImagePayload(array $payload): string
     {
-        $b64 = (string) ($payload['pic_base64'] ?? '');
+        $b64 = (string) ($payload['p_pic_blob'] ?? $payload['pic_base64'] ?? '');
         $b64 = trim($b64);
 
         if ($b64 === '') {
@@ -422,11 +422,17 @@ SQL;
             $b64 = trim($b64);
         }
 
+        // Normalize payload in case base64 includes line breaks/spaces.
+        $b64 = preg_replace('/\s+/', '', $b64) ?? '';
+        if ($b64 === '') {
+            throw new RuntimeException('Empty base64 image payload for Oracle export.');
+        }
+
         $binary = base64_decode($b64, true);
         if ($binary === false || $binary === '') {
             throw new RuntimeException('Invalid base64 image payload for Oracle export.');
         }
 
-        return $binary; // bytes جاهزة للـ BLOB
+        return $b64; // ارسال Base64 نصي على p_pic_blob
     }
 }
