@@ -13,6 +13,7 @@ class OracleConnectionService
         $host = (string) config('services.oracle.host');
         $port = (string) config('services.oracle.port', '1521');
         $serviceName = (string) config('services.oracle.service_name');
+        $charset = (string) config('services.oracle.charset', 'AL32UTF8');
         $username = (string) config('services.oracle.username');
         $password = (string) config('services.oracle.password');
 
@@ -21,7 +22,7 @@ class OracleConnectionService
         }
 
         if (extension_loaded('pdo_oci')) {
-            $dsn = sprintf('oci:dbname=//%s:%s/%s', $host, $port, $serviceName);
+            $dsn = sprintf('oci:dbname=//%s:%s/%s;charset=%s', $host, $port, $serviceName, $charset);
 
             try {
                 $pdo = new PDO($dsn, $username, $password);
@@ -35,7 +36,7 @@ class OracleConnectionService
 
         if (extension_loaded('oci8')) {
             $connectionString = sprintf('//%s:%s/%s', $host, $port, $serviceName);
-            $connection = @oci_connect($username, $password, $connectionString, 'AL32UTF8');
+            $connection = @oci_connect($username, $password, $connectionString, $charset);
 
             if (! $connection) {
                 $error = oci_error();

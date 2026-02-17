@@ -225,14 +225,14 @@ SQL;
      */
     private function exportWithPdo(PDO $pdo, array $payload): string
     {
-        $binaryImage = $this->decodeImagePayload($payload);
+        $base64Image = $this->resolveBase64ImagePayload($payload);
         $statement = $pdo->prepare(self::EXPORT_SQL);
         $lobStream = fopen('php://temp', 'r+b');
         if (! is_resource($lobStream)) {
             throw new RuntimeException('Oracle export failed. Unable to allocate temporary stream for image blob.');
         }
 
-        if (fwrite($lobStream, $binaryImage) === false) {
+        if (fwrite($lobStream, $base64Image) === false) {
             fclose($lobStream);
             throw new RuntimeException('Oracle export failed. Unable to write image blob into temporary stream.');
         }
@@ -288,7 +288,7 @@ SQL;
      */
     private function exportWithOci8($connection, array $payload): string
     {
-        $binaryImage = $this->decodeImagePayload($payload);
+        $base64Image = $this->resolveBase64ImagePayload($payload);
         $statement = @oci_parse($connection, self::EXPORT_SQL);
 
         if ($statement === false) {
@@ -341,7 +341,7 @@ SQL;
         }
 
         try {
-            if (! $blobDescriptor->writeTemporary($binaryImage, OCI_TEMP_BLOB)) {
+            if (! $blobDescriptor->writeTemporary($base64Image, OCI_TEMP_BLOB)) {
                 $this->throwOciError($connection, 'Oracle export failed while preparing image blob.');
             }
 
@@ -403,13 +403,13 @@ SQL;
     /**
      * @param array<string, string|int> $payload
      */
-    private function decodeImagePayload(array $payload): string
+    private function resolveBase64ImagePayload(array $payload): string
     {
-        $binaryImage = base64_decode((string) $payload['pic_base64'], true);
-        if ($binaryImage === false || $binaryImage === '') {
+        $base64Image = (string) ($payload['pic_base64'] ?? '');
+        if ($base64Image === '' || base64_decode($base64Image, true) === false) {
             throw new RuntimeException('Invalid base64 image payload for Oracle export.');
         }
 
-        return $binaryImage;
+        return $base64Image;
     }
 }
