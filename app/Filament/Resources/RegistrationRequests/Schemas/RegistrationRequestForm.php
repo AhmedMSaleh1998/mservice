@@ -2,8 +2,11 @@
 
 namespace App\Filament\Resources\RegistrationRequests\Schemas;
 
+use App\Models\Admin;
+use App\Models\RegistrationRequest;
 use Carbon\Carbon;
 use App\Support\CountryCodeOptions;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -28,13 +31,13 @@ class RegistrationRequestForm
             ->components([
                 Section::make(__('Personal Information'))
                     ->collapsible()
+                    ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
                     ->schema([
                         TextInput::make('national_id')
                             ->label(__('National ID'))
                             ->required()
                             ->minLength(14)
-                            ->maxLength(14)
-                            ->unique(table: 'users', column: 'national_id', ignoreRecord: true),
+                            ->maxLength(14),
                         TextInput::make('full_name_ar')
                             ->label(__('Full Name (AR)'))
                             ->required()
@@ -97,6 +100,7 @@ class RegistrationRequestForm
                 Section::make(__('Residence Information'))
                     ->collapsible()
                     ->collapsed()
+                    ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
                     ->schema([
                         TextInput::make('residence_house_number')
                             ->label(__('House Number'))
@@ -178,6 +182,7 @@ class RegistrationRequestForm
                 Section::make(__('Academic Information'))
                     ->collapsible()
                     ->collapsed()
+                    ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
                     ->schema([
                         TextInput::make('faculty')
                             ->label(__('Faculty'))
@@ -225,6 +230,7 @@ class RegistrationRequestForm
                 Section::make(__('Submitted Documents'))
                     ->collapsible()
                     ->collapsed()
+                    ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
                     ->schema([
                         FileUpload::make('documents.personal_image')
                             ->label(__('Personal Photo'))
@@ -277,7 +283,102 @@ class RegistrationRequestForm
                     ])
                     ->columns(3)
                     ->columnSpanFull(),
+                Section::make(__('License Information'))
+                    ->collapsible()
+                    ->collapsed()
+                    ->visible(fn () => static::canViewLicenseData())
+                    ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditLicenseData($record))
+                    ->schema([
+                        TextInput::make('license_number')
+                            ->label(__('License Number'))
+                            ->required(fn (?RegistrationRequest $record): bool => static::shouldRequireLicenseData($record))
+                            ->maxLength(100),
+                        DatePicker::make('license_date')
+                            ->label(__('License Date'))
+                            ->required(fn (?RegistrationRequest $record): bool => static::shouldRequireLicenseData($record)),
+                        FileUpload::make('license_image')
+                            ->label(__('License Image'))
+                            ->image()
+                            ->required(
+                                fn (?RegistrationRequest $record): bool => static::shouldRequireLicenseData($record)
+                                    && blank($record?->license_image)
+                            )
+                            ->disk('public')
+                            ->directory('documents')
+                            ->acceptedFileTypes(['image/png', 'image/jpeg'])
+                            ->maxSize(5120),
+                    ])
+                    ->columns(3)
+                    ->columnSpanFull(),
             ]);
+    }
+
+    private static function canEditMainData(?RegistrationRequest $record): bool
+    {
+        if (static::isSuperAdmin()) {
+            return true;
+        }
+
+        if (! static::hasRole('reviewer')) {
+            return false;
+        }
+
+        if (! $record) {
+            return true;
+        }
+
+        return $record->status === RegistrationRequest::STATUS_PENDING_REVIEW;
+    }
+
+    private static function canViewLicenseData(): bool
+    {
+        return static::isSuperAdmin() || static::hasRole('review-supervisor');
+    }
+
+    private static function canEditLicenseData(?RegistrationRequest $record): bool
+    {
+        if (static::isSuperAdmin()) {
+            return true;
+        }
+
+        if (! static::hasRole('review-supervisor')) {
+            return false;
+        }
+
+        if (! $record) {
+            return false;
+        }
+
+        return $record->status === RegistrationRequest::STATUS_PENDING_FINAL_APPROVAL;
+    }
+
+    private static function shouldRequireLicenseData(?RegistrationRequest $record): bool
+    {
+        if (! $record) {
+            return false;
+        }
+
+        return $record->status === RegistrationRequest::STATUS_PENDING_FINAL_APPROVAL
+            && (static::isSuperAdmin() || static::hasRole('review-supervisor'));
+    }
+
+    private static function isSuperAdmin(): bool
+    {
+        return static::hasRole('super_admin');
+    }
+
+    private static function hasRole(string $role): bool
+    {
+        $admin = static::currentAdmin();
+
+        return $admin?->hasRole($role) ?? false;
+    }
+
+    private static function currentAdmin(): ?Admin
+    {
+        $user = Filament::auth()->user();
+
+        return $user instanceof Admin ? $user : null;
     }
 
     private static function genderOptions(): array

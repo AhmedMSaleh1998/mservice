@@ -4,6 +4,7 @@ namespace App\Filament\Resources\RegistrationRequests;
 
 use App\Filament\Resources\RegistrationRequests\Pages\ListRegistrationRequests;
 use App\Filament\Resources\RegistrationRequests\Pages\CreateRegistrationRequest;
+use App\Filament\Resources\RegistrationRequests\Pages\EditRegistrationRequest;
 use App\Filament\Resources\RegistrationRequests\Pages\ViewRegistrationRequest;
 use App\Filament\Resources\RegistrationRequests\Schemas\RegistrationRequestForm;
 use App\Filament\Resources\RegistrationRequests\Schemas\RegistrationRequestInfolist;
@@ -69,6 +70,7 @@ class RegistrationRequestResource extends Resource
             'index' => ListRegistrationRequests::route('/'),
             'create' => CreateRegistrationRequest::route('/create'),
             'view' => ViewRegistrationRequest::route('/{record}'),
+            'edit' => EditRegistrationRequest::route('/{record}/edit'),
         ];
     }
 }

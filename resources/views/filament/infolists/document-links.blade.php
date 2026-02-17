@@ -4,6 +4,15 @@
     $documents = $getState() ?? [];
     $documents = array_filter($documents, fn ($value) => ! empty($value));
 
+    $admin = auth('admin')->user();
+    $canViewLicenseDocument = $admin
+        && method_exists($admin, 'hasRole')
+        && ($admin->hasRole('super_admin') || $admin->hasRole('review-supervisor'));
+
+    if (! $canViewLicenseDocument) {
+        unset($documents['license_image']);
+    }
+
     $documentTypes = [];
     $record = $getRecord();
     if ($record && method_exists($record, 'getDocumentTypes')) {

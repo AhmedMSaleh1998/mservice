@@ -6,6 +6,36 @@ use Illuminate\Database\Eloquent\Model;
 
 class RegistrationRequest extends Model
 {
+    public const STATUS_PENDING_REVIEW = 'pending_review';
+    public const STATUS_PENDING_FINAL_APPROVAL = 'pending_final_approval';
+    public const STATUS_APPROVED = 'approved';
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $request): void {
+            if (blank($request->status)) {
+                $request->status = self::STATUS_PENDING_REVIEW;
+            }
+        });
+
+        static::saving(function (self $request): void {
+            $documents = is_array($request->documents) ? $request->documents : [];
+
+            if (filled($request->license_image)) {
+                $documents['license_image'] = $request->license_image;
+            } elseif (array_key_exists('license_image', $documents)) {
+                $request->license_image = $documents['license_image'];
+            }
+
+            if (array_key_exists('license_image', $documents) && blank($documents['license_image'])) {
+                unset($documents['license_image']);
+            }
+
+            $request->documents = empty($documents) ? null : $documents;
+            $request->license_image = $documents['license_image'] ?? $request->license_image;
+        });
+    }
+
     protected $fillable = [
         'national_id',
         'full_name_ar',
@@ -34,6 +64,10 @@ class RegistrationRequest extends Model
         'grade',
         'first_foreign_language',
         'second_foreign_language',
+        'license_number',
+        'license_date',
+        'license_image',
+        'status',
         'active',
         'documents',
         'reg_code',
@@ -44,6 +78,7 @@ class RegistrationRequest extends Model
         'documents' => 'array',
         'active' => 'boolean',
         'birth_date' => 'date',
+        'license_date' => 'date',
     ];
 
     // Helper method to get all document types
@@ -56,6 +91,21 @@ class RegistrationRequest extends Model
             'internship_certificate_image' => 'Internship Certificate',
             'criminal_record_certificate_image' => 'Criminal Record Certificate',
             'dob_image' => 'Date of Birth Certificate',
+            'license_image' => 'License Image',
         ];
+    }
+
+    public static function statusOptions(): array
+    {
+        return [
+            self::STATUS_PENDING_REVIEW => __('Pending'),
+            self::STATUS_PENDING_FINAL_APPROVAL => __('Pending Final Approval'),
+            self::STATUS_APPROVED => __('Approved'),
+        ];
+    }
+
+    public static function statusLabel(?string $status): string
+    {
+        return static::statusOptions()[$status] ?? (string) $status;
     }
 }

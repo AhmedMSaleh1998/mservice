@@ -37,6 +37,7 @@ class NewRegisterService
             'grade' => $dto->gradeId,
             'first_foreign_language' => $dto->firstForeignLanguageId,
             'second_foreign_language' => $dto->secondForeignLanguageId,
+            'status' => RegistrationRequest::STATUS_PENDING_REVIEW,
             'active' => false,
             'reg_code' => 'EMS' . random_int(11111, 99999),
         ]);

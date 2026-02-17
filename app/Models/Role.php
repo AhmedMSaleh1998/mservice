@@ -28,17 +28,30 @@ class Role extends SpatieRole
     protected static function booted(): void
     {
         static::saving(function (self $role): void {
+            $guardName = filled($role->guard_name)
+                ? (string) $role->guard_name
+                : (string) config('auth.defaults.guard', 'web');
+
+            $role->guard_name = $guardName;
+
+            // Keep role slug immutable after creation.
+            if ($role->exists) {
+                $role->name = (string) ($role->getOriginal('name') ?? $role->name);
+
+                return;
+            }
+
+            // If name is set explicitly during creation, keep it.
+            if (filled($role->name)) {
+                return;
+            }
+
             $englishName = static::extractEnglishName($role->translated_name);
 
             if (blank($englishName)) {
                 return;
             }
 
-            $guardName = filled($role->guard_name)
-                ? (string) $role->guard_name
-                : (string) config('auth.defaults.guard', 'web');
-
-            $role->guard_name = $guardName;
             $role->name = static::makeUniqueSlugFromEnglishName(
                 englishName: $englishName,
                 guardName: $guardName,

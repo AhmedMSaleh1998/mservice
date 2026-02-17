@@ -15,7 +15,13 @@ class EditRegistrationRequest extends EditRecord
     {
         return [
             ViewAction::make(),
-            DeleteAction::make(),
         ];
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $data['license_image'] = $data['license_image'] ?? data_get($data, 'documents.license_image');
+
+        return $data;
     }
 }

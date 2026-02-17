@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\RegistrationRequests\Pages;
 
 use App\Filament\Resources\RegistrationRequests\RegistrationRequestResource;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Enums\Width;
 
@@ -15,8 +14,7 @@ class ListRegistrationRequests extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [
-            CreateAction::make(),
-        ];
+        // Registration requests should primarily come from the public doctor portal.
+        return [];
     }
 }

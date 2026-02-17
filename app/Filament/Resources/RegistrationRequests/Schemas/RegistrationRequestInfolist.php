@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources\RegistrationRequests\Schemas;
 
+use App\Models\Admin;
+use App\Models\RegistrationRequest;
 use App\Support\CountryCodeOptions;
-use Filament\Infolists\Components\IconEntry;
+use Filament\Facades\Filament;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Schemas\Components\Section;
@@ -52,13 +54,11 @@ class RegistrationRequestInfolist
                         TextEntry::make('birth_date')
                             ->label(__('Birth Date'))
                             ->date(),
-                        IconEntry::make('active')
+                        TextEntry::make('status')
                             ->label(__('Status'))
-                            ->boolean()
-                            ->trueIcon('heroicon-o-check-circle')
-                            ->falseIcon('heroicon-o-x-circle')
-                            ->trueColor('success')
-                            ->falseColor('danger'),
+                            ->badge()
+                            ->formatStateUsing(fn (?string $state) => RegistrationRequest::statusLabel($state))
+                            ->color(fn (?string $state) => static::statusColor($state)),
                         TextEntry::make('created_at')
                             ->label(__('Submitted At'))
                             ->dateTime(),
@@ -117,6 +117,13 @@ class RegistrationRequestInfolist
                         TextEntry::make('second_foreign_language')
                             ->label(__('Second Foreign Language'))
                             ->formatStateUsing(fn ($state) => static::getLookupName($state, Language::class)),
+                        TextEntry::make('license_number')
+                            ->label(__('License Number'))
+                            ->visible(fn () => static::canViewLicenseData()),
+                        TextEntry::make('license_date')
+                            ->label(__('License Date'))
+                            ->date()
+                            ->visible(fn () => static::canViewLicenseData()),
                     ])
                     ->columns(3)
                     ->columnSpanFull(),
@@ -130,6 +137,40 @@ class RegistrationRequestInfolist
                     ])
                     ->columnSpanFull(),
             ]);
+    }
+
+    protected static function statusColor(?string $status): string
+    {
+        return match ($status) {
+            RegistrationRequest::STATUS_PENDING_REVIEW => 'warning',
+            RegistrationRequest::STATUS_PENDING_FINAL_APPROVAL => 'info',
+            RegistrationRequest::STATUS_APPROVED => 'success',
+            default => 'gray',
+        };
+    }
+
+    protected static function canViewLicenseData(): bool
+    {
+        return static::isSuperAdmin() || static::hasRole('review-supervisor');
+    }
+
+    protected static function isSuperAdmin(): bool
+    {
+        return static::hasRole('super_admin');
+    }
+
+    protected static function hasRole(string $role): bool
+    {
+        $admin = static::currentAdmin();
+
+        return $admin?->hasRole($role) ?? false;
+    }
+
+    protected static function currentAdmin(): ?Admin
+    {
+        $user = Filament::auth()->user();
+
+        return $user instanceof Admin ? $user : null;
     }
 
     protected static function getLookupName($id, string $modelClass): ?string
