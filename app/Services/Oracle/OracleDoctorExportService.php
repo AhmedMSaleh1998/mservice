@@ -36,7 +36,7 @@ BEGIN
         P_MOBPHONE           => :p_mobphone,
         P_HOMEPHONE1         => :p_homephone1,
         P_EMAIL              => :p_email,
-        P_PIC_BLOB           => :p_pic_blob,
+        P_PIC_BLOB           => EMS_UN_BASIC_DATA.base64decode(TO_CLOB(:p_pic_blob)),
         P_REGISTER_NO        => :p_register_no
     );
 END;
@@ -77,6 +77,7 @@ SQL;
         }
 
         $imageContent = $this->resolveImageContent($registrationRequest);
+        $base64Image = base64_encode($imageContent);
 
         $gender = match (strtolower((string) $registrationRequest->gender)) {
             'male' => 1,
@@ -152,8 +153,8 @@ SQL;
             'mobphone' => $mobilePhone,
             'homephone1' => (string) ($registrationRequest->residence_phone ?? ''),
             'email' => (string) $registrationRequest->email,
-            // استبعد الصورة لو كبيرة قوي
-            'p_pic_blob' => base64_encode($imageContent),
+            // Log only the length to avoid filling logs with large payloads.
+            'p_pic_blob_length' => strlen($base64Image),
         ]);
 
         return [
@@ -175,7 +176,7 @@ SQL;
             'mobphone' => $mobilePhone,
             'homephone1' => (string) ($registrationRequest->residence_phone ?? ''),
             'email' => (string) $registrationRequest->email,
-            'p_pic_blob' => base64_encode($imageContent),
+            'p_pic_blob' => $base64Image,
         ];
     }
 
@@ -227,16 +228,6 @@ SQL;
     {
         $base64Image = $this->resolveBase64ImagePayload($payload);
         $statement = $pdo->prepare(self::EXPORT_SQL);
-        $lobStream = fopen('php://temp', 'r+b');
-        if (! is_resource($lobStream)) {
-            throw new RuntimeException('Oracle export failed. Unable to allocate temporary stream for image blob.');
-        }
-
-        if (fwrite($lobStream, $base64Image) === false) {
-            fclose($lobStream);
-            throw new RuntimeException('Oracle export failed. Unable to write image blob into temporary stream.');
-        }
-        rewind($lobStream);
 
         $statement->bindValue(':p_doctor_name', $payload['doctor_name']);
         $statement->bindValue(':p_eng_name', $payload['eng_name']);
@@ -256,7 +247,7 @@ SQL;
         $statement->bindValue(':p_mobphone', $payload['mobphone']);
         $statement->bindValue(':p_homephone1', $payload['homephone1']);
         $statement->bindValue(':p_email', $payload['email']);
-        $statement->bindParam(':p_pic_blob', $lobStream, PDO::PARAM_LOB);
+        $statement->bindValue(':p_pic_blob', $base64Image);
 
         $registerNo = '';
         $statement->bindParam(':p_register_no', $registerNo, PDO::PARAM_STR | PDO::PARAM_INPUT_OUTPUT, 40);
@@ -271,8 +262,6 @@ SQL;
             }
 
             throw new RuntimeException('Oracle export failed. ' . $exception->getMessage(), previous: $exception);
-        } finally {
-            fclose($lobStream);
         }
 
         if (blank($registerNo)) {
@@ -334,18 +323,18 @@ SQL;
         $this->bindOciByName($statement, ':p_homephone1', $homePhone1);
         $this->bindOciByName($statement, ':p_email', $email);
 
-        $blobDescriptor = oci_new_descriptor($connection, OCI_D_LOB);
-        if ($blobDescriptor === false) {
+        $clobDescriptor = oci_new_descriptor($connection, OCI_D_LOB);
+        if ($clobDescriptor === false) {
             oci_free_statement($statement);
-            $this->throwOciError($connection, 'Oracle export failed while creating BLOB descriptor.');
+            $this->throwOciError($connection, 'Oracle export failed while creating CLOB descriptor.');
         }
 
         try {
-            if (! $blobDescriptor->writeTemporary($base64Image, OCI_TEMP_BLOB)) {
-                $this->throwOciError($connection, 'Oracle export failed while preparing image blob.');
+            if (! $clobDescriptor->writeTemporary($base64Image, OCI_TEMP_CLOB)) {
+                $this->throwOciError($connection, 'Oracle export failed while preparing base64 image.');
             }
 
-            $this->bindOciByName($statement, ':p_pic_blob', $blobDescriptor, -1, OCI_B_BLOB);
+            $this->bindOciByName($statement, ':p_pic_blob', $clobDescriptor, -1, OCI_B_CLOB);
             $this->bindOciByName($statement, ':p_register_no', $registerNo, 40);
 
             if (! @oci_execute($statement, OCI_NO_AUTO_COMMIT)) {
@@ -361,8 +350,8 @@ SQL;
             @oci_rollback($connection);
             throw new RuntimeException('Oracle export failed. ' . $exception->getMessage(), previous: $exception);
         } finally {
-            if (is_object($blobDescriptor) && method_exists($blobDescriptor, 'free')) {
-                $blobDescriptor->free();
+            if (is_object($clobDescriptor) && method_exists($clobDescriptor, 'free')) {
+                $clobDescriptor->free();
             }
 
             oci_free_statement($statement);
