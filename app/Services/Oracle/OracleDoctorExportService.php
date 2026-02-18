@@ -243,6 +243,7 @@ SQL;
             ],
             $this->resolveImageDebugMeta($payload),
         ));
+        $this->logOutgoingImagePreview($payload, $binaryImage, 'pdo_oci', 'before_pr_create_doctor');
 
         $statement->bindValue(':p_doctor_name', $payload['doctor_name']);
         $statement->bindValue(':p_eng_name', $payload['eng_name']);
@@ -354,6 +355,7 @@ SQL;
             ],
             $this->resolveImageDebugMeta($payload),
         ));
+        $this->logOutgoingImagePreview($payload, $binaryImage, 'oci8', 'before_pr_create_doctor');
 
         try {
             if (! $blobDescriptor->writeTemporary($binaryImage, OCI_TEMP_BLOB)) {
@@ -751,6 +753,40 @@ SQL;
     private function isJpegBinary(string $binary): bool
     {
         return strlen($binary) >= 3 && substr($binary, 0, 3) === "\xFF\xD8\xFF";
+    }
+
+    /**
+     * @param array<string, string|int> $payload
+     */
+    private function logOutgoingImagePreview(array $payload, string $binaryImage, string $driver, string $stage): void
+    {
+        $mimeType = 'application/octet-stream';
+        if (class_exists(\finfo::class)) {
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $detectedType = $finfo->buffer($binaryImage);
+            if (is_string($detectedType) && $detectedType !== '') {
+                $mimeType = $detectedType;
+            }
+        }
+
+        $headBytes = substr($binaryImage, 0, 32);
+        $tailBytes = substr($binaryImage, -32);
+        $previewBytes = substr($binaryImage, 0, 96);
+
+        Log::info('Oracle Outgoing Image Preview', array_merge(
+            [
+                'driver' => $driver,
+                'stage' => $stage,
+                'normalized_blob_bytes_length' => strlen($binaryImage),
+                'normalized_blob_is_jpeg' => $this->isJpegBinary($binaryImage),
+                'normalized_blob_mime' => $mimeType,
+                'normalized_blob_sha256' => hash('sha256', $binaryImage),
+                'normalized_blob_head_hex' => strtoupper(bin2hex($headBytes)),
+                'normalized_blob_tail_hex' => strtoupper(bin2hex($tailBytes)),
+                'normalized_blob_head_base64_preview' => base64_encode($previewBytes),
+            ],
+            $this->resolveImageDebugMeta($payload),
+        ));
     }
 
     /**
