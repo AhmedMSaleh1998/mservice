@@ -36,7 +36,7 @@ BEGIN
         P_MOBPHONE           => :p_mobphone,
         P_HOMEPHONE1         => :p_homephone1,
         P_EMAIL              => :p_email,
-        P_PIC_BASE64         => :p_pic_base64,
+        P_PIC_BLOB           => :p_pic_blob,
         P_REGISTER_NO        => :p_register_no
     );
 END;
@@ -77,12 +77,7 @@ SQL;
         }
 
         $imagePath = $this->resolveImagePath($registrationRequest);
-        $imageContent = file_get_contents($imagePath);
-        if ($imageContent === false || $imageContent === '') {
-            throw new RuntimeException('Oracle export failed. Unable to read image for base64 payload.');
-        }
-
-        $base64Image = base64_encode($imageContent);
+        $imageSize = @filesize($imagePath);
 
         $gender = match (strtolower((string) $registrationRequest->gender)) {
             'male' => 1,
@@ -158,7 +153,7 @@ SQL;
             'mobphone' => $mobilePhone,
             'homephone1' => (string) ($registrationRequest->residence_phone ?? ''),
             'email' => (string) $registrationRequest->email,
-            'p_pic_base64_length' => strlen($base64Image),
+            'p_pic_blob_bytes_length' => is_int($imageSize) ? $imageSize : 0,
         ]);
 
         return [
@@ -180,7 +175,7 @@ SQL;
             'mobphone' => $mobilePhone,
             'homephone1' => (string) ($registrationRequest->residence_phone ?? ''),
             'email' => (string) $registrationRequest->email,
-            'pic_base64' => $base64Image,
+            'pic_blob_path' => $imagePath,
         ];
     }
 
@@ -225,18 +220,13 @@ SQL;
      */
     private function exportWithPdo(PDO $pdo, array $payload): string
     {
-        $base64Image = $this->resolveBase64ImagePayload($payload);
+        $imageStream = $this->openImageReadStream($payload);
         $statement = $pdo->prepare(self::EXPORT_SQL);
-        $clobStream = fopen('php://temp', 'r+b');
-        if (! is_resource($clobStream)) {
-            throw new RuntimeException('Oracle export failed. Unable to allocate temporary stream for base64 image.');
-        }
 
-        if (fwrite($clobStream, $base64Image) === false) {
-            fclose($clobStream);
-            throw new RuntimeException('Oracle export failed. Unable to write base64 image into temporary stream.');
-        }
-        rewind($clobStream);
+        Log::info('Oracle Doctor Blob Bind Debug', array_merge(
+            ['driver' => 'pdo_oci', 'parameter' => 'p_pic_blob'],
+            $this->resolveImageDebugMeta($payload),
+        ));
 
         $statement->bindValue(':p_doctor_name', $payload['doctor_name']);
         $statement->bindValue(':p_eng_name', $payload['eng_name']);
@@ -256,7 +246,7 @@ SQL;
         $statement->bindValue(':p_mobphone', $payload['mobphone']);
         $statement->bindValue(':p_homephone1', $payload['homephone1']);
         $statement->bindValue(':p_email', $payload['email']);
-        $statement->bindParam(':p_pic_base64', $clobStream, PDO::PARAM_LOB);
+        $statement->bindParam(':p_pic_blob', $imageStream, PDO::PARAM_LOB);
 
         $registerNo = '';
         $statement->bindParam(':p_register_no', $registerNo, PDO::PARAM_STR | PDO::PARAM_INPUT_OUTPUT, 40);
@@ -272,8 +262,8 @@ SQL;
 
             throw new RuntimeException('Oracle export failed. ' . $exception->getMessage(), previous: $exception);
         } finally {
-            if (is_resource($clobStream)) {
-                fclose($clobStream);
+            if (is_resource($imageStream)) {
+                fclose($imageStream);
             }
         }
 
@@ -290,7 +280,7 @@ SQL;
      */
     private function exportWithOci8($connection, array $payload): string
     {
-        $base64Image = $this->resolveBase64ImagePayload($payload);
+        $binaryImage = $this->readImageBinaryPayload($payload);
         $statement = @oci_parse($connection, self::EXPORT_SQL);
 
         if ($statement === false) {
@@ -336,18 +326,23 @@ SQL;
         $this->bindOciByName($statement, ':p_homephone1', $homePhone1);
         $this->bindOciByName($statement, ':p_email', $email);
 
-        $clobDescriptor = oci_new_descriptor($connection, OCI_D_LOB);
-        if ($clobDescriptor === false) {
+        $blobDescriptor = oci_new_descriptor($connection, OCI_D_LOB);
+        if ($blobDescriptor === false) {
             oci_free_statement($statement);
-            $this->throwOciError($connection, 'Oracle export failed while creating CLOB descriptor.');
+            $this->throwOciError($connection, 'Oracle export failed while creating BLOB descriptor.');
         }
 
+        Log::info('Oracle Doctor Blob Bind Debug', array_merge(
+            ['driver' => 'oci8', 'parameter' => 'p_pic_blob'],
+            $this->resolveImageDebugMeta($payload),
+        ));
+
         try {
-            if (! $clobDescriptor->writeTemporary($base64Image, OCI_TEMP_CLOB)) {
-                $this->throwOciError($connection, 'Oracle export failed while preparing base64 image.');
+            if (! $blobDescriptor->writeTemporary($binaryImage, OCI_TEMP_BLOB)) {
+                $this->throwOciError($connection, 'Oracle export failed while preparing image blob.');
             }
 
-            $this->bindOciByName($statement, ':p_pic_base64', $clobDescriptor, -1, OCI_B_CLOB);
+            $this->bindOciByName($statement, ':p_pic_blob', $blobDescriptor, -1, OCI_B_BLOB);
             $this->bindOciByName($statement, ':p_register_no', $registerNo, 40);
 
             if (! @oci_execute($statement, OCI_NO_AUTO_COMMIT)) {
@@ -363,8 +358,8 @@ SQL;
             @oci_rollback($connection);
             throw new RuntimeException('Oracle export failed. ' . $exception->getMessage(), previous: $exception);
         } finally {
-            if (is_object($clobDescriptor) && method_exists($clobDescriptor, 'free')) {
-                $clobDescriptor->free();
+            if (is_object($blobDescriptor) && method_exists($blobDescriptor, 'free')) {
+                $blobDescriptor->free();
             }
 
             oci_free_statement($statement);
@@ -405,18 +400,70 @@ SQL;
     /**
      * @param array<string, string|int> $payload
      */
-    private function resolveBase64ImagePayload(array $payload): string
+    private function resolveImagePathFromPayload(array $payload): string
     {
-        $base64 = (string) ($payload['pic_base64'] ?? '');
-        $base64 = preg_replace('/\s+/', '', trim($base64)) ?? '';
-        if ($base64 === '') {
-            throw new RuntimeException('Empty base64 image payload for Oracle export.');
+        $path = (string) ($payload['pic_blob_path'] ?? '');
+        if ($path === '' || ! is_file($path) || ! is_readable($path)) {
+            throw new RuntimeException('Image file is missing or unreadable for Oracle export.');
         }
 
-        if (base64_decode($base64, true) === false) {
-            throw new RuntimeException('Invalid base64 image payload for Oracle export.');
+        return $path;
+    }
+
+    /**
+     * @param array<string, string|int> $payload
+     * @return resource
+     */
+    private function openImageReadStream(array $payload)
+    {
+        $path = $this->resolveImagePathFromPayload($payload);
+        $stream = fopen($path, 'rb');
+        if (! is_resource($stream)) {
+            throw new RuntimeException('Oracle export failed. Unable to open image stream.');
         }
 
-        return $base64;
+        return $stream;
+    }
+
+    /**
+     * @param array<string, string|int> $payload
+     */
+    private function readImageBinaryPayload(array $payload): string
+    {
+        $path = $this->resolveImagePathFromPayload($payload);
+        $binary = file_get_contents($path);
+        if ($binary === false || $binary === '') {
+            throw new RuntimeException('Oracle export failed. Unable to read image content.');
+        }
+
+        return $binary;
+    }
+
+    /**
+     * @param array<string, string|int> $payload
+     * @return array<string, string|int|null>
+     */
+    private function resolveImageDebugMeta(array $payload): array
+    {
+        $path = $this->resolveImagePathFromPayload($payload);
+        $size = @filesize($path);
+        $sha256 = @hash_file('sha256', $path) ?: null;
+        $headHex = '';
+
+        $stream = @fopen($path, 'rb');
+        if (is_resource($stream)) {
+            $headBytes = fread($stream, 32);
+            if ($headBytes !== false) {
+                $headHex = strtoupper(bin2hex($headBytes));
+            }
+            fclose($stream);
+        }
+
+        return [
+            'image_path' => $path,
+            'p_pic_blob_bytes_length' => is_int($size) ? $size : 0,
+            'p_pic_blob_sha256' => $sha256,
+            'p_pic_blob_head_hex' => $headHex,
+        ];
     }
 }
