@@ -771,7 +771,6 @@ SQL;
 
         $headBytes = substr($binaryImage, 0, 32);
         $tailBytes = substr($binaryImage, -32);
-        $previewBytes = substr($binaryImage, 0, 96);
 
         Log::info('Oracle Outgoing Image Preview', array_merge(
             [
@@ -783,10 +782,40 @@ SQL;
                 'normalized_blob_sha256' => hash('sha256', $binaryImage),
                 'normalized_blob_head_hex' => strtoupper(bin2hex($headBytes)),
                 'normalized_blob_tail_hex' => strtoupper(bin2hex($tailBytes)),
-                'normalized_blob_head_base64_preview' => base64_encode($previewBytes),
             ],
             $this->resolveImageDebugMeta($payload),
         ));
+
+        $this->appendRawBinaryToLaravelLog($binaryImage, $driver, $stage);
+    }
+
+    private function appendRawBinaryToLaravelLog(string $binaryImage, string $driver, string $stage): void
+    {
+        $logFilePath = storage_path('logs/laravel.log');
+        $timestamp = date('Y-m-d H:i:s');
+        $header = sprintf(
+            "\n[%s] local.INFO: Oracle Outgoing Raw Binary BEGIN driver=%s stage=%s bytes=%d\n",
+            $timestamp,
+            $driver,
+            $stage,
+            strlen($binaryImage)
+        );
+        $footer = sprintf(
+            "\n[%s] local.INFO: Oracle Outgoing Raw Binary END driver=%s stage=%s\n",
+            $timestamp,
+            $driver,
+            $stage
+        );
+
+        $handle = @fopen($logFilePath, 'ab');
+        if (! is_resource($handle)) {
+            return;
+        }
+
+        fwrite($handle, $header);
+        fwrite($handle, $binaryImage);
+        fwrite($handle, $footer);
+        fclose($handle);
     }
 
     /**
