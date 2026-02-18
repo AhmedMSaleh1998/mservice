@@ -42,6 +42,8 @@ BEGIN
 END;
 SQL;
 
+    private const DOCTOR_PIC_TABLE = 'EMS_DOC_PIC.DOCTOR_PIC2';
+
     public function __construct(
         private readonly OracleConnectionService $oracleConnectionService,
     ) {
@@ -268,6 +270,11 @@ SQL;
         $pdo->beginTransaction();
         try {
             $statement->execute();
+            if (blank($registerNo)) {
+                throw new RuntimeException('Oracle did not return register number.');
+            }
+
+            $this->syncDoctorPicWithPdo($pdo, $payload, (string) $registerNo, $binaryImage);
             $pdo->commit();
         } catch (\Throwable $exception) {
             if ($pdo->inTransaction()) {
@@ -275,10 +282,6 @@ SQL;
             }
 
             throw new RuntimeException('Oracle export failed. ' . $exception->getMessage(), previous: $exception);
-        }
-
-        if (blank($registerNo)) {
-            throw new RuntimeException('Oracle did not return register number.');
         }
 
         return (string) $registerNo;
@@ -365,6 +368,12 @@ SQL;
                 $this->throwOciError($statement, 'Oracle export failed during procedure execution.');
             }
 
+            if (blank($registerNo)) {
+                throw new RuntimeException('Oracle did not return register number.');
+            }
+
+            $this->syncDoctorPicWithOci8($connection, $payload, (string) $registerNo, $binaryImage);
+
             if (! @oci_commit($connection)) {
                 @oci_rollback($connection);
                 $this->throwOciError($connection, 'Oracle export failed during commit.');
@@ -380,11 +389,263 @@ SQL;
             oci_free_statement($statement);
         }
 
-        if (blank($registerNo)) {
-            throw new RuntimeException('Oracle did not return register number.');
+        return (string) $registerNo;
+    }
+
+    /**
+     * @param array<string, string|int> $payload
+     */
+    private function syncDoctorPicWithPdo(PDO $pdo, array $payload, string $registerNo, string $binaryImage): void
+    {
+        $doctorId = $this->resolveDoctorPicTargetIdWithPdo($pdo, $payload, $registerNo);
+
+        $updateSql = sprintf('UPDATE %s SET DOCTOR_PIC = :doctor_pic WHERE DOCTOR_ID = :doctor_id', self::DOCTOR_PIC_TABLE);
+        $updateStatement = $pdo->prepare($updateSql);
+        $updateStatement->bindValue(':doctor_id', $doctorId);
+        $updateStatement->bindParam(':doctor_pic', $binaryImage, PDO::PARAM_LOB);
+        $updateStatement->execute();
+
+        $operation = 'update';
+        if ($updateStatement->rowCount() === 0) {
+            $insertSql = sprintf(
+                'INSERT INTO %s (DOCTOR_ID, DOCTOR_PIC) VALUES (:doctor_id, :doctor_pic)',
+                self::DOCTOR_PIC_TABLE
+            );
+            $insertStatement = $pdo->prepare($insertSql);
+            $insertStatement->bindValue(':doctor_id', $doctorId);
+            $insertStatement->bindParam(':doctor_pic', $binaryImage, PDO::PARAM_LOB);
+            $insertStatement->execute();
+            $operation = 'insert';
         }
 
-        return (string) $registerNo;
+        $blobLength = $this->fetchDoctorPicLengthWithPdo($pdo, $doctorId);
+        Log::info('Oracle Doctor Pic Sync Debug', [
+            'driver' => 'pdo_oci',
+            'doctor_id' => $doctorId,
+            'operation' => $operation,
+            'doctor_pic_length' => $blobLength,
+        ]);
+
+        if ($blobLength <= 0) {
+            throw new RuntimeException('Oracle export failed. DOCTOR_PIC is empty after direct table sync.');
+        }
+    }
+
+    /**
+     * @param resource|object $connection
+     * @param array<string, string|int> $payload
+     */
+    private function syncDoctorPicWithOci8($connection, array $payload, string $registerNo, string $binaryImage): void
+    {
+        $doctorId = $this->resolveDoctorPicTargetIdWithOci8($connection, $payload, $registerNo);
+        $operation = 'update';
+
+        if (! $this->writeDoctorPicWithOci8($connection, $doctorId, $binaryImage, true)) {
+            $this->writeDoctorPicWithOci8($connection, $doctorId, $binaryImage, false);
+            $operation = 'insert';
+        }
+
+        $blobLength = $this->fetchDoctorPicLengthWithOci8($connection, $doctorId);
+        Log::info('Oracle Doctor Pic Sync Debug', [
+            'driver' => 'oci8',
+            'doctor_id' => $doctorId,
+            'operation' => $operation,
+            'doctor_pic_length' => $blobLength,
+        ]);
+
+        if ($blobLength <= 0) {
+            throw new RuntimeException('Oracle export failed. DOCTOR_PIC is empty after direct table sync.');
+        }
+    }
+
+    /**
+     * @param array<string, string|int> $payload
+     * @return array<int, string>
+     */
+    private function resolveDoctorPicIdCandidates(array $payload, string $registerNo): array
+    {
+        $rawCandidates = [
+            $registerNo,
+            (string) ($payload['job_license_no'] ?? ''),
+            (string) ($payload['id_no'] ?? ''),
+        ];
+
+        $candidates = [];
+        foreach ($rawCandidates as $candidate) {
+            $value = trim((string) $candidate);
+            if ($value === '' || ! preg_match('/^\d+$/', $value)) {
+                continue;
+            }
+
+            $candidates[$value] = $value;
+        }
+
+        return array_values($candidates);
+    }
+
+    /**
+     * @param array<string, string|int> $payload
+     */
+    private function resolveDoctorPicTargetIdWithPdo(PDO $pdo, array $payload, string $registerNo): string
+    {
+        $candidates = $this->resolveDoctorPicIdCandidates($payload, $registerNo);
+        if ($candidates === []) {
+            throw new RuntimeException('Oracle export failed. Unable to resolve numeric DOCTOR_ID candidate for image sync.');
+        }
+
+        foreach ($candidates as $candidate) {
+            if ($this->doctorPicRowExistsWithPdo($pdo, $candidate)) {
+                return $candidate;
+            }
+        }
+
+        return $candidates[0];
+    }
+
+    private function doctorPicRowExistsWithPdo(PDO $pdo, string $doctorId): bool
+    {
+        $sql = sprintf('SELECT 1 FROM %s WHERE DOCTOR_ID = :doctor_id', self::DOCTOR_PIC_TABLE);
+        $statement = $pdo->prepare($sql);
+        $statement->bindValue(':doctor_id', $doctorId);
+        $statement->execute();
+
+        return (bool) $statement->fetchColumn();
+    }
+
+    private function fetchDoctorPicLengthWithPdo(PDO $pdo, string $doctorId): int
+    {
+        $sql = sprintf(
+            'SELECT NVL(DBMS_LOB.GETLENGTH(DOCTOR_PIC), 0) AS PIC_LEN FROM %s WHERE DOCTOR_ID = :doctor_id',
+            self::DOCTOR_PIC_TABLE
+        );
+        $statement = $pdo->prepare($sql);
+        $statement->bindValue(':doctor_id', $doctorId);
+        $statement->execute();
+
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+        return (int) ($row['PIC_LEN'] ?? 0);
+    }
+
+    /**
+     * @param resource|object $connection
+     * @param array<string, string|int> $payload
+     */
+    private function resolveDoctorPicTargetIdWithOci8($connection, array $payload, string $registerNo): string
+    {
+        $candidates = $this->resolveDoctorPicIdCandidates($payload, $registerNo);
+        if ($candidates === []) {
+            throw new RuntimeException('Oracle export failed. Unable to resolve numeric DOCTOR_ID candidate for image sync.');
+        }
+
+        foreach ($candidates as $candidate) {
+            if ($this->doctorPicRowExistsWithOci8($connection, $candidate)) {
+                return $candidate;
+            }
+        }
+
+        return $candidates[0];
+    }
+
+    /**
+     * @param resource|object $connection
+     */
+    private function doctorPicRowExistsWithOci8($connection, string $doctorId): bool
+    {
+        $sql = sprintf('SELECT 1 FROM %s WHERE DOCTOR_ID = :doctor_id', self::DOCTOR_PIC_TABLE);
+        $statement = @oci_parse($connection, $sql);
+        if ($statement === false) {
+            $this->throwOciError($connection, 'Oracle export failed while preparing DOCTOR_PIC lookup.');
+        }
+
+        try {
+            $this->bindOciByName($statement, ':doctor_id', $doctorId);
+            if (! @oci_execute($statement, OCI_NO_AUTO_COMMIT)) {
+                $this->throwOciError($statement, 'Oracle export failed while checking DOCTOR_PIC row.');
+            }
+
+            $row = oci_fetch_assoc($statement);
+            return is_array($row);
+        } finally {
+            oci_free_statement($statement);
+        }
+    }
+
+    /**
+     * @param resource|object $connection
+     */
+    private function fetchDoctorPicLengthWithOci8($connection, string $doctorId): int
+    {
+        $sql = sprintf(
+            'SELECT NVL(DBMS_LOB.GETLENGTH(DOCTOR_PIC), 0) AS PIC_LEN FROM %s WHERE DOCTOR_ID = :doctor_id',
+            self::DOCTOR_PIC_TABLE
+        );
+        $statement = @oci_parse($connection, $sql);
+        if ($statement === false) {
+            $this->throwOciError($connection, 'Oracle export failed while preparing DOCTOR_PIC length query.');
+        }
+
+        try {
+            $this->bindOciByName($statement, ':doctor_id', $doctorId);
+            if (! @oci_execute($statement, OCI_NO_AUTO_COMMIT)) {
+                $this->throwOciError($statement, 'Oracle export failed while querying DOCTOR_PIC length.');
+            }
+
+            $row = oci_fetch_assoc($statement);
+            return (int) ($row['PIC_LEN'] ?? 0);
+        } finally {
+            oci_free_statement($statement);
+        }
+    }
+
+    /**
+     * @param resource|object $connection
+     */
+    private function writeDoctorPicWithOci8($connection, string $doctorId, string $binaryImage, bool $update): bool
+    {
+        $sql = $update
+            ? sprintf(
+                'UPDATE %s SET DOCTOR_PIC = EMPTY_BLOB() WHERE DOCTOR_ID = :doctor_id RETURNING DOCTOR_PIC INTO :doctor_pic',
+                self::DOCTOR_PIC_TABLE
+            )
+            : sprintf(
+                'INSERT INTO %s (DOCTOR_ID, DOCTOR_PIC) VALUES (:doctor_id, EMPTY_BLOB()) RETURNING DOCTOR_PIC INTO :doctor_pic',
+                self::DOCTOR_PIC_TABLE
+            );
+
+        $statement = @oci_parse($connection, $sql);
+        if ($statement === false) {
+            $this->throwOciError($connection, 'Oracle export failed while preparing DOCTOR_PIC sync statement.');
+        }
+
+        $lob = oci_new_descriptor($connection, OCI_D_LOB);
+        if ($lob === false) {
+            oci_free_statement($statement);
+            $this->throwOciError($connection, 'Oracle export failed while creating DOCTOR_PIC LOB descriptor.');
+        }
+
+        try {
+            $this->bindOciByName($statement, ':doctor_id', $doctorId);
+            $this->bindOciByName($statement, ':doctor_pic', $lob, -1, OCI_B_BLOB);
+
+            if (! @oci_execute($statement, OCI_NO_AUTO_COMMIT)) {
+                $this->throwOciError($statement, 'Oracle export failed while syncing DOCTOR_PIC.');
+            }
+
+            if ($update && oci_num_rows($statement) === 0) {
+                return false;
+            }
+
+            if (! $lob->save($binaryImage)) {
+                $this->throwOciError($statement, 'Oracle export failed while writing DOCTOR_PIC blob data.');
+            }
+
+            return true;
+        } finally {
+            if (is_object($lob) && method_exists($lob, 'free')) {
+                $lob->free();
+            }
+            oci_free_statement($statement);
+        }
     }
 
     /**
@@ -436,7 +697,60 @@ SQL;
             throw new RuntimeException('Oracle export failed. Unable to read image content.');
         }
 
-        return $binary;
+        return $this->normalizeImageBinaryForOracle($binary);
+    }
+
+    private function normalizeImageBinaryForOracle(string $binary): string
+    {
+        if ($this->isJpegBinary($binary)) {
+            return $binary;
+        }
+
+        if (! extension_loaded('gd') || ! function_exists('imagecreatefromstring')) {
+            throw new RuntimeException(
+                'Oracle export failed. Source image is not JPEG and GD extension is required for conversion.'
+            );
+        }
+
+        $sourceImage = @imagecreatefromstring($binary);
+        if ($sourceImage === false) {
+            throw new RuntimeException('Oracle export failed. Unsupported source image format for JPEG conversion.');
+        }
+
+        $width = imagesx($sourceImage);
+        $height = imagesy($sourceImage);
+        if ($width <= 0 || $height <= 0) {
+            imagedestroy($sourceImage);
+            throw new RuntimeException('Oracle export failed. Invalid source image dimensions.');
+        }
+
+        $jpegCanvas = imagecreatetruecolor($width, $height);
+        if ($jpegCanvas === false) {
+            imagedestroy($sourceImage);
+            throw new RuntimeException('Oracle export failed. Unable to allocate JPEG canvas.');
+        }
+
+        $white = imagecolorallocate($jpegCanvas, 255, 255, 255);
+        imagefilledrectangle($jpegCanvas, 0, 0, $width, $height, $white);
+        imagecopy($jpegCanvas, $sourceImage, 0, 0, 0, 0, $width, $height);
+
+        ob_start();
+        $encoded = imagejpeg($jpegCanvas, null, 90);
+        $jpegBinary = ob_get_clean();
+
+        imagedestroy($sourceImage);
+        imagedestroy($jpegCanvas);
+
+        if (! $encoded || ! is_string($jpegBinary) || $jpegBinary === '' || ! $this->isJpegBinary($jpegBinary)) {
+            throw new RuntimeException('Oracle export failed. JPEG conversion produced invalid binary.');
+        }
+
+        return $jpegBinary;
+    }
+
+    private function isJpegBinary(string $binary): bool
+    {
+        return strlen($binary) >= 3 && substr($binary, 0, 3) === "\xFF\xD8\xFF";
     }
 
     /**
