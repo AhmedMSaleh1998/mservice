@@ -15,7 +15,7 @@ use RuntimeException;
 
 class OracleDoctorExportService
 {
-    private const EXPORT_SQL_WITH_NULL_PIC = <<<'SQL'
+    private const EXPORT_SQL = <<<'SQL'
 BEGIN
     EMS_UN_BASIC_DATA.PR_CREATE_DOCTOR(
         P_DOCTORNAME         => :p_doctor_name,
@@ -36,7 +36,7 @@ BEGIN
         P_MOBPHONE           => :p_mobphone,
         P_HOMEPHONE1         => :p_homephone1,
         P_EMAIL              => :p_email,
-        P_PIC_BLOB           => NULL,
+        P_PIC_BLOB           => :p_pic_blob,
         P_REGISTER_NO        => :p_register_no
     );
 END;
@@ -62,11 +62,10 @@ SQL;
         ]);
 
         if ($connection instanceof PDO) {
-            if (! extension_loaded('pdo_oci')) {
-                throw new RuntimeException('PDO_OCI extension is not installed.');
-            }
-
-            return $this->exportWithPdo($connection, $payload);
+            throw new RuntimeException(
+                'Oracle export failed. Image BLOB inside PR_CREATE_DOCTOR requires OCI8 native extension. ' .
+                'Please set ORACLE_DRIVER=oci8 and enable OCI8 on PHP runtime.'
+            );
         }
 
         if (! extension_loaded('oci8')) {
@@ -230,15 +229,27 @@ SQL;
      */
     private function exportWithPdo(PDO $pdo, array $payload): string
     {
-        $imagePath = $this->resolveImagePathFromPayload($payload);
-        $statement = $pdo->prepare(self::EXPORT_SQL_WITH_NULL_PIC);
+        $binaryImage = $this->readImageBinaryPayload($payload);
+        $lob = fopen('php://temp', 'r+b');
+        if (! is_resource($lob)) {
+            throw new RuntimeException('Oracle export failed. Unable to open temporary LOB stream.');
+        }
+
+        if (fwrite($lob, $binaryImage) === false) {
+            fclose($lob);
+            throw new RuntimeException('Oracle export failed. Unable to write binary image into LOB stream.');
+        }
+        rewind($lob);
+
+        $statement = $pdo->prepare(self::EXPORT_SQL);
 
         Log::info('Oracle Doctor Blob Bind Debug', array_merge(
             [
                 'driver' => 'pdo_oci',
                 'parameter' => 'p_pic_blob',
-                'transport' => 'procedure_null_then_direct_insert_stream',
-                'p_pic_blob_bound_in_procedure' => null,
+                'transport' => 'binary_lob_stream',
+                'p_pic_blob_transport_bytes' => strlen($binaryImage),
+                'p_pic_blob_transport_head_hex' => strtoupper(bin2hex(substr($binaryImage, 0, 32))),
             ],
             $this->resolveImageDebugMeta($payload),
         ));
@@ -261,6 +272,7 @@ SQL;
         $statement->bindValue(':p_mobphone', $payload['mobphone']);
         $statement->bindValue(':p_homephone1', $payload['homephone1']);
         $statement->bindValue(':p_email', $payload['email']);
+        $statement->bindParam(':p_pic_blob', $lob, PDO::PARAM_LOB);
 
         $registerNo = '';
         $statement->bindParam(':p_register_no', $registerNo, PDO::PARAM_STR | PDO::PARAM_INPUT_OUTPUT, 40);
@@ -272,7 +284,7 @@ SQL;
                 throw new RuntimeException('Oracle did not return register number.');
             }
 
-            $this->insertDoctorPicWithPdo($pdo, (string) $registerNo, $imagePath);
+            $this->syncDoctorPicWithPdo($pdo, $payload, (string) $registerNo, $binaryImage);
             $pdo->commit();
         } catch (\Throwable $exception) {
             if ($pdo->inTransaction()) {
@@ -280,6 +292,10 @@ SQL;
             }
 
             throw new RuntimeException('Oracle export failed. ' . $exception->getMessage(), previous: $exception);
+        } finally {
+            if (is_resource($lob)) {
+                fclose($lob);
+            }
         }
 
         return (string) $registerNo;
@@ -292,7 +308,7 @@ SQL;
     private function exportWithOci8($connection, array $payload): string
     {
         $binaryImage = $this->readImageBinaryPayload($payload);
-        $statement = @oci_parse($connection, self::EXPORT_SQL_WITH_NULL_PIC);
+        $statement = @oci_parse($connection, self::EXPORT_SQL);
 
         if ($statement === false) {
             $this->throwOciError($connection, 'Oracle export failed while preparing statement.');
@@ -337,18 +353,29 @@ SQL;
         $this->bindOciByName($statement, ':p_homephone1', $homePhone1);
         $this->bindOciByName($statement, ':p_email', $email);
 
+        $blobDescriptor = oci_new_descriptor($connection, OCI_D_LOB);
+        if ($blobDescriptor === false) {
+            oci_free_statement($statement);
+            $this->throwOciError($connection, 'Oracle export failed while creating BLOB descriptor.');
+        }
+
         Log::info('Oracle Doctor Blob Bind Debug', array_merge(
             [
                 'driver' => 'oci8',
                 'parameter' => 'p_pic_blob',
-                'transport' => 'procedure_null_then_direct_insert_binary',
-                'p_pic_blob_bound_in_procedure' => null,
-                'direct_insert_blob_bytes' => strlen($binaryImage),
+                'transport' => 'oci8_native_lob_in_procedure',
+                'p_pic_blob_transport_bytes' => strlen($binaryImage),
+                'p_pic_blob_transport_head_hex' => strtoupper(bin2hex(substr($binaryImage, 0, 32))),
             ],
             $this->resolveImageDebugMeta($payload),
         ));
 
         try {
+            if (! $blobDescriptor->writeTemporary($binaryImage, OCI_TEMP_BLOB)) {
+                $this->throwOciError($connection, 'Oracle export failed while preparing image blob.');
+            }
+
+            $this->bindOciByName($statement, ':p_pic_blob', $blobDescriptor, -1, OCI_B_BLOB);
             $this->bindOciByName($statement, ':p_register_no', $registerNo, 40);
 
             if (! @oci_execute($statement, OCI_NO_AUTO_COMMIT)) {
@@ -360,8 +387,6 @@ SQL;
                 throw new RuntimeException('Oracle did not return register number.');
             }
 
-            $this->insertDoctorPicWithOci8($connection, (string) $registerNo, $binaryImage);
-
             if (! @oci_commit($connection)) {
                 @oci_rollback($connection);
                 $this->throwOciError($connection, 'Oracle export failed during commit.');
@@ -370,63 +395,14 @@ SQL;
             @oci_rollback($connection);
             throw new RuntimeException('Oracle export failed. ' . $exception->getMessage(), previous: $exception);
         } finally {
+            if (is_object($blobDescriptor) && method_exists($blobDescriptor, 'free')) {
+                $blobDescriptor->free();
+            }
+
             oci_free_statement($statement);
         }
 
         return (string) $registerNo;
-    }
-
-    private function insertDoctorPicWithPdo(PDO $pdo, string $doctorId, string $imagePath): void
-    {
-        $insertSql = sprintf(
-            'INSERT INTO %s (DOCTOR_ID, DOCTOR_PIC) VALUES (:doctor_id, :doctor_pic)',
-            self::DOCTOR_PIC_TABLE
-        );
-        $insertStatement = $pdo->prepare($insertSql);
-        $insertStatement->bindValue(':doctor_id', $doctorId);
-
-        $lob = fopen($imagePath, 'rb');
-        if (! is_resource($lob)) {
-            throw new RuntimeException('Oracle export failed. Unable to open image stream for DOCTOR_PIC insert.');
-        }
-
-        $insertStatement->bindParam(':doctor_pic', $lob, PDO::PARAM_LOB);
-
-        try {
-            $insertStatement->execute();
-        } finally {
-            fclose($lob);
-        }
-
-        $blobLength = $this->fetchDoctorPicLengthWithPdo($pdo, $doctorId);
-        Log::info('Oracle Doctor Pic Insert Debug', [
-            'driver' => 'pdo_oci',
-            'doctor_id' => $doctorId,
-            'doctor_pic_length' => $blobLength,
-        ]);
-
-        if ($blobLength <= 0) {
-            throw new RuntimeException('Oracle export failed. DOCTOR_PIC is empty after direct insert.');
-        }
-    }
-
-    /**
-     * @param resource|object $connection
-     */
-    private function insertDoctorPicWithOci8($connection, string $doctorId, string $binaryImage): void
-    {
-        $this->writeDoctorPicWithOci8($connection, $doctorId, $binaryImage, false);
-
-        $blobLength = $this->fetchDoctorPicLengthWithOci8($connection, $doctorId);
-        Log::info('Oracle Doctor Pic Insert Debug', [
-            'driver' => 'oci8',
-            'doctor_id' => $doctorId,
-            'doctor_pic_length' => $blobLength,
-        ]);
-
-        if ($blobLength <= 0) {
-            throw new RuntimeException('Oracle export failed. DOCTOR_PIC is empty after direct insert.');
-        }
     }
 
     /**
