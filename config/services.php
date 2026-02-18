@@ -43,6 +43,7 @@ return [
         'port' => env('ORACLE_PORT', '1521'),
         'service_name' => env('ORACLE_SERVICE_NAME'),
         'charset' => env('ORACLE_CHARSET', 'AL32UTF8'),
+        'driver' => env('ORACLE_DRIVER', 'oci8'),
         'username' => env('ORACLE_USERNAME'),
         'password' => env('ORACLE_PASSWORD'),
     ],

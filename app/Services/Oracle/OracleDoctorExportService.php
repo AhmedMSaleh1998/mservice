@@ -42,6 +42,37 @@ BEGIN
 END;
 SQL;
 
+    private const EXPORT_SQL_PDO_BASE64 = <<<'SQL'
+DECLARE
+    l_pic_blob BLOB;
+BEGIN
+    l_pic_blob := EMS_UN_BASIC_DATA.base64decode(TO_CLOB(:p_pic_base64));
+
+    EMS_UN_BASIC_DATA.PR_CREATE_DOCTOR(
+        P_DOCTORNAME         => :p_doctor_name,
+        P_ENG_NAME           => :p_eng_name,
+        P_GENDER             => :p_gender,
+        P_NATIONALITY_CODE   => :p_nationality_code,
+        P_REGISION           => :p_regision,
+        P_ID_NO              => :p_id_no,
+        P_BIRTHDATE          => TO_DATE(:p_birthdate, 'YYYY-MM-DD'),
+        P_BORN_GOV           => :p_born_gov,
+        P_DEGREE_CODE        => :p_degree_code,
+        P_UNIVERSITY_CODE    => :p_university_code,
+        P_GRADUATION_YEAR    => :p_graduation_year,
+        P_JOB_LICENSE_NO     => :p_job_license_no,
+        P_JOB_LICENSE_DATE   => TO_DATE(:p_job_license_date, 'YYYY-MM-DD'),
+        P_GOV_ID             => :p_gov_id,
+        P_ADDRESS            => :p_address,
+        P_MOBPHONE           => :p_mobphone,
+        P_HOMEPHONE1         => :p_homephone1,
+        P_EMAIL              => :p_email,
+        P_PIC_BLOB           => l_pic_blob,
+        P_REGISTER_NO        => :p_register_no
+    );
+END;
+SQL;
+
     public function __construct(
         private readonly OracleConnectionService $oracleConnectionService,
     ) {
@@ -54,6 +85,10 @@ SQL;
     {
         $payload = $this->buildPayload($registrationRequest);
         $connection = $this->oracleConnectionService->make();
+
+        Log::info('Oracle Connection Driver Debug', [
+            'driver' => $connection instanceof PDO ? 'pdo_oci' : 'oci8',
+        ]);
 
         if ($connection instanceof PDO) {
             return $this->exportWithPdo($connection, $payload);
@@ -220,11 +255,28 @@ SQL;
      */
     private function exportWithPdo(PDO $pdo, array $payload): string
     {
-        $imageStream = $this->openImageReadStream($payload);
-        $statement = $pdo->prepare(self::EXPORT_SQL);
+        $base64Image = $this->resolveBase64ImagePayload($payload);
+        $statement = $pdo->prepare(self::EXPORT_SQL_PDO_BASE64);
+
+        $base64Stream = fopen('php://temp', 'r+b');
+        if (! is_resource($base64Stream)) {
+            throw new RuntimeException('Oracle export failed. Unable to allocate temporary stream for base64 image.');
+        }
+
+        if (fwrite($base64Stream, $base64Image) === false) {
+            fclose($base64Stream);
+            throw new RuntimeException('Oracle export failed. Unable to write base64 image into temporary stream.');
+        }
+        rewind($base64Stream);
 
         Log::info('Oracle Doctor Blob Bind Debug', array_merge(
-            ['driver' => 'pdo_oci', 'parameter' => 'p_pic_blob'],
+            [
+                'driver' => 'pdo_oci',
+                'parameter' => 'p_pic_blob',
+                'transport' => 'base64_clob_wrapper',
+                'p_pic_base64_length' => strlen($base64Image),
+                'p_pic_base64_head' => substr($base64Image, 0, 40),
+            ],
             $this->resolveImageDebugMeta($payload),
         ));
 
@@ -246,7 +298,7 @@ SQL;
         $statement->bindValue(':p_mobphone', $payload['mobphone']);
         $statement->bindValue(':p_homephone1', $payload['homephone1']);
         $statement->bindValue(':p_email', $payload['email']);
-        $statement->bindParam(':p_pic_blob', $imageStream, PDO::PARAM_LOB);
+        $statement->bindParam(':p_pic_base64', $base64Stream, PDO::PARAM_LOB);
 
         $registerNo = '';
         $statement->bindParam(':p_register_no', $registerNo, PDO::PARAM_STR | PDO::PARAM_INPUT_OUTPUT, 40);
@@ -262,8 +314,8 @@ SQL;
 
             throw new RuntimeException('Oracle export failed. ' . $exception->getMessage(), previous: $exception);
         } finally {
-            if (is_resource($imageStream)) {
-                fclose($imageStream);
+            if (is_resource($base64Stream)) {
+                fclose($base64Stream);
             }
         }
 
@@ -333,7 +385,12 @@ SQL;
         }
 
         Log::info('Oracle Doctor Blob Bind Debug', array_merge(
-            ['driver' => 'oci8', 'parameter' => 'p_pic_blob'],
+            [
+                'driver' => 'oci8',
+                'parameter' => 'p_pic_blob',
+                'p_pic_blob_transport_bytes' => strlen($binaryImage),
+                'p_pic_blob_transport_head_hex' => strtoupper(bin2hex(substr($binaryImage, 0, 32))),
+            ],
             $this->resolveImageDebugMeta($payload),
         ));
 
@@ -412,21 +469,6 @@ SQL;
 
     /**
      * @param array<string, string|int> $payload
-     * @return resource
-     */
-    private function openImageReadStream(array $payload)
-    {
-        $path = $this->resolveImagePathFromPayload($payload);
-        $stream = fopen($path, 'rb');
-        if (! is_resource($stream)) {
-            throw new RuntimeException('Oracle export failed. Unable to open image stream.');
-        }
-
-        return $stream;
-    }
-
-    /**
-     * @param array<string, string|int> $payload
      */
     private function readImageBinaryPayload(array $payload): string
     {
@@ -437,6 +479,14 @@ SQL;
         }
 
         return $binary;
+    }
+
+    /**
+     * @param array<string, string|int> $payload
+     */
+    private function resolveBase64ImagePayload(array $payload): string
+    {
+        return base64_encode($this->readImageBinaryPayload($payload));
     }
 
     /**
