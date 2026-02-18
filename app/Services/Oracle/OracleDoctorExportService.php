@@ -91,10 +91,11 @@ SQL;
         ]);
 
         if ($connection instanceof PDO) {
-            throw new RuntimeException(
-                'Oracle export failed. PDO_OCI connection is not allowed for image BLOB export. ' .
-                'Please set ORACLE_DRIVER=oci8 and ensure OCI8 is enabled on PHP-FPM.'
-            );
+            if (! extension_loaded('pdo_oci')) {
+                throw new RuntimeException('PDO_OCI extension is not installed.');
+            }
+
+            return $this->exportWithPdo($connection, $payload);
         }
 
         if (! extension_loaded('oci8')) {
