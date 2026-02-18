@@ -8,6 +8,8 @@ use App\Services\Oracle\OracleDoctorExportService;
 use App\Support\CountryCodeOptions;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
@@ -142,6 +144,10 @@ class RegistrationRequestsTable
                 ]),
             ])
             ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->visible(fn (): bool => static::isSuperAdmin()),
+                ]),
             ])
             ->defaultSort('created_at', 'desc');
     }
