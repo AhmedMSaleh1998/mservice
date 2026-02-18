@@ -29,6 +29,14 @@ class OracleConnectionService
             default => ['oci8', 'pdo_oci'],
         };
 
+        if ($driver === 'oci8' && ! extension_loaded('oci8')) {
+            throw new RuntimeException('OCI8 extension is required for Oracle image BLOB export, but it is not enabled.');
+        }
+
+        if (in_array($driver, ['pdo', 'pdo_oci'], true) && ! extension_loaded('pdo_oci')) {
+            throw new RuntimeException('PDO_OCI extension is required for configured Oracle driver pdo_oci, but it is not enabled.');
+        }
+
         $errors = [];
 
         foreach ($orderedDrivers as $candidateDriver) {
