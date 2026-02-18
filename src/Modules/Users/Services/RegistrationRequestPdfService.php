@@ -71,6 +71,7 @@ class RegistrationRequestPdfService
         return [
             'locale' => $locale,
             'request' => $request,
+            'generatedAt' => ($request->created_at ?? now())->timezone(config('app.timezone'))->format('d/m/Y H:i:s'),
             'labels' => [
                 'gender' => GenderEnum::labelFor($request->gender),
                 'nationality' => $this->getLookupName($request->nationality, Nationality::class, $locale),

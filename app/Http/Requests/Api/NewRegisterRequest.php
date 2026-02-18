@@ -7,6 +7,7 @@ use Illuminate\Validation\Rule;
 use Modules\Core\Enums\GenderEnum;
 use Modules\Core\Models\Nationality;
 use Carbon\Carbon;
+use Throwable;
 class NewRegisterRequest extends FormRequest
 {
     protected function prepareForValidation(): void
@@ -38,6 +39,26 @@ class NewRegisterRequest extends FormRequest
             };
         }
 
+        $birthDateRules = [
+            $this->isEgyptianNationality() ? 'nullable' : 'required',
+            'date',
+            function ($attribute, $value, $fail) {
+                if (blank($value)) {
+                    return;
+                }
+
+                try {
+                    $age = Carbon::parse($value)->age;
+                } catch (Throwable) {
+                    return;
+                }
+
+                if ($age < 23) {
+                    $fail(__('Minimum age for graduates is 23 years.'));
+                }
+            },
+        ];
+
         return [
             //personal infromations
             'full_name_ar' => ['required', 'string', 'max:255'],
@@ -48,15 +69,7 @@ class NewRegisterRequest extends FormRequest
             'national_id' => $nationalIdRules,
             'issued_from' => ['required', 'string', 'max:100'],
             'governorate' => ['required', 'integer', 'exists:provinces,id'],
-            'birth_date' => [
-                'nullable',
-                'date',
-                function ($attribute, $value, $fail) {
-                    if (Carbon::parse($value)->age < 23) {
-                        $fail(__('Minimum age for graduates is 23 years.'));
-                    }
-                },
-            ],
+            'birth_date' => $birthDateRules,
             'birth_governorate' => ['required', 'integer', 'exists:provinces,id'],
 
             //residence address
@@ -84,7 +97,7 @@ class NewRegisterRequest extends FormRequest
                 Rule::unique('registration_requests', 'residence_mobile_2')
                     ->where(fn ($query) => $query->where('residence_mobile_2_country_code', $this->input('residence_mobile_2_country_code'))),
             ],
-            'email' => ['required', 'email', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],
 
             //university data
             'faculty' => ['required', 'string', 'max:255'],
@@ -110,6 +123,7 @@ class NewRegisterRequest extends FormRequest
         return [
             'phone.unique' => __('This phone number is already registered with an active account.'),
             'national_id.unique' => __('This national ID is already registered.'),
+            'email.regex' => __('Email must include a valid domain like example.com.'),
         ];
     }
 

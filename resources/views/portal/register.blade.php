@@ -544,6 +544,12 @@
             display: block;
         }
 
+        .select-shell.is-locked .select-input {
+            background: rgba(148, 163, 184, 0.12);
+            color: var(--muted);
+            cursor: not-allowed;
+        }
+
         .select-option {
             width: 100%;
             text-align: start;
@@ -1039,7 +1045,7 @@
                             </div>
                             <div class="field">
                                 <label for="residence_mobile_1">{{ __('Mobile 1 Number') }}</label>
-                                <input id="residence_mobile_1" name="residence_mobile_1" type="tel" required maxlength="10" pattern="\d{1,10}" inputmode="numeric">
+                                <input id="residence_mobile_1" name="residence_mobile_1" type="tel" required maxlength="10" pattern="\d{1,10}" inputmode="numeric" placeholder="{{ __('Enter mobile number without leading 0 (already included in country code).') }}">
                                 <div class="error" data-error-for="residence_mobile_1"></div>
                             </div>
                         </div>
@@ -1056,13 +1062,13 @@
                             </div>
                             <div class="field">
                                 <label for="residence_mobile_2">{{ __('Mobile 2 Number') }}</label>
-                                <input id="residence_mobile_2" name="residence_mobile_2" type="tel" maxlength="10" pattern="\d{1,10}" inputmode="numeric">
+                                <input id="residence_mobile_2" name="residence_mobile_2" type="tel" maxlength="10" pattern="\d{1,10}" inputmode="numeric" placeholder="{{ __('Enter mobile number without leading 0 (already included in country code).') }}">
                                 <div class="error" data-error-for="residence_mobile_2"></div>
                             </div>
                         </div>
                         <div class="field span-2">
                             <label for="email">{{ __('Email') }}</label>
-                            <input id="email" name="email" type="email" required maxlength="255" autocomplete="email">
+                            <input id="email" name="email" type="email" required maxlength="255" autocomplete="email" pattern="[^@\s]+@[^@\s]+\.[^@\s]{2,}" placeholder="admin@example.com">
                             <div class="error" data-error-for="email"></div>
                         </div>
                     </div>
@@ -1076,7 +1082,7 @@
                     <div class="grid">
                         <div class="field">
                             <label for="faculty">{{ __('Faculty') }}</label>
-                            <input id="faculty" name="faculty" type="text" required maxlength="255">
+                            <input id="faculty" name="faculty" type="text" required maxlength="255" value="الطب والجراحة" readonly>
                             <div class="error" data-error-for="faculty"></div>
                         </div>
                         <div class="field">
@@ -1110,7 +1116,7 @@
                         </div>
                         <div class="field">
                             <label for="first_foreign_language">{{ __('First Foreign Language') }}</label>
-                            <select id="first_foreign_language" name="first_foreign_language" required data-source="languages">
+                            <select id="first_foreign_language" name="first_foreign_language" required data-source="languages" data-locked="true">
                                 <option value="">—</option>
                             </select>
                             <div class="error" data-error-for="first_foreign_language"></div>
@@ -1202,6 +1208,8 @@
         const birthHint = document.querySelector('[data-birth-hint]');
         const nationalIdInput = document.getElementById('national_id');
         const nationalitySelect = document.getElementById('nationality');
+        const facultyInput = document.getElementById('faculty');
+        const firstForeignLanguageSelect = document.getElementById('first_foreign_language');
         const mobile2CodeInput = document.getElementById('residence_mobile_2_country_code');
         const mobile2Input = document.getElementById('residence_mobile_2');
         const successPageBaseUrl = @json(route('portal.register.success'));
@@ -1209,6 +1217,7 @@
         const nextText = @json(__('Next'));
         const submitText = @json(__('Submit Registration'));
         const fixFieldsText = @json(__('Please fix the highlighted fields.'));
+        const nationalIdBirthDateInvalidText = @json(__('National ID birth date is invalid.'));
 
         let currentStep = 0;
 
@@ -1248,6 +1257,8 @@
                 nationalIdInput.pattern = '[0-9]{14}';
                 nationalIdInput.inputMode = 'numeric';
                 birthDateInput.readOnly = true;
+                birthDateInput.required = false;
+                birthDateInput.setCustomValidity('');
                 if (birthHint) {
                     birthHint.style.display = '';
                 }
@@ -1257,11 +1268,14 @@
                 nationalIdInput.removeAttribute('minLength');
                 nationalIdInput.maxLength = 50;
                 nationalIdInput.inputMode = 'text';
+                nationalIdInput.setCustomValidity('');
                 birthDateInput.readOnly = false;
+                birthDateInput.required = true;
+                birthDateInput.setCustomValidity('');
                 if (birthHint) {
                     birthHint.style.display = '';
                 }
-                const autoBirthDate = extractBirthDate(nationalIdInput.value.replace(/\\D/g, '').slice(0, 14));
+                const autoBirthDate = extractBirthDate(nationalIdInput.value.replace(/\D/g, '').slice(0, 14));
                 if (autoBirthDate && birthDateInput.value === autoBirthDate) {
                     birthDateInput.value = '';
                     updatePreview('birth_date', '—');
@@ -1271,11 +1285,14 @@
 
         const updateBirthDate = () => {
             if (!isEgyptNationality()) {
+                nationalIdInput.setCustomValidity('');
                 return;
             }
-            const value = nationalIdInput.value.replace(/\\D/g, '').slice(0, 14);
+            const value = nationalIdInput.value.replace(/\D/g, '').slice(0, 14);
             nationalIdInput.value = value;
             const birthDate = extractBirthDate(value);
+            const isInvalidForEgyptianAutoFill = value.length === 14 && !birthDate;
+            nationalIdInput.setCustomValidity(isInvalidForEgyptianAutoFill ? nationalIdBirthDateInvalidText : '');
             birthDateInput.value = birthDate || '';
             updatePreview('birth_date', birthDate || '—');
         };
@@ -1285,6 +1302,33 @@
             const hasCode = mobile2CodeInput.value.trim().length > 0;
             mobile2CodeInput.required = hasMobile2;
             mobile2Input.required = hasCode;
+        };
+
+        const isSelectLocked = (select) => select?.dataset.locked === 'true';
+
+        const applyFixedAcademicDefaults = () => {
+            if (facultyInput) {
+                facultyInput.value = 'الطب والجراحة';
+                facultyInput.readOnly = true;
+            }
+
+            if (!firstForeignLanguageSelect) {
+                return;
+            }
+
+            const options = Array.from(firstForeignLanguageSelect.options).filter((option) => option.value !== '');
+            if (options.length === 0) {
+                return;
+            }
+
+            const englishOption = options.find((option) => {
+                const label = (option.textContent || '').trim();
+                return /english|الإنجليزية|الانجليزية|إنجليزي|انجليزي/i.test(label);
+            });
+
+            const targetOption = englishOption || options[0];
+            firstForeignLanguageSelect.value = targetOption.value;
+            updatePreview('first_foreign_language', targetOption.textContent || '—');
         };
 
         const updateProgress = () => {
@@ -1381,6 +1425,10 @@
                     } else {
                         field.reportValidity();
                         field.classList.add('is-invalid');
+                        const error = field.closest('.field, .file-card')?.querySelector('.error');
+                        if (error && field.validationMessage) {
+                            error.textContent = field.validationMessage;
+                        }
                     }
                     showAlert(fixFieldsText);
                     return false;
@@ -1434,6 +1482,10 @@
         };
 
         const openSearchableSelect = (select) => {
+            if (isSelectLocked(select)) {
+                return;
+            }
+
             const state = searchableSelects.get(select);
             if (!state) {
                 return;
@@ -1533,17 +1585,26 @@
             refreshSearchableOptions(select);
 
             input.addEventListener('focus', () => {
+                if (isSelectLocked(select)) {
+                    return;
+                }
                 openSearchableSelect(select);
                 filterSearchableOptions(select, input.value);
                 input.select();
             });
 
             input.addEventListener('input', () => {
+                if (isSelectLocked(select)) {
+                    return;
+                }
                 openSearchableSelect(select);
                 filterSearchableOptions(select, input.value);
             });
 
             input.addEventListener('keydown', (event) => {
+                if (isSelectLocked(select)) {
+                    return;
+                }
                 if (event.key === 'Escape') {
                     closeSearchableSelect(select);
                 }
@@ -1558,6 +1619,9 @@
             });
 
             list.addEventListener('click', (event) => {
+                if (isSelectLocked(select)) {
+                    return;
+                }
                 const target = event.target.closest('.select-option');
                 if (!target || target.disabled) {
                     return;
@@ -1567,6 +1631,9 @@
             });
 
             list.addEventListener('keydown', (event) => {
+                if (isSelectLocked(select)) {
+                    return;
+                }
                 if (event.key === 'Enter') {
                     event.preventDefault();
                     const target = event.target.closest('.select-option');
@@ -1595,6 +1662,8 @@
             refreshSearchableOptions(select);
             closeSearchableSelect(select);
             state.input.disabled = select.disabled;
+            state.input.readOnly = isSelectLocked(select);
+            state.wrapper.classList.toggle('is-locked', isSelectLocked(select));
         };
 
         const resetPreviews = () => {
@@ -1621,6 +1690,7 @@
             form.reset();
             resetPreviews();
             resetFiles();
+            applyFixedAcademicDefaults();
             document.querySelectorAll('select').forEach((select) => {
                 syncSearchableState(select);
             });
@@ -1728,6 +1798,7 @@
                         updatePreview(select.name, selectedText);
                     }
                 }
+                applyFixedAcademicDefaults();
                 syncSearchableState(select);
             } catch (error) {
                 select.disabled = false;

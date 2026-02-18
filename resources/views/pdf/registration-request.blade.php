@@ -167,6 +167,11 @@
             text-align: center;
             margin-bottom: 6px;
         }
+        .generated-at {
+            text-align: center;
+            margin-top: 6px;
+            font-size: 10px;
+        }
     </style>
 </head>
 <body>
@@ -363,6 +368,7 @@
     </table>
 
     <div class="line" style="margin-top: 6px;"></div>
+    <div class="generated-at">تم الانشاء في : {{ $generatedAt }}</div>
 </div>
 </body>
 </html>

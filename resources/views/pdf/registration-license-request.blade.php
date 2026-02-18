@@ -163,6 +163,11 @@
             display: inline-block;
             white-space: nowrap;
         }
+        .generated-at {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 10px;
+        }
     </style>
 </head>
 <body>
@@ -240,6 +245,8 @@
             التوقيع باستلام الترخيص<br>
             <span class="dots sm"></span>
         </div>
+
+        <div class="generated-at">تم الانشاء في : {{ $generatedAt }}</div>
     </div>
 </body>
 </html>
