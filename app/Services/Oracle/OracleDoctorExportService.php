@@ -231,13 +231,24 @@ SQL;
     private function exportWithPdo(PDO $pdo, array $payload): string
     {
         $binaryImage = $this->readImageBinaryPayload($payload);
+        $lob = fopen('php://temp', 'r+b');
+        if (! is_resource($lob)) {
+            throw new RuntimeException('Oracle export failed. Unable to open temporary LOB stream.');
+        }
+
+        if (fwrite($lob, $binaryImage) === false) {
+            fclose($lob);
+            throw new RuntimeException('Oracle export failed. Unable to write binary image into LOB stream.');
+        }
+        rewind($lob);
+
         $statement = $pdo->prepare(self::EXPORT_SQL);
 
         Log::info('Oracle Doctor Blob Bind Debug', array_merge(
             [
                 'driver' => 'pdo_oci',
                 'parameter' => 'p_pic_blob',
-                'transport' => 'binary_lob',
+                'transport' => 'binary_lob_stream',
                 'p_pic_blob_transport_bytes' => strlen($binaryImage),
                 'p_pic_blob_transport_head_hex' => strtoupper(bin2hex(substr($binaryImage, 0, 32))),
             ],
@@ -262,7 +273,7 @@ SQL;
         $statement->bindValue(':p_mobphone', $payload['mobphone']);
         $statement->bindValue(':p_homephone1', $payload['homephone1']);
         $statement->bindValue(':p_email', $payload['email']);
-        $statement->bindParam(':p_pic_blob', $binaryImage, PDO::PARAM_LOB);
+        $statement->bindParam(':p_pic_blob', $lob, PDO::PARAM_LOB);
 
         $registerNo = '';
         $statement->bindParam(':p_register_no', $registerNo, PDO::PARAM_STR | PDO::PARAM_INPUT_OUTPUT, 40);
@@ -282,6 +293,10 @@ SQL;
             }
 
             throw new RuntimeException('Oracle export failed. ' . $exception->getMessage(), previous: $exception);
+        } finally {
+            if (is_resource($lob)) {
+                fclose($lob);
+            }
         }
 
         return (string) $registerNo;
