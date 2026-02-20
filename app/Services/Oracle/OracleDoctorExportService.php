@@ -108,7 +108,7 @@ SQL;
 
         $mobileCountryCode = (string) ($registrationRequest->residence_mobile_1_country_code ?? '');
         $mobileNumber = (string) ($registrationRequest->residence_mobile_1 ?? '');
-        $mobilePhone = trim($mobileCountryCode . ' ' . $mobileNumber);
+        $mobilePhone = trim($mobileCountryCode . $mobileNumber);
 
         $addressParts = array_filter([
             $registrationRequest->residence_governorate,
