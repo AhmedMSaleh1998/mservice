@@ -65,7 +65,6 @@ class EmployeesTable
                 ]),
             ])
             ->toolbarActions([
-                DeleteBulkAction::make(),
             ])
             ->defaultSort('id', 'desc');
     }

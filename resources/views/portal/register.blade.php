@@ -860,10 +860,10 @@
                 <p>{{ __('Registration Portal') }}</p>
             </div>
         </div>
-        <nav class="lang-toggle">
-            <a href="?lang=ar" class="{{ $locale === 'ar' ? 'active' : '' }}">{{ __('locales.ar') }}</a>
-            <a href="?lang=en" class="{{ $locale === 'en' ? 'active' : '' }}">{{ __('locales.en') }}</a>
-        </nav>
+        {{-- <nav class="lang-toggle"> --}}
+            {{-- <a href="?lang=ar" class="{{ $locale === 'ar' ? 'active' : '' }}">{{ __('locales.ar') }}</a> --}}
+            {{-- <a href="?lang=en" class="{{ $locale === 'en' ? 'active' : '' }}">{{ __('locales.en') }}</a> --}}
+        {{-- </nav> --}}
     </header>
 
     <main class="layout">
