@@ -18,6 +18,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Field;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Panel;
@@ -80,11 +81,10 @@ class RoleResource extends Resource
                                     })
                                     ->columnSpanFull(),
 
-                                TextInput::make('guard_name')
+                                Hidden::make('guard_name')
                                     ->label(__('Guard Name'))
                                     ->default(Utils::getFilamentAuthGuard())
-                                    ->nullable()
-                                    ->maxLength(255),
+                                    ->nullable(),
 
                                 Select::make(config('permission.column_names.team_foreign_key'))
                                     ->label(__('Team'))
@@ -136,9 +136,6 @@ class RoleResource extends Resource
                     ->label(__('Permissions'))
                     ->counts('permissions')
                     ->color('primary'),
-                TextColumn::make('updated_at')
-                    ->label(__('Updated At'))
-                    ->dateTime(),
             ])
             ->filters([
                 //
