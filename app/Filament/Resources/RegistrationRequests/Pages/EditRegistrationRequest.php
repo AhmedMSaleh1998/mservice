@@ -155,6 +155,7 @@ class EditRegistrationRequest extends EditRecord
             Notification::make()
                 ->title(__('Registration approved (Oracle export is disabled).'))
                 ->warning()
+                ->persistent()
                 ->send();
 
             return;
@@ -184,6 +185,7 @@ class EditRegistrationRequest extends EditRecord
             ->title(__('Registration approved and exported successfully'))
             ->body(__('Oracle register number: :number', ['number' => $oracleRegisterNo]))
             ->success()
+            ->persistent()
             ->send();
     }
 
