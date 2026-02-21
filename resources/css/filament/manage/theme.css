@@ -47,6 +47,27 @@ html[dir="rtl"] .fi-body.manage-login {
     color: #f8f8f9;
 }
 
+.fi-body.manage-login .fi-simple-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.fi-body.manage-login .manage-login-brand {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.fi-body.manage-login .manage-login-brand-logo {
+    width: clamp(130px, 16vw, 220px);
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.35));
+}
+
 .fi-body.manage-login .fi-input-wrp {
     background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(255, 255, 255, 0.22);
