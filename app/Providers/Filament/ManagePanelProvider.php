@@ -11,6 +11,7 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -34,6 +35,10 @@ class ManagePanelProvider extends PanelProvider
             ->brandLogo(asset('assets/medical-syndicate-logo.png'))
             ->brandLogoHeight('3.5rem')
             ->viteTheme('resources/css/filament/manage/theme.css')
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): \Illuminate\Contracts\View\View => view('filament.components.file-upload-image-preview-modal'),
+            )
             ->colors([
                 'primary' => Color::Zinc,
             ])

@@ -244,7 +244,10 @@ class RegistrationRequestForm
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
-                            ->maxSize(5120),
+                            ->maxSize(5120)
+                            ->extraAttributes(['data-image-popup-preview' => '1'])
+                            ->openable()
+                            ->downloadable(),
                         FileUpload::make('documents.national_id_image')
                             ->label(__('National ID Photo'))
                             ->image()
@@ -252,7 +255,10 @@ class RegistrationRequestForm
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
-                            ->maxSize(5120),
+                            ->maxSize(5120)
+                            ->extraAttributes(['data-image-popup-preview' => '1'])
+                            ->openable()
+                            ->downloadable(),
                         FileUpload::make('documents.graduation_certificate_image')
                             ->label(__('Graduation Certificate'))
                             ->image()
@@ -260,7 +266,10 @@ class RegistrationRequestForm
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
-                            ->maxSize(5120),
+                            ->maxSize(5120)
+                            ->extraAttributes(['data-image-popup-preview' => '1'])
+                            ->openable()
+                            ->downloadable(),
                         FileUpload::make('documents.internship_certificate_image')
                             ->label(__('Internship Certificate'))
                             ->image()
@@ -268,7 +277,10 @@ class RegistrationRequestForm
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
-                            ->maxSize(5120),
+                            ->maxSize(5120)
+                            ->extraAttributes(['data-image-popup-preview' => '1'])
+                            ->openable()
+                            ->downloadable(),
                         FileUpload::make('documents.criminal_record_certificate_image')
                             ->label(__('Criminal Record Certificate'))
                             ->image()
@@ -276,7 +288,10 @@ class RegistrationRequestForm
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
-                            ->maxSize(5120),
+                            ->maxSize(5120)
+                            ->extraAttributes(['data-image-popup-preview' => '1'])
+                            ->openable()
+                            ->downloadable(),
                         FileUpload::make('documents.dob_image')
                             ->label(__('Date of Birth Certificate'))
                             ->image()
@@ -284,7 +299,10 @@ class RegistrationRequestForm
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
-                            ->maxSize(5120),
+                            ->maxSize(5120)
+                            ->extraAttributes(['data-image-popup-preview' => '1'])
+                            ->openable()
+                            ->downloadable(),
                     ])
                     ->columns(3)
                     ->columnSpanFull(),
@@ -313,7 +331,10 @@ class RegistrationRequestForm
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
-                            ->maxSize(5120),
+                            ->maxSize(5120)
+                            ->extraAttributes(['data-image-popup-preview' => '1'])
+                            ->openable()
+                            ->downloadable(),
                     ])
                     ->columns(3)
                     ->columnSpanFull(),
