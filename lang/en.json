@@ -236,5 +236,11 @@
   "Select a team ...": "Select a team ...",
   "Permissions": "Permissions",
   "Updated At": "Updated At",
+  "Data Accuracy Declaration and Legal Responsibility": "Data Accuracy Declaration and Legal Responsibility",
+  "I, the applicant, acknowledge that all data and documents I entered and uploaded through the website are accurate, valid, and true, and that I reviewed them carefully before submission.": "I, the applicant, acknowledge that all data and documents I entered and uploaded through the website are accurate, valid, and true, and that I reviewed them carefully before submission.",
+  "I bear full legal responsibility for the accuracy of this data and these documents, and I undertake to notify the syndicate immediately if any error is discovered or any amendment is required.": "I bear full legal responsibility for the accuracy of this data and these documents, and I undertake to notify the syndicate immediately if any error is discovered or any amendment is required.",
+  "I agree that if any submitted data or documents are proven incorrect, the syndicate has the right to take any legal and administrative actions in accordance with applicable laws and regulations.": "I agree that if any submitted data or documents are proven incorrect, the syndicate has the right to take any legal and administrative actions in accordance with applicable laws and regulations.",
+  "I agree to the declaration of data accuracy and bear legal responsibility for it.": "I agree to the declaration of data accuracy and bear legal responsibility for it.",
+  "You must agree to the declaration before submitting.": "You must agree to the declaration before submitting.",
   "Global": "Global"
 }

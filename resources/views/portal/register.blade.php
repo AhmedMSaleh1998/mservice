@@ -675,6 +675,54 @@
             display: block;
         }
 
+        .declaration-field {
+            margin-top: 16px;
+            border: 1px solid rgba(15, 23, 42, 0.14);
+            border-radius: 14px;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.86);
+        }
+
+        .declaration-field h3 {
+            margin: 0 0 10px;
+            font-size: 15px;
+        }
+
+        .declaration-field p {
+            margin: 0 0 8px;
+            color: var(--muted);
+            line-height: 1.7;
+            font-size: 13px;
+        }
+
+        .declaration-consent {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-top: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            color: var(--ink);
+        }
+
+        .declaration-consent input[type="checkbox"] {
+            margin-top: 2px;
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .declaration-consent input[type="checkbox"].is-invalid {
+            outline: 2px solid rgba(194, 61, 61, 0.7);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        .declaration-field .error {
+            margin-top: 8px;
+        }
+
         .actions {
             display: flex;
             justify-content: space-between;
@@ -1181,6 +1229,17 @@
                             <div class="error" data-error-for="dob_image"></div>
                         </label>
                     </div>
+                    <div class="field declaration-field">
+                        <h3>{{ __('Data Accuracy Declaration and Legal Responsibility') }}</h3>
+                        <p>{{ __('I, the applicant, acknowledge that all data and documents I entered and uploaded through the website are accurate, valid, and true, and that I reviewed them carefully before submission.') }}</p>
+                        <p>{{ __('I bear full legal responsibility for the accuracy of this data and these documents, and I undertake to notify the syndicate immediately if any error is discovered or any amendment is required.') }}</p>
+                        <p>{{ __('I agree that if any submitted data or documents are proven incorrect, the syndicate has the right to take any legal and administrative actions in accordance with applicable laws and regulations.') }}</p>
+                        <label class="declaration-consent" for="declaration_accepted">
+                            <input id="declaration_accepted" name="declaration_accepted" type="checkbox" value="1" required>
+                            <span>{{ __('I agree to the declaration of data accuracy and bear legal responsibility for it.') }}</span>
+                        </label>
+                        <div class="error" data-error-for="declaration_accepted"></div>
+                    </div>
                 </div>
 
                 <div class="actions">
@@ -1212,12 +1271,14 @@
         const firstForeignLanguageSelect = document.getElementById('first_foreign_language');
         const mobile2CodeInput = document.getElementById('residence_mobile_2_country_code');
         const mobile2Input = document.getElementById('residence_mobile_2');
+        const declarationCheckbox = document.getElementById('declaration_accepted');
         const successPageBaseUrl = @json(route('portal.register.success'));
         const sendingText = @json(__('Sending...'));
         const nextText = @json(__('Next'));
         const submitText = @json(__('Submit Registration'));
         const fixFieldsText = @json(__('Please fix the highlighted fields.'));
         const nationalIdBirthDateInvalidText = @json(__('National ID birth date is invalid.'));
+        const declarationRequiredText = @json(__('You must agree to the declaration before submitting.'));
 
         let currentStep = 0;
 
@@ -1304,6 +1365,16 @@
             const hasCode = mobile2CodeInput.value.trim().length > 0;
             mobile2CodeInput.required = hasMobile2;
             mobile2Input.required = hasCode;
+        };
+
+        const syncDeclarationValidity = () => {
+            if (! declarationCheckbox) {
+                return;
+            }
+
+            declarationCheckbox.setCustomValidity(
+                declarationCheckbox.checked ? '' : declarationRequiredText
+            );
         };
 
         const isSelectLocked = (select) => select?.dataset.locked === 'true';
@@ -1413,6 +1484,9 @@
             for (const field of fields) {
                 if (field.disabled) {
                     continue;
+                }
+                if (field === declarationCheckbox) {
+                    syncDeclarationValidity();
                 }
                 if (!field.checkValidity()) {
                     if (field.classList.contains('select-hidden')) {
@@ -1698,6 +1772,7 @@
             });
             applyNationalityRules();
             syncMobile2Required();
+            syncDeclarationValidity();
             stepButtons.forEach((btn) => btn.classList.remove('done'));
             showStep(0);
         };
@@ -1873,6 +1948,18 @@
         }
         mobile2Input.addEventListener('input', syncMobile2Required);
         mobile2CodeInput.addEventListener('change', syncMobile2Required);
+        if (declarationCheckbox) {
+            declarationCheckbox.addEventListener('change', () => {
+                syncDeclarationValidity();
+                if (declarationCheckbox.checked) {
+                    declarationCheckbox.classList.remove('is-invalid');
+                    const error = declarationCheckbox.closest('.field')?.querySelector('.error');
+                    if (error) {
+                        error.textContent = '';
+                    }
+                }
+            });
+        }
         updateProgress();
         initFiles();
         document.querySelectorAll('select').forEach((select) => {

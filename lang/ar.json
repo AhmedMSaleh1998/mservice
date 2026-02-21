@@ -245,5 +245,11 @@
   "Select a team ...": "اختر فريقًا ...",
   "Permissions": "الصلاحيات",
   "Updated At": "تاريخ التحديث",
+  "Data Accuracy Declaration and Legal Responsibility": "إقرار بصحة البيانات وتحمل المسؤولية",
+  "I, the applicant, acknowledge that all data and documents I entered and uploaded through the website are accurate, valid, and true, and that I reviewed them carefully before submission.": "أُقر أنا مقدم الطلب بأن جميع البيانات والمستندات التي قمت بإدخالها ورفعها من خلال الموقع الإلكتروني صحيحة وسليمة ومطابقة للحقيقة، وقد قمت بمراجعتها بدقة قبل الإرسال.",
+  "I bear full legal responsibility for the accuracy of this data and these documents, and I undertake to notify the syndicate immediately if any error is discovered or any amendment is required.": "كما أتحمل كامل المسؤولية القانونية عن صحة هذه البيانات والمستندات، وأتعهد بإخطار النقابة فورًا حال اكتشاف أي خطأ أو وجود أي تعديل.",
+  "I agree that if any submitted data or documents are proven incorrect, the syndicate has the right to take any legal and administrative actions in accordance with applicable laws and regulations.": "وأوافق على أنه في حال ثبوت عدم صحة أي من البيانات أو المستندات المقدمة، يحق للنقابة اتخاذ ما تراه مناسبًا من إجراءات قانونية وإدارية وفقًا للوائح والقوانين المنظمة.",
+  "I agree to the declaration of data accuracy and bear legal responsibility for it.": "أوافق على الإقرار بصحة البيانات وتحمل المسؤولية القانونية عنها",
+  "You must agree to the declaration before submitting.": "يجب الموافقة على الإقرار قبل إرسال الطلب.",
   "Global": "عام"
 }
