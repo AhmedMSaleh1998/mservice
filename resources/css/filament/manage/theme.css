@@ -209,3 +209,23 @@ html[dir="rtl"] .fi-body.manage-login {
 .registration-requests-table .fi-ta-table .fi-ta-cell:has(> .fi-ta-actions) {
     background: inherit;
 }
+
+/* Slightly larger Filament toast notifications. */
+.fi-no-notification:not(.fi-inline) {
+    max-width: 60rem;
+    min-height: 13rem;
+    padding: 1.75rem;
+}
+
+.fi-no-notification .fi-no-notification-icon {
+    font-size: 1.5rem;
+}
+
+.fi-no-notification .fi-no-notification-title {
+    font-size: 1.2rem;
+}
+
+.fi-no-notification .fi-no-notification-body,
+.fi-no-notification .fi-no-notification-date {
+    font-size: 1.1rem;
+}
