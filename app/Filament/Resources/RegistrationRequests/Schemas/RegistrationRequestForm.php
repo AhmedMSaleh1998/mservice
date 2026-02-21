@@ -37,8 +37,11 @@ class RegistrationRequestForm
                         TextInput::make('national_id')
                             ->label(__('National ID'))
                             ->required()
-                            ->minLength(14)
-                            ->maxLength(14),
+                            ->maxLength(50)
+                            ->rule(
+                                'regex:/^\d{14}$/',
+                                fn (Get $get): bool => static::isEgyptianNationalityId($get('nationality'))
+                            ),
                         TextInput::make('full_name_ar')
                             ->label(__('Full Name (AR)'))
                             ->required()
@@ -414,5 +417,27 @@ class RegistrationRequestForm
                 return [$model->id => $name];
             })
             ->all();
+    }
+
+    private static function isEgyptianNationalityId(mixed $nationalityId): bool
+    {
+        if (! is_numeric($nationalityId)) {
+            return false;
+        }
+
+        $nationality = Nationality::query()->find((int) $nationalityId);
+
+        if (! $nationality) {
+            return false;
+        }
+
+        if (in_array((int) $nationality->code, [1, 214], true)) {
+            return true;
+        }
+
+        $nameAr = (string) $nationality->getTranslation('name', 'ar');
+        $nameEn = (string) $nationality->getTranslation('name', 'en');
+
+        return str_contains($nameAr, 'مصر') || stripos($nameEn, 'egypt') !== false;
     }
 }

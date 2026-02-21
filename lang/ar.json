@@ -73,6 +73,8 @@
   "Activate": "تفعيل",
   "Deactivate": "إيقاف",
   "Review Approve": "موافقة المراجع",
+  "Save and Approve": "حفظ واعتماد مبدئي",
+  "Save and Final Approve": "حفظ واعتماد نهائي",
   "Request approved and moved to final approval": "تمت الموافقة المبدئية وتحويل الطلب للموافقة النهائية",
   "Send To Final Approval": "إرسال للموافقة النهائية",
   "Request moved to final approval": "تم تحويل الطلب للموافقة النهائية",

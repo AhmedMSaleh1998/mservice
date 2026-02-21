@@ -1246,7 +1246,9 @@
         const isEgyptNationality = () => {
             const option = nationalitySelect?.selectedOptions?.[0];
             const label = option ? option.textContent.trim() : '';
-            return /مصر/i.test(label) || /egypt/i.test(label);
+            const code = Number(option?.dataset?.code ?? NaN);
+
+            return [1, 214].includes(code) || /مصر/i.test(label) || /egypt/i.test(label);
         };
 
         const applyNationalityRules = () => {
@@ -1786,6 +1788,9 @@
                 items.forEach((item) => {
                     const option = document.createElement('option');
                     option.value = item.id;
+                    if (item.code !== undefined && item.code !== null) {
+                        option.dataset.code = String(item.code);
+                    }
                     option.textContent = item.name ?? item.title ?? item.label ?? item.id;
                     select.appendChild(option);
                 });

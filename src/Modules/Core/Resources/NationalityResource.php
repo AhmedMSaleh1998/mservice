@@ -11,6 +11,7 @@ class NationalityResource extends CustomResource
     {
         return [
             'id' => $this->resource->id,
+            'code' => $this->resource->code,
             'name' => $this->resource->name,
         ];
     }

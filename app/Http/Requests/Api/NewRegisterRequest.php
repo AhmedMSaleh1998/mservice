@@ -218,6 +218,10 @@ class NewRegisterRequest extends FormRequest
             return false;
         }
 
+        if (in_array((int) $nationality->code, [1, 214], true)) {
+            return true;
+        }
+
         $nameAr = (string) $nationality->getTranslation('name', 'ar');
         $nameEn = (string) $nationality->getTranslation('name', 'en');
 

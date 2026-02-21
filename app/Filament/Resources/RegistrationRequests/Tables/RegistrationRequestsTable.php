@@ -23,14 +23,13 @@ class RegistrationRequestsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->extraAttributes([
+                'class' => 'registration-requests-table',
+            ])
             ->columns([
-                TextColumn::make('residence_mobile_1')
-                    ->label(__('Phone'))
-                    ->searchable()
-                    ->copyable()
-                    ->formatStateUsing(fn ($state, RegistrationRequest $record) => $record->residence_mobile_1_country_code
-                        ? trim((CountryCodeOptions::shortLabel($record->residence_mobile_1_country_code) ?? $record->residence_mobile_1_country_code) . ' ' . $state)
-                        : $state),
+                TextColumn::make('full_name_ar')
+                    ->label(__('Name'))
+                    ->searchable(),
                 TextColumn::make('national_id')
                     ->label(__('National ID'))
                     ->searchable()
@@ -66,7 +65,7 @@ class RegistrationRequestsTable
                     ->label(__('Submitted At'))
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -74,13 +73,15 @@ class RegistrationRequestsTable
                     ->options(RegistrationRequest::statusOptions()),
             ])
             ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
                     EditAction::make()
+                        ->iconButton()
+                        ->tooltip(__('Edit'))
                         ->visible(fn (RegistrationRequest $record): bool => static::canEditRecord($record)),
-                    Action::make('review_approve')
+                    /*Action::make('review_approve')
                         ->label(__('Review Approve'))
                         ->icon('heroicon-o-arrow-right-circle')
+                        ->iconButton()
+                        ->tooltip(__('Review Approve'))
                         ->color('info')
                         ->requiresConfirmation()
                         ->action(function (RegistrationRequest $record) {
@@ -98,6 +99,8 @@ class RegistrationRequestsTable
                     Action::make('final_approve')
                         ->label(__('Final Approve'))
                         ->icon('heroicon-o-check-circle')
+                        ->iconButton()
+                        ->tooltip(__('Final Approve'))
                         ->color('success')
                         ->requiresConfirmation()
                         ->action(function (RegistrationRequest $record) {
@@ -140,8 +143,7 @@ class RegistrationRequestsTable
                                 ->success()
                                 ->send();
                         })
-                        ->visible(fn (RegistrationRequest $record): bool => static::canFinalApprove($record)),
-                ]),
+                        ->visible(fn (RegistrationRequest $record): bool => static::canFinalApprove($record)),*/
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -167,7 +169,7 @@ class RegistrationRequestsTable
         if (static::isSuperAdmin()) {
             return true;
         }
-        
+
         if (static::hasRole('reviewer') && $record->status === RegistrationRequest::STATUS_PENDING_REVIEW) {
             return true;
         }
