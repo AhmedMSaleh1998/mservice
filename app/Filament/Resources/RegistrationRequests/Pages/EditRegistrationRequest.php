@@ -37,7 +37,25 @@ class EditRegistrationRequest extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        $data['license_image'] = $data['license_image'] ?? data_get($data, 'documents.license_image');
+        $existingDocuments = is_array($this->record->documents) ? $this->record->documents : [];
+        $submittedDocuments = data_get($data, 'documents');
+
+        if (is_array($submittedDocuments)) {
+            $submittedDocuments = array_filter(
+                $submittedDocuments,
+                static fn (mixed $path): bool => filled($path)
+            );
+
+            $data['documents'] = array_replace($existingDocuments, $submittedDocuments);
+
+            if (empty($data['documents'])) {
+                unset($data['documents']);
+            }
+        }
+
+        $data['license_image'] = $data['license_image']
+            ?? data_get($data, 'documents.license_image')
+            ?? ($existingDocuments['license_image'] ?? null);
 
         return $data;
     }
@@ -122,6 +140,21 @@ class EditRegistrationRequest extends EditRecord
             Notification::make()
                 ->title(__('License data is required before final approval'))
                 ->danger()
+                ->send();
+
+            return;
+        }
+
+        if (! $this->isOracleExportEnabled()) {
+            $this->record->update([
+                'status' => RegistrationRequest::STATUS_APPROVED,
+                'active' => true,
+                'oracle_register_no' => null,
+            ]);
+
+            Notification::make()
+                ->title(__('Registration approved (Oracle export is disabled).'))
+                ->warning()
                 ->send();
 
             return;
@@ -247,5 +280,10 @@ class EditRegistrationRequest extends EditRecord
         $user = Filament::auth()->user();
 
         return $user instanceof Admin && $user->hasRole($role);
+    }
+
+    private function isOracleExportEnabled(): bool
+    {
+        return (bool) config('services.oracle.export_enabled', true);
     }
 }

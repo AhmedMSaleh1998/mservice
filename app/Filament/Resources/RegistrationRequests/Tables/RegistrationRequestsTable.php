@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\RegistrationRequests\Tables;
 
+use App\Filament\Resources\RegistrationRequests\RegistrationRequestResource;
 use App\Models\Admin;
 use App\Models\RegistrationRequest;
 use App\Services\Oracle\OracleDoctorExportService;
@@ -72,6 +73,7 @@ class RegistrationRequestsTable
                     ->label(__('Status'))
                     ->options(RegistrationRequest::statusOptions()),
             ])
+            ->recordUrl(fn (RegistrationRequest $record): string => RegistrationRequestResource::getUrl('edit', ['record' => $record]))
             ->recordActions([
                     EditAction::make()
                         ->iconButton()

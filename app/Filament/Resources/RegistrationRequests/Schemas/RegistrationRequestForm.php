@@ -29,7 +29,8 @@ class RegistrationRequestForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
-            ->components([
+            ->components(function (?RegistrationRequest $record): array {
+                $components = [
                 Section::make(__('Personal Information'))
                     ->collapsible()
                     ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
@@ -239,7 +240,7 @@ class RegistrationRequestForm
                         FileUpload::make('documents.personal_image')
                             ->label(__('Personal Photo'))
                             ->image()
-                            ->required()
+                            ->required(fn (?RegistrationRequest $record): bool => static::shouldRequireSubmittedDocuments($record))
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
@@ -247,7 +248,7 @@ class RegistrationRequestForm
                         FileUpload::make('documents.national_id_image')
                             ->label(__('National ID Photo'))
                             ->image()
-                            ->required()
+                            ->required(fn (?RegistrationRequest $record): bool => static::shouldRequireSubmittedDocuments($record))
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
@@ -255,7 +256,7 @@ class RegistrationRequestForm
                         FileUpload::make('documents.graduation_certificate_image')
                             ->label(__('Graduation Certificate'))
                             ->image()
-                            ->required()
+                            ->required(fn (?RegistrationRequest $record): bool => static::shouldRequireSubmittedDocuments($record))
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
@@ -263,7 +264,7 @@ class RegistrationRequestForm
                         FileUpload::make('documents.internship_certificate_image')
                             ->label(__('Internship Certificate'))
                             ->image()
-                            ->required()
+                            ->required(fn (?RegistrationRequest $record): bool => static::shouldRequireSubmittedDocuments($record))
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
@@ -271,7 +272,7 @@ class RegistrationRequestForm
                         FileUpload::make('documents.criminal_record_certificate_image')
                             ->label(__('Criminal Record Certificate'))
                             ->image()
-                            ->required()
+                            ->required(fn (?RegistrationRequest $record): bool => static::shouldRequireSubmittedDocuments($record))
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
@@ -279,7 +280,7 @@ class RegistrationRequestForm
                         FileUpload::make('documents.dob_image')
                             ->label(__('Date of Birth Certificate'))
                             ->image()
-                            ->required()
+                            ->required(fn (?RegistrationRequest $record): bool => static::shouldRequireSubmittedDocuments($record))
                             ->disk('public')
                             ->directory('documents')
                             ->acceptedFileTypes(['image/png', 'image/jpeg'])
@@ -289,7 +290,7 @@ class RegistrationRequestForm
                     ->columnSpanFull(),
                 Section::make(__('License Information'))
                     ->collapsible()
-                    ->collapsed()
+                    ->collapsed(fn (?RegistrationRequest $record): bool => ! static::shouldPrioritizeLicenseSection($record))
                     ->visible(fn () => static::canViewLicenseData())
                     ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditLicenseData($record))
                     ->schema([
@@ -316,7 +317,18 @@ class RegistrationRequestForm
                     ])
                     ->columns(3)
                     ->columnSpanFull(),
-            ]);
+                ];
+
+                if (static::shouldPrioritizeLicenseSection($record)) {
+                    $licenseSection = array_pop($components);
+
+                    if ($licenseSection !== null) {
+                        array_unshift($components, $licenseSection);
+                    }
+                }
+
+                return $components;
+            });
     }
 
     private static function canEditMainData(?RegistrationRequest $record): bool
@@ -366,6 +378,20 @@ class RegistrationRequestForm
 
         return $record->status === RegistrationRequest::STATUS_PENDING_FINAL_APPROVAL
             && (static::isSuperAdmin() || static::hasRole('review-supervisor'));
+    }
+
+    private static function shouldRequireSubmittedDocuments(?RegistrationRequest $record): bool
+    {
+        return static::canEditMainData($record);
+    }
+
+    private static function shouldPrioritizeLicenseSection(?RegistrationRequest $record): bool
+    {
+        if (! $record) {
+            return false;
+        }
+
+        return $record->status === RegistrationRequest::STATUS_PENDING_FINAL_APPROVAL;
     }
 
     private static function isSuperAdmin(): bool

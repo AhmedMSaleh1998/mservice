@@ -39,6 +39,7 @@ return [
     ],
 
     'oracle' => [
+        'export_enabled' => env('ORACLE_EXPORT_ENABLED', true),
         'host' => env('ORACLE_HOST'),
         'port' => env('ORACLE_PORT', '1521'),
         'service_name' => env('ORACLE_SERVICE_NAME'),
