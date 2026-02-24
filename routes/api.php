@@ -46,14 +46,20 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
     Route::get('payment-methods', [PaymentMethodsController::class, 'index']);
     Route::get('religions', [ReligionsController::class, 'index']);
     Route::post('register-request', [NewRegisterController::class, 'register']);
+    Route::post('register-request/retrieve-documents', [NewRegisterController::class, 'retrieveDocuments'])
+        ->middleware('throttle:5,1')
+        ->name('register-documents-retrieve');
     Route::get('register-request/{reg_code}/pdf', [NewRegisterController::class, 'downloadPdf'])
+        ->middleware('signed')
         ->where('reg_code', 'EMS\\d+')
         ->name('register-pdf');
     Route::get('register-request/{reg_code}/pdf/{document}', [NewRegisterController::class, 'downloadPdf'])
+        ->middleware('signed')
         ->where('reg_code', 'EMS\\d+')
         ->where('document', RegistrationRequestPdfService::DOCUMENT_REGISTRATION_REQUEST . '|' . RegistrationRequestPdfService::DOCUMENT_LICENSE_REQUEST)
         ->name('register-pdf-document');
     Route::get('{reg_code}/pdf', [NewRegisterController::class, 'downloadPdf'])
+        ->middleware('signed')
         ->where('reg_code', 'EMS\\d+');
 
     Route::controller(OtpSendController::class)->prefix('otp')->group(function () {

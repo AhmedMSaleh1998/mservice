@@ -9,12 +9,15 @@ use App\Support\CountryCodeOptions;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Schema as DatabaseSchema;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\Rule;
 use Modules\Core\Enums\GenderEnum;
 use Modules\Core\Models\Grade;
@@ -23,6 +26,7 @@ use Modules\Core\Models\MedicalUniversity;
 use Modules\Core\Models\Nationality;
 use Modules\Core\Models\Province;
 use Modules\Core\Models\Religion;
+use Modules\Users\Services\RegistrationRequestPdfService;
 
 class RegistrationRequestForm
 {
@@ -31,6 +35,29 @@ class RegistrationRequestForm
         return $schema
             ->components(function (?RegistrationRequest $record): array {
                 $components = [
+                Section::make(__('Generated PDF Documents'))
+                    ->visible(fn (?RegistrationRequest $record): bool => filled($record?->reg_code))
+                    ->schema([
+                        Placeholder::make('generated_pdfs_reg_code')
+                            ->label(__('Registration Code'))
+                            ->content(fn (?RegistrationRequest $record): string => (string) ($record?->reg_code ?? '-')),
+                        Placeholder::make('generated_pdfs_registration_request')
+                            ->label(__('Registration request form'))
+                            ->content(fn (?RegistrationRequest $record): HtmlString|string => static::registrationPdfPlaceholderContent(
+                                $record,
+                                RegistrationRequestPdfService::DOCUMENT_REGISTRATION_REQUEST,
+                                __('Download Registration Request PDF')
+                            )),
+                        Placeholder::make('generated_pdfs_license_request')
+                            ->label(__('Practice license request form'))
+                            ->content(fn (?RegistrationRequest $record): HtmlString|string => static::registrationPdfPlaceholderContent(
+                                $record,
+                                RegistrationRequestPdfService::DOCUMENT_LICENSE_REQUEST,
+                                __('Download License Request PDF')
+                            )),
+                    ])
+                    ->columns(3)
+                    ->columnSpanFull(),
                 Section::make(__('Personal Information'))
                     ->collapsible()
                     ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
@@ -432,6 +459,36 @@ class RegistrationRequestForm
         $user = Filament::auth()->user();
 
         return $user instanceof Admin ? $user : null;
+    }
+
+    private static function registrationPdfPlaceholderContent(
+        ?RegistrationRequest $record,
+        string $document,
+        string $linkLabel
+    ): HtmlString|string {
+        $url = static::signedPdfUrl($record, $document);
+
+        if (! $url) {
+            return '-';
+        }
+
+        return new HtmlString(
+            '<a class="registration-pdf-download-btn" href="' . e($url) . '" target="_blank" rel="noopener noreferrer">' . e($linkLabel) . '</a>'
+        );
+    }
+
+    private static function signedPdfUrl(?RegistrationRequest $record, string $document): ?string
+    {
+        if (! $record || blank($record->reg_code)) {
+            return null;
+        }
+
+        $expiration = now()->addMinutes((int) config('services.registration_documents.signed_url_ttl', 60));
+
+        return URL::temporarySignedRoute('register-pdf-document', $expiration, [
+            'reg_code' => $record->reg_code,
+            'document' => $document,
+        ]);
     }
 
     private static function genderOptions(): array

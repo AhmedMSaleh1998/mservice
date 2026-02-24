@@ -149,6 +149,33 @@
             color: #fff;
         }
 
+        .topbar-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .topbar-actions a {
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(15, 23, 42, 0.18);
+            background: rgba(255, 255, 255, 0.95);
+            color: var(--ink);
+            font-size: 13px;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        }
+
+        .topbar-actions a:hover {
+            border-color: rgba(31, 143, 109, 0.45);
+            color: var(--primary-strong);
+        }
+
         .layout {
             display: grid;
             grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
@@ -864,6 +891,14 @@
                 align-items: flex-start;
             }
 
+            .topbar-actions {
+                width: 100%;
+            }
+
+            .topbar-actions a {
+                width: 100%;
+            }
+
             .actions {
                 flex-direction: column;
             }
@@ -908,10 +943,9 @@
                 <p>{{ __('Registration Portal') }}</p>
             </div>
         </div>
-        {{-- <nav class="lang-toggle"> --}}
-            {{-- <a href="?lang=ar" class="{{ $locale === 'ar' ? 'active' : '' }}">{{ __('locales.ar') }}</a> --}}
-            {{-- <a href="?lang=en" class="{{ $locale === 'en' ? 'active' : '' }}">{{ __('locales.en') }}</a> --}}
-        {{-- </nav> --}}
+        <nav class="topbar-actions">
+            <a href="{{ route('portal.register.retrieve', ['lang' => $locale]) }}">{{ __('Retrieve Documents') }}</a>
+        </nav>
     </header>
 
     <main class="layout">
@@ -1801,6 +1835,19 @@
 
                 if (response.ok && data.success) {
                     const regCode = (data?.reg_code || data?.data?.reg_code || '').toString().trim();
+                    const pdfUrls = data?.data?.pdf_urls || data?.pdf_urls || null;
+
+                    if (pdfUrls && typeof pdfUrls === 'object') {
+                        try {
+                            sessionStorage.setItem('register_success_payload', JSON.stringify({
+                                reg_code: regCode,
+                                pdf_urls: pdfUrls,
+                                saved_at: Date.now(),
+                            }));
+                        } catch (storageError) {
+                        }
+                    }
+
                     const successUrl = new URL(successPageBaseUrl, window.location.origin);
                     successUrl.searchParams.set('lang', locale);
                     if (regCode) {

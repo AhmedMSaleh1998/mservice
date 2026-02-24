@@ -3,15 +3,9 @@
     app()->setLocale($locale);
 
     $regCode = trim((string) request('reg_code'));
-
-    $registrationPdfUrl = $regCode !== ''
-        ? route('register-pdf-document', ['reg_code' => $regCode, 'document' => 'registration-request'])
-        : null;
-    $licensePdfUrl = $regCode !== ''
-        ? route('register-pdf-document', ['reg_code' => $regCode, 'document' => 'license-request'])
-        : null;
-
     $registerUrl = url('/register') . '?lang=' . $locale;
+    $retrieveUrl = route('portal.register.retrieve', ['lang' => $locale]);
+    $pdfUrlTtlMinutes = (int) config('services.registration_documents.signed_url_ttl', 60);
 @endphp
 <!doctype html>
 <html lang="{{ $locale }}" dir="{{ $locale === 'ar' ? 'rtl' : 'ltr' }}">
@@ -221,6 +215,11 @@
             font-weight: 700;
         }
 
+        .warning[hidden],
+        .doc-grid[hidden] {
+            display: none;
+        }
+
         .actions {
             margin-top: 18px;
             display: flex;
@@ -280,27 +279,81 @@
                 @endif
             </div>
 
-            @if ($regCode !== '')
-                <div class="doc-grid">
-                    <article class="doc-item">
-                        <h3>{{ __('Registration request form') }}</h3>
-                        <p>{{ __('Contains your general registration request data. Print and complete any missing fields.') }}</p>
-                        <a href="{{ $registrationPdfUrl }}" target="_blank" rel="noopener noreferrer">{{ __('Download Registration Request PDF') }}</a>
-                    </article>
-                    <article class="doc-item">
-                        <h3>{{ __('Practice license request form') }}</h3>
-                        <p>{{ __('Contains your practice license request. Print it and complete signatures and required entries.') }}</p>
-                        <a href="{{ $licensePdfUrl }}" target="_blank" rel="noopener noreferrer">{{ __('Download License Request PDF') }}</a>
-                    </article>
-                </div>
-            @else
-                <div class="warning">{{ __('Registration code is missing. Please go back and submit the registration form again.') }}</div>
-            @endif
+            <div class="doc-grid" id="pdf-documents" hidden>
+                <article class="doc-item">
+                    <h3>{{ __('Registration request form') }}</h3>
+                    <p>{{ __('Contains your general registration request data. Print and complete any missing fields.') }}</p>
+                    <a href="#" id="registration-pdf-link" target="_blank" rel="noopener noreferrer">{{ __('Download Registration Request PDF') }}</a>
+                </article>
+                <article class="doc-item">
+                    <h3>{{ __('Practice license request form') }}</h3>
+                    <p>{{ __('Contains your practice license request. Print it and complete signatures and required entries.') }}</p>
+                    <a href="#" id="license-pdf-link" target="_blank" rel="noopener noreferrer">{{ __('Download License Request PDF') }}</a>
+                </article>
+            </div>
+
+            <div class="warning" id="missing-code-warning" @if ($regCode !== '') hidden @endif>
+                {{ __('Registration code is missing. Please go back and submit the registration form again.') }}
+            </div>
+            <div class="warning" id="missing-links-warning" hidden>
+                {{ __('The download links are not available in this session. Please retrieve your documents again.') }}
+            </div>
 
             <div class="actions">
                 <a href="{{ $registerUrl }}">{{ __('Back to Registration Form') }}</a>
+                <a href="{{ $retrieveUrl }}">{{ __('Retrieve Documents') }}</a>
             </div>
         </section>
     </div>
+    <script>
+        (() => {
+            const regCode = @json($regCode);
+            const signedTtlMinutes = @json($pdfUrlTtlMinutes);
+            const linksContainer = document.getElementById('pdf-documents');
+            const registrationLink = document.getElementById('registration-pdf-link');
+            const licenseLink = document.getElementById('license-pdf-link');
+            const missingCodeWarning = document.getElementById('missing-code-warning');
+            const missingLinksWarning = document.getElementById('missing-links-warning');
+
+            if (!regCode) {
+                missingCodeWarning.hidden = false;
+                missingLinksWarning.hidden = true;
+                linksContainer.hidden = true;
+                return;
+            }
+
+            const payloadKey = 'register_success_payload';
+            let payload = null;
+
+            try {
+                payload = JSON.parse(sessionStorage.getItem(payloadKey) || 'null');
+            } catch (error) {
+                payload = null;
+            }
+
+            const hasMatchingCode = payload && payload.reg_code === regCode;
+            const hasLinks = hasMatchingCode
+                && payload.pdf_urls
+                && typeof payload.pdf_urls.registration_request === 'string'
+                && typeof payload.pdf_urls.license_request === 'string';
+
+            const savedAt = Number(payload?.saved_at || 0);
+            const ttlMs = Math.max(1, Number(signedTtlMinutes)) * 60 * 1000;
+            const linksAreFresh = savedAt > 0 ? (Date.now() - savedAt) < ttlMs : false;
+
+            if (!hasLinks || !linksAreFresh) {
+                missingCodeWarning.hidden = true;
+                missingLinksWarning.hidden = false;
+                linksContainer.hidden = true;
+                return;
+            }
+
+            registrationLink.href = payload.pdf_urls.registration_request;
+            licenseLink.href = payload.pdf_urls.license_request;
+            missingCodeWarning.hidden = true;
+            missingLinksWarning.hidden = true;
+            linksContainer.hidden = false;
+        })();
+    </script>
 </body>
 </html>

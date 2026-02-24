@@ -251,5 +251,12 @@
   "I agree that if any submitted data or documents are proven incorrect, the syndicate has the right to take any legal and administrative actions in accordance with applicable laws and regulations.": "وأوافق على أنه في حال ثبوت عدم صحة أي من البيانات أو المستندات المقدمة، يحق للنقابة اتخاذ ما تراه مناسبًا من إجراءات قانونية وإدارية وفقًا للوائح والقوانين المنظمة.",
   "I agree to the declaration of data accuracy and bear legal responsibility for it.": "أوافق على الإقرار بصحة البيانات وتحمل المسؤولية القانونية عنها",
   "You must agree to the declaration before submitting.": "يجب الموافقة على الإقرار قبل إرسال الطلب.",
+  "Retrieve Documents": "استرجاع المستندات",
+  "Enter your national ID and registered Mobile 1 number to retrieve your documents.": "أدخل الرقم القومي ورقم الهاتف المحمول 1 المسجل (مع كود الدولة) لاسترجاع المستندات.",
+  "Unable to retrieve documents with provided data.": "تعذر استرجاع المستندات بالبيانات المدخلة.",
+  "Documents retrieved successfully.": "تم استرجاع المستندات بنجاح.",
+  "Too many attempts. Please try again in one minute.": "عدد المحاولات كبير. حاول مرة أخرى بعد دقيقة.",
+  "The download links are not available in this session. Please retrieve your documents again.": "روابط التحميل غير متاحة في هذه الجلسة. يرجى استرجاع المستندات مرة أخرى.",
+  "Generated PDF Documents": "مستندات PDF الناتجة",
   "Global": "عام"
 }

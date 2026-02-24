@@ -242,5 +242,12 @@
   "I agree that if any submitted data or documents are proven incorrect, the syndicate has the right to take any legal and administrative actions in accordance with applicable laws and regulations.": "I agree that if any submitted data or documents are proven incorrect, the syndicate has the right to take any legal and administrative actions in accordance with applicable laws and regulations.",
   "I agree to the declaration of data accuracy and bear legal responsibility for it.": "I agree to the declaration of data accuracy and bear legal responsibility for it.",
   "You must agree to the declaration before submitting.": "You must agree to the declaration before submitting.",
+  "Retrieve Documents": "Retrieve Documents",
+  "Enter your national ID and registered Mobile 1 number to retrieve your documents.": "Enter your national ID and registered Mobile 1 number to retrieve your documents.",
+  "Unable to retrieve documents with provided data.": "Unable to retrieve documents with provided data.",
+  "Documents retrieved successfully.": "Documents retrieved successfully.",
+  "Too many attempts. Please try again in one minute.": "Too many attempts. Please try again in one minute.",
+  "The download links are not available in this session. Please retrieve your documents again.": "The download links are not available in this session. Please retrieve your documents again.",
+  "Generated PDF Documents": "Generated PDF Documents",
   "Global": "Global"
 }

@@ -49,4 +49,8 @@ return [
         'password' => env('ORACLE_PASSWORD'),
     ],
 
+    'registration_documents' => [
+        'signed_url_ttl' => env('REGISTRATION_DOCUMENTS_SIGNED_URL_TTL', 60),
+    ],
+
 ];
