@@ -39,7 +39,6 @@ class NewRegisterService
             'second_foreign_language' => $dto->secondForeignLanguageId,
             'status' => RegistrationRequest::STATUS_PENDING_REVIEW,
             'active' => false,
-            'reg_code' => 'EMS' . random_int(11111, 99999),
         ]);
 
         $documents = $this->uploadDocuments($registerRequest->id, $dto->getDocuments());

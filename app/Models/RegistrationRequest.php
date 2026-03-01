@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\Users\Models\Concerns\HasRegistrationRequestCreation;
 
 class RegistrationRequest extends Model
 {
+    use HasRegistrationRequestCreation;
+
     public const STATUS_PENDING_REVIEW = 'pending_review';
     public const STATUS_PENDING_FINAL_APPROVAL = 'pending_final_approval';
     public const STATUS_APPROVED = 'approved';

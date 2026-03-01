@@ -4,9 +4,12 @@ namespace Modules\Users\Models;
 
 use Modules\Core\Builders\OtpQueryBuilder;
 use Modules\Core\Models\CustomModel;
+use Modules\Users\Models\Concerns\HasRegistrationRequestCreation;
 
 class RegistrationRequest extends CustomModel
 {
+    use HasRegistrationRequestCreation;
+
     public const STATUS_PENDING_REVIEW = 'pending_review';
     public const STATUS_PENDING_FINAL_APPROVAL = 'pending_final_approval';
     public const STATUS_APPROVED = 'approved';
