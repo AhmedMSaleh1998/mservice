@@ -227,6 +227,8 @@
             }
         };
 
+        const isImageUrl = (url) => /\.(png|jpe?g|gif|webp|bmp|svg)(?:$|[?#])/i.test(url);
+
         document.addEventListener('click', (event) => {
             const openLink = event.target.closest('a.filepond--open-icon');
 
@@ -237,6 +239,10 @@
             const uploadRoot = openLink.closest('.fi-fo-file-upload[data-image-popup-preview]');
 
             if (! uploadRoot) {
+                return;
+            }
+
+            if (! isImageUrl(openLink.href)) {
                 return;
             }
 

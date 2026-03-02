@@ -350,14 +350,13 @@ class RegistrationRequestForm
                             ->required(fn (?RegistrationRequest $record): bool => static::shouldRequireLicenseData($record)),
                         FileUpload::make('license_image')
                             ->label(__('License Image'))
-                            ->image()
                             ->required(
                                 fn (?RegistrationRequest $record): bool => static::shouldRequireLicenseData($record)
                                     && blank($record?->license_image)
                             )
                             ->disk('public')
                             ->directory('documents')
-                            ->acceptedFileTypes(['image/png', 'image/jpeg'])
+                            ->acceptedFileTypes(['image/png', 'image/jpeg', 'application/pdf'])
                             ->maxSize(5120)
                             ->extraAttributes(['data-image-popup-preview' => '1'])
                             ->openable()

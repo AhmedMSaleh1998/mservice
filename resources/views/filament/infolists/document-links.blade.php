@@ -25,24 +25,39 @@
         @php
             $label = $documentTypes[$key]
                 ?? Str::of($key)->replace('_', ' ')->title()->toString();
+            $url = Storage::disk('public')->url($path);
+            $extension = Str::lower(pathinfo((string) $path, PATHINFO_EXTENSION));
+            $isImage = in_array($extension, ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'], true);
+            $isPdf = $extension === 'pdf';
         @endphp
         <div class="border rounded-lg p-4 bg-white dark:bg-gray-800">
             <h4 class="font-medium text-gray-900 dark:text-white mb-2">{{ __($label) }}</h4>
-            <img
-                    src="{{ Storage::disk('public')->url($path) }}"
-                    alt="{{ __($label) }}"
-                    class="max-w-md rounded border cursor-pointer hover:shadow-lg transition"
-                    loading="lazy"
-                    onclick="window.open(this.src, '_blank')"
-            />
+            @if($isImage)
+                <img
+                        src="{{ $url }}"
+                        alt="{{ __($label) }}"
+                        class="max-w-md rounded border cursor-pointer hover:shadow-lg transition"
+                        loading="lazy"
+                        onclick="window.open(this.src, '_blank')"
+                />
+            @elseif($isPdf)
+                <iframe
+                        src="{{ $url }}"
+                        title="{{ __($label) }}"
+                        class="w-full max-w-3xl h-96 rounded border bg-white"
+                        loading="lazy"
+                ></iframe>
+            @else
+                <p class="text-sm text-gray-600 dark:text-gray-300">{{ __('Preview not available for this file type.') }}</p>
+            @endif
             <div class="mt-2 flex gap-2">
-                <a href="{{ Storage::disk('public')->url($path) }}"
+                <a href="{{ $url }}"
                    target="_blank"
                    class="text-blue-600 hover:underline text-sm">
                     {{ __('View Full Size') }}
                 </a>
                 <span class="text-gray-400">|</span>
-                <a href="{{ Storage::disk('public')->url($path) }}"
+                <a href="{{ $url }}"
                    download
                    class="text-blue-600 hover:underline text-sm">
                     {{ __('Download') }}
