@@ -170,10 +170,11 @@ class RegistrationRequestForm
                         TextInput::make('residence_mobile_1')
                             ->label(__('Mobile 1 Number'))
                             ->tel()
-                            ->numeric()
                             ->required()
-                            ->maxLength(10)
-                            ->rule('regex:/^\\d{1,10}$/')
+                            ->minLength(11)
+                            ->maxLength(11)
+                            ->rule('digits:11')
+                            ->placeholder(__('Enter 11-digit mobile number.'))
                             ->unique(
                                 ignoreRecord: true,
                                 modifyRuleUsing: fn ($rule, Get $get) => $rule->where(
@@ -192,10 +193,11 @@ class RegistrationRequestForm
                         TextInput::make('residence_mobile_2')
                             ->label(__('Mobile 2 Number'))
                             ->tel()
-                            ->numeric()
                             ->nullable()
-                            ->maxLength(10)
-                            ->rule('regex:/^\\d{1,10}$/')
+                            ->minLength(11)
+                            ->maxLength(11)
+                            ->rule('digits:11')
+                            ->placeholder(__('Enter 11-digit mobile number.'))
                             ->unique(
                                 ignoreRecord: true,
                                 modifyRuleUsing: fn ($rule, Get $get) => $rule->where(

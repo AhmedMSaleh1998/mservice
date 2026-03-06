@@ -16,7 +16,7 @@ class RetrieveRegistrationDocumentsRequest extends FormRequest
         return [
             'national_id' => ['required', 'string', 'max:50'],
             'residence_mobile_1_country_code' => ['required', 'string', 'regex:/^\+[0-9]{1,4}$/'],
-            'residence_mobile_1' => ['required', 'string', 'regex:/^\d{1,10}$/', 'max:10'],
+            'residence_mobile_1' => ['required', 'string', 'digits:11'],
         ];
     }
 

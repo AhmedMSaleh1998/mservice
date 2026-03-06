@@ -1,6 +1,18 @@
 @php
     $birthDate = $request->birth_date?->format('d-m-Y') ?? '';
-    $mobileNumber = '0' . $request->residence_mobile_1 ?: $request->residence_phone;
+    $formatLocalMobile = static function (?string $mobile): string {
+        $mobile = trim((string) $mobile);
+
+        if ($mobile === '') {
+            return '';
+        }
+
+        return str_starts_with($mobile, '0') ? $mobile : '0' . $mobile;
+    };
+    $mobileNumber = $formatLocalMobile($request->residence_mobile_1);
+    if ($mobileNumber === '') {
+        $mobileNumber = trim((string) $request->residence_phone);
+    }
 
     $residenceAddressParts = array_filter([
         $labels['residence_governorate'] ?? $request->residence_governorate,

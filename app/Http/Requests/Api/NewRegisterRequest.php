@@ -82,8 +82,7 @@ class NewRegisterRequest extends FormRequest
             'residence_mobile_1' => [
                 'required',
                 'string',
-                'regex:/^\d{1,10}$/',
-                'max:10',
+                'digits:11',
                 Rule::unique('registration_requests', 'residence_mobile_1')
                     ->where(fn ($query) => $query->where('residence_mobile_1_country_code', $this->input('residence_mobile_1_country_code'))),
             ],
@@ -91,8 +90,7 @@ class NewRegisterRequest extends FormRequest
             'residence_mobile_2' => [
                 'nullable',
                 'string',
-                'regex:/^\d{1,10}$/',
-                'max:10',
+                'digits:11',
                 'required_with:residence_mobile_2_country_code',
                 Rule::unique('registration_requests', 'residence_mobile_2')
                     ->where(fn ($query) => $query->where('residence_mobile_2_country_code', $this->input('residence_mobile_2_country_code'))),

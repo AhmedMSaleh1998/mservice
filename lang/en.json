@@ -191,7 +191,7 @@
   "Mobile 2 Country Code": "Mobile 2 Country Code",
   "Mobile 1 Number": "Mobile 1 Number",
   "Mobile 2 Number": "Mobile 2 Number",
-  "Enter mobile number without leading 0 (already included in country code).": "Enter mobile number without leading 0 (already included in country code).",
+  "Enter 11-digit mobile number.": "Enter 11-digit mobile number.",
   "Select file": "Select file",
   "This phone number is already registered with an active account.": "This phone number is already registered with an active account.",
   "This national ID is already registered.": "This national ID is already registered.",

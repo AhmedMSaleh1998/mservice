@@ -1,8 +1,17 @@
 @php
     $dir = 'rtl';
     $birthDate = $request->birth_date?->format('d/m/Y') ?? '';
-    $mobile1 =  '0'.$request->residence_mobile_1;
-    $mobile2 =  '0'.$request->residence_mobile_2;
+    $formatLocalMobile = static function (?string $mobile): string {
+        $mobile = trim((string) $mobile);
+
+        if ($mobile === '') {
+            return '';
+        }
+
+        return str_starts_with($mobile, '0') ? $mobile : '0' . $mobile;
+    };
+    $mobile1 = $formatLocalMobile($request->residence_mobile_1);
+    $mobile2 = $formatLocalMobile($request->residence_mobile_2);
     $residenceAddressParts = array_filter([
         $labels['residence_governorate'] ?? $request->residence_governorate,
         $request->residence_center,

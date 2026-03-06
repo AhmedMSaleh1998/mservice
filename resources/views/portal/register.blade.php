@@ -1127,7 +1127,7 @@
                             </div>
                             <div class="field">
                                 <label for="residence_mobile_1">{{ __('Mobile 1 Number') }}</label>
-                                <input id="residence_mobile_1" name="residence_mobile_1" type="tel" required maxlength="10" pattern="\d{1,10}" inputmode="numeric" placeholder="{{ __('Enter mobile number without leading 0 (already included in country code).') }}">
+                                <input id="residence_mobile_1" name="residence_mobile_1" type="tel" required minlength="11" maxlength="11" pattern="\d{11}" inputmode="numeric" placeholder="{{ __('Enter 11-digit mobile number.') }}">
                                 <div class="error" data-error-for="residence_mobile_1"></div>
                             </div>
                         </div>
@@ -1144,7 +1144,7 @@
                             </div>
                             <div class="field">
                                 <label for="residence_mobile_2">{{ __('Mobile 2 Number') }}</label>
-                                <input id="residence_mobile_2" name="residence_mobile_2" type="tel" maxlength="10" pattern="\d{1,10}" inputmode="numeric" placeholder="{{ __('Enter mobile number without leading 0 (already included in country code).') }}">
+                                <input id="residence_mobile_2" name="residence_mobile_2" type="tel" minlength="11" maxlength="11" pattern="\d{11}" inputmode="numeric" placeholder="{{ __('Enter 11-digit mobile number.') }}">
                                 <div class="error" data-error-for="residence_mobile_2"></div>
                             </div>
                         </div>

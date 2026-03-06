@@ -333,7 +333,7 @@
                 </div>
                 <div class="field">
                     <label for="residence_mobile_1">{{ __('Mobile 1 Number') }}</label>
-                    <input id="residence_mobile_1" name="residence_mobile_1" type="text" required maxlength="10" pattern="\d{1,10}" inputmode="numeric">
+                    <input id="residence_mobile_1" name="residence_mobile_1" type="text" required minlength="11" maxlength="11" pattern="\d{11}" inputmode="numeric" placeholder="{{ __('Enter 11-digit mobile number.') }}">
                 </div>
             </div>
             <div class="actions">

@@ -200,7 +200,7 @@
   "Mobile 2 Country Code": "كود الدولة للهاتف 2",
   "Mobile 1 Number": "رقم الهاتف 1",
   "Mobile 2 Number": "رقم الهاتف 2",
-  "Enter mobile number without leading 0 (already included in country code).": "اكتب رقم الهاتف بدون 0 في البداية (موجودة بالفعل في كود الدولة).",
+  "Enter 11-digit mobile number.": "اكتب رقم موبايل مكون من 11 رقمًا.",
   "Select file": "اختر ملفًا",
   "This phone number is already registered with an active account.": "هذا الرقم مسجل بالفعل بحساب نشط.",
   "This national ID is already registered.": "هذا الرقم القومي مسجل بالفعل.",
