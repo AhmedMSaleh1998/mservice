@@ -95,7 +95,7 @@ class NewRegisterRequest extends FormRequest
                 Rule::unique('registration_requests', 'residence_mobile_2')
                     ->where(fn ($query) => $query->where('residence_mobile_2_country_code', $this->input('residence_mobile_2_country_code'))),
             ],
-            'email' => ['required', 'email', 'max:255', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],
+            'email' => ['required', 'email', 'max:45', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],
 
             //university data
             'faculty' => ['required', 'string', 'max:255'],

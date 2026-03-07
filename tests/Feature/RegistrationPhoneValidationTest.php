@@ -134,6 +134,30 @@ class RegistrationPhoneValidationTest extends TestCase
         $this->assertArrayHasKey('residence_mobile_1', $validator->errors()->toArray());
     }
 
+    public function test_new_registration_rejects_email_longer_than_50_characters(): void
+    {
+        $this->seedRegistrationLookups();
+
+        $request = NewRegisterRequest::create('/api/v1/register-request', 'POST', $this->validRegistrationPayload([
+            'email' => 'verylongemailaddressfortestinglengthlimit12345@example.com',
+        ]));
+        $request->setContainer(app());
+
+        foreach ($this->registrationFiles() as $key => $file) {
+            $request->files->set($key, $file);
+        }
+
+        $validator = Validator::make(
+            array_merge($request->all(), $request->allFiles()),
+            $request->rules(),
+            $request->messages(),
+            $request->attributes(),
+        );
+
+        $this->assertFalse($validator->passes());
+        $this->assertArrayHasKey('email', $validator->errors()->toArray());
+    }
+
     /**
      * @return array<string, mixed>
      */

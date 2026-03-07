@@ -1150,7 +1150,7 @@
                         </div>
                         <div class="field span-2">
                             <label for="email">{{ __('Email') }}</label>
-                            <input id="email" name="email" type="email" required maxlength="255" autocomplete="email" pattern="[^@\s]+@[^@\s]+\.[^@\s]{2,}" placeholder="admin@example.com">
+                            <input id="email" name="email" type="email" required maxlength="45" autocomplete="email" pattern="[^@\s]+@[^@\s]+\.[^@\s]{2,}" placeholder="admin@example.com">
                             <div class="error" data-error-for="email"></div>
                         </div>
                     </div>

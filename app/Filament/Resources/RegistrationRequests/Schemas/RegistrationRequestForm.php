@@ -209,7 +209,7 @@ class RegistrationRequestForm
                             ->label(__('Email'))
                             ->email()
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(45),
                     ])
                     ->columns(3)
                     ->columnSpanFull(),

@@ -103,6 +103,14 @@
             direction: ltr;
             text-align: left;
         }
+        .email-value {
+            direction: ltr;
+            text-align: left;
+            white-space: nowrap;
+            font-size: 10px;
+            line-height: 1.2;
+            padding-left: 0;
+        }
         .center {
             text-align: center;
         }
@@ -283,8 +291,7 @@
             <td class="label">ت المنزل:</td>
         </tr>
         <tr>
-            <td class="label ltr">Emali:</td>
-            <td class="value ltr">{{ $request->email }}</td>
+            <td class="value email-value" colspan="2">Email:{{ $request->email }}</td>
             <td></td>
             <td class="value">{{ $mobile2 }}</td>
             <td class="label">ت المحمول (2):</td>
