@@ -24,8 +24,6 @@ class BlogResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Blogs';
 
-    protected static ?string $recordTitleAttribute = 'Blog';
-
     public static function getModelLabel(): string
     {
         return __('Blog');
