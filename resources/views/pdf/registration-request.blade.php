@@ -107,9 +107,10 @@
             direction: ltr;
             text-align: left;
             white-space: nowrap;
-            font-size: 10px;
+            font-size: 12px;
             line-height: 1.2;
             padding-left: 0;
+            padding-right: 0;
         }
         .center {
             text-align: center;
@@ -291,9 +292,8 @@
             <td class="label">ت المنزل:</td>
         </tr>
         <tr>
-            <td class="value email-value" colspan="2">Email:{{ $request->email }}</td>
-            <td></td>
-            <td class="value">{{ $mobile2 }}</td>
+            <td class="value email-value" colspan="3">Email:{{ $request->email }}</td>
+            <td class="value number-cell">{{ $mobile2 }}</td>
             <td class="label">ت المحمول (2):</td>
         </tr>
         <tr>
@@ -328,16 +328,14 @@
 
     <div class="line"></div>
 
-    <table class="grid">
-        <tr>
-            <td class="value" colspan="6">&nbsp;</td>
-            <td class="label">اللغة الأجنبية:</td>
-        </tr>
-    </table>
     <table class="grid double">
         <tr>
             <td><span class="value">{{ $labels['second_foreign_language'] ?? $request->second_foreign_language }}</span><span class="label">اللغة الثانية:</span></td>
+            <td><span class="label">اللغة الأجنبية:</span></td>
+        </tr>
+        <tr>
             <td><span class="value">{{ $labels['first_foreign_language'] ?? $request->first_foreign_language }}</span><span class="label">اللغة الأولى:</span></td>
+            <td>&nbsp;</td>
         </tr>
     </table>
 
