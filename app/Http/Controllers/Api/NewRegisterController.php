@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\NewRegisterRequest;
 use App\Http\Requests\Api\RetrieveRegistrationDocumentsRequest;
 use Illuminate\Support\Facades\URL;
+use Throwable;
 use Modules\Users\Dto\NewRegisterDTO;
 use Modules\Users\Models\RegistrationRequest;
 use Modules\Users\Resources\NewRegisterResource;
@@ -34,7 +35,9 @@ class NewRegisterController extends Controller
                 'data' => new NewRegisterResource($registrationRequest),
                 'status' => 200,
             ]);
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => __('Registration failed. Please try again.'),
