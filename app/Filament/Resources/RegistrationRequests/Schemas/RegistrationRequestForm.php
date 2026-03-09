@@ -132,24 +132,28 @@ class RegistrationRequestForm
                 Section::make(__('Residence Information'))
                     ->collapsible()
                     ->collapsed()
-                    ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
+                    ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditResidenceData($record))
                     ->schema([
                         TextInput::make('residence_house_number')
                             ->label(__('House Number'))
                             ->required()
+                            ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
                             ->maxLength(10),
                         TextInput::make('residence_street')
                             ->label(__('Street'))
                             ->required()
+                            ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
                             ->maxLength(255),
                         TextInput::make('residence_center')
                             ->label(__('Center'))
                             ->required()
+                            ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
                             ->maxLength(100),
                         Select::make('residence_governorate')
                             ->label(__('Residence Governorate'))
                             ->options(static::lookupOptions(Province::class))
                             ->required()
+                            ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
                             ->searchable()
                             ->preload()
                             ->rules(['integer', 'exists:provinces,id']),
@@ -157,34 +161,29 @@ class RegistrationRequestForm
                             ->label(__('Residence Phone'))
                             ->tel()
                             ->required()
+                            ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
                             ->maxLength(10)
                             ->rule('regex:/^([0-9\\s\\-\\+\\(\\)]*)$/')
                             ->unique(ignoreRecord: true),
                         Select::make('residence_mobile_1_country_code')
                             ->label(__('Mobile 1 Country Code'))
                             ->required()
+                            ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditResidenceMobileData($record))
                             ->searchable()
                             ->preload()
                             ->native(false)
                             ->options(CountryCodeOptions::options()),
                         TextInput::make('residence_mobile_1')
                             ->label(__('Mobile 1 Number'))
-                            ->tel()
+                            ->type('tel')
+                            ->inputMode('numeric')
                             ->required()
-                            ->minLength(11)
-                            ->maxLength(11)
-                            ->rule('digits:11')
-                            ->placeholder(__('Enter 11-digit mobile number.'))
-                            ->unique(
-                                ignoreRecord: true,
-                                modifyRuleUsing: fn ($rule, Get $get) => $rule->where(
-                                    'residence_mobile_1_country_code',
-                                    $get('residence_mobile_1_country_code')
-                                )
-                            ),
+                            ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditResidenceMobileData($record))
+                            ->placeholder(__('Enter 11-digit mobile number.')),
                         Select::make('residence_mobile_2_country_code')
                             ->label(__('Mobile 2 Country Code'))
                             ->nullable()
+                            ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditResidenceMobileData($record))
                             ->searchable()
                             ->preload()
                             ->native(false)
@@ -192,23 +191,16 @@ class RegistrationRequestForm
                             ->options(CountryCodeOptions::options()),
                         TextInput::make('residence_mobile_2')
                             ->label(__('Mobile 2 Number'))
-                            ->tel()
+                            ->type('tel')
+                            ->inputMode('numeric')
                             ->nullable()
-                            ->minLength(11)
-                            ->maxLength(11)
-                            ->rule('digits:11')
-                            ->placeholder(__('Enter 11-digit mobile number.'))
-                            ->unique(
-                                ignoreRecord: true,
-                                modifyRuleUsing: fn ($rule, Get $get) => $rule->where(
-                                    'residence_mobile_2_country_code',
-                                    $get('residence_mobile_2_country_code')
-                                )
-                            ),
+                            ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditResidenceMobileData($record))
+                            ->placeholder(__('Enter 11-digit mobile number.')),
                         TextInput::make('email')
                             ->label(__('Email'))
                             ->email()
                             ->required()
+                            ->disabled(fn (?RegistrationRequest $record): bool => ! static::canEditMainData($record))
                             ->maxLength(45),
                     ])
                     ->columns(3)
@@ -395,6 +387,28 @@ class RegistrationRequestForm
         }
 
         return $record->status === RegistrationRequest::STATUS_PENDING_REVIEW;
+    }
+
+    private static function canEditResidenceData(?RegistrationRequest $record): bool
+    {
+        return static::canEditMainData($record) || static::canEditResidenceMobileData($record);
+    }
+
+    private static function canEditResidenceMobileData(?RegistrationRequest $record): bool
+    {
+        if (static::canEditMainData($record)) {
+            return true;
+        }
+
+        if (! static::hasRole('review-supervisor')) {
+            return false;
+        }
+
+        if (! $record) {
+            return false;
+        }
+
+        return $record->status === RegistrationRequest::STATUS_PENDING_FINAL_APPROVAL;
     }
 
     private static function canViewLicenseData(): bool
