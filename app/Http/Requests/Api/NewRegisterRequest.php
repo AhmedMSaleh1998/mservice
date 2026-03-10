@@ -22,6 +22,8 @@ class NewRegisterRequest extends FormRequest
 
     public function rules(): array
     {
+        $allowedGraduationYears = array_map('strval', range(1900, (int) now()->year));
+
         $nationalIdRules = [
             'bail',
             'required',
@@ -100,7 +102,7 @@ class NewRegisterRequest extends FormRequest
             //university data
             'faculty' => ['required', 'string', 'max:255'],
             'graduation_month' => ['required', 'string', 'max:2'],
-            'graduation_year' => ['required', 'string', 'max:10'],
+            'graduation_year' => ['required', 'digits:4', Rule::in($allowedGraduationYears)],
             'university' => ['required', 'integer', 'exists:medical_universities,id'],
             'grade' => ['required', 'integer', 'exists:grades,id'],
             'first_foreign_language' => ['required', 'integer', 'exists:languages,id'],
@@ -122,6 +124,8 @@ class NewRegisterRequest extends FormRequest
             'phone.unique' => __('This phone number is already registered with an active account.'),
             'national_id.unique' => __('This national ID is already registered.'),
             'email.regex' => __('Email must include a valid domain like example.com.'),
+            'graduation_year.digits' => __('Graduation year must be exactly 4 digits.'),
+            'graduation_year.in' => __('Please select a valid graduation year.'),
         ];
     }
 

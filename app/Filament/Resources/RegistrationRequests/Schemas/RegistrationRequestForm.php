@@ -221,10 +221,13 @@ class RegistrationRequestForm
                             ->searchable()
                             ->preload()
                             ->rules(['integer', 'exists:medical_universities,id']),
-                        TextInput::make('graduation_year')
+                        Select::make('graduation_year')
                             ->label(__('Graduation Year'))
+                            ->options(static::graduationYearOptions())
                             ->required()
-                            ->maxLength(10),
+                            ->searchable()
+                            ->preload()
+                            ->rules(['digits:4', Rule::in(array_keys(static::graduationYearOptions()))]),
                         TextInput::make('graduation_month')
                             ->label(__('Graduation Month'))
                             ->required()
@@ -511,6 +514,17 @@ class RegistrationRequestForm
         return collect(GenderEnum::cases())
             ->mapWithKeys(fn (GenderEnum $case) => [$case->value => $case->label()])
             ->all();
+    }
+
+    private static function graduationYearOptions(): array
+    {
+        $years = [];
+
+        for ($year = (int) now()->year; $year >= 1900; $year--) {
+            $years[(string) $year] = (string) $year;
+        }
+
+        return $years;
     }
 
     private static function lookupOptions(string $modelClass): array

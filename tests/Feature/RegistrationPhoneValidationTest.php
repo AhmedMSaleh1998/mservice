@@ -158,6 +158,54 @@ class RegistrationPhoneValidationTest extends TestCase
         $this->assertArrayHasKey('email', $validator->errors()->toArray());
     }
 
+    public function test_new_registration_rejects_non_numeric_graduation_year(): void
+    {
+        $this->seedRegistrationLookups();
+
+        $request = NewRegisterRequest::create('/api/v1/register-request', 'POST', $this->validRegistrationPayload([
+            'graduation_year' => 'سبتمبر2023',
+        ]));
+        $request->setContainer(app());
+
+        foreach ($this->registrationFiles() as $key => $file) {
+            $request->files->set($key, $file);
+        }
+
+        $validator = Validator::make(
+            array_merge($request->all(), $request->allFiles()),
+            $request->rules(),
+            $request->messages(),
+            $request->attributes(),
+        );
+
+        $this->assertFalse($validator->passes());
+        $this->assertArrayHasKey('graduation_year', $validator->errors()->toArray());
+    }
+
+    public function test_new_registration_rejects_graduation_year_outside_allowed_range(): void
+    {
+        $this->seedRegistrationLookups();
+
+        $request = NewRegisterRequest::create('/api/v1/register-request', 'POST', $this->validRegistrationPayload([
+            'graduation_year' => (string) (now()->year + 1),
+        ]));
+        $request->setContainer(app());
+
+        foreach ($this->registrationFiles() as $key => $file) {
+            $request->files->set($key, $file);
+        }
+
+        $validator = Validator::make(
+            array_merge($request->all(), $request->allFiles()),
+            $request->rules(),
+            $request->messages(),
+            $request->attributes(),
+        );
+
+        $this->assertFalse($validator->passes());
+        $this->assertArrayHasKey('graduation_year', $validator->errors()->toArray());
+    }
+
     /**
      * @return array<string, mixed>
      */
