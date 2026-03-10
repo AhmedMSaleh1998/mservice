@@ -1,14 +1,86 @@
 @php
     $locale = in_array(request('lang'), ['ar', 'en'], true) ? request('lang') : 'ar';
     app()->setLocale($locale);
+    $isArabic = $locale === 'ar';
     $countryCodes = \App\Support\CountryCodeOptions::options();
+    $mode = $mode ?? 'create';
+    $isEditMode = $mode === 'edit';
+    $prefillData = $prefillData ?? [];
+    $missingDocumentKeys = array_values($missingDocumentKeys ?? []);
+    $existingDocumentKeys = array_values($existingDocumentKeys ?? []);
+    $documentLabels = $documentLabels ?? \App\Support\RegistrationRequestDocuments::requiredDocuments();
+    $submitUrl = $submitUrl ?? url('/api/v1/register-request');
+    $registrationPortalText = $isArabic ? 'بوابة التسجيل' : __('Registration Portal');
+    $retrieveDocumentsText = $isArabic ? 'استرجاع المستندات' : __('Retrieve Documents');
+    $personalInformationText = $isArabic ? 'البيانات الشخصية' : __('Personal Information');
+    $residenceInformationText = $isArabic ? 'بيانات مقر الإقامة' : __('Residence Information');
+    $academicInformationText = $isArabic ? 'البيانات الأكاديمية' : __('Academic Information');
+    $submittedDocumentsText = $isArabic ? 'المستندات المقدمة' : __('Submitted Documents');
+    $smartSummaryText = $isArabic ? 'ملخص ذكي' : __('Smart Summary');
+    $pageTitle = $isEditMode
+        ? ($isArabic ? 'استكمال طلب التسجيل' : __('Update Registration Request'))
+        : ($isArabic ? 'طلب التسجيل' : __('Registration Request'));
+    $heroTitle = $isEditMode
+        ? ($isArabic ? 'راجع بيانات الطلب وارفع المستندات الناقصة.' : __('Review your request data and upload the missing documents.'))
+        : ($isArabic ? 'استكمل الخطوات التالية لإرسال طلب التسجيل.' : __('Complete the steps below to submit your request.'));
+    $summaryFootText = $isEditMode
+        ? ($isArabic ? 'راجع بياناتك المحفوظة وارفع أي مستندات ناقصة قبل إعادة الإرسال.' : __('Review your saved data and upload any missing documents before resubmitting.'))
+        : ($isArabic ? 'سيتم مسح البيانات عند تحديث الصفحة.' : __('Data will be cleared on refresh.'));
+    $selectFileText = $isArabic ? 'اختر ملفًا' : __('Select file');
+    $replaceFileText = $isArabic ? 'تم رفعه مسبقًا، اختر ملفًا فقط إذا أردت استبداله.' : __('Already uploaded - choose a file only if you want to replace it.');
+    $alreadyUploadedText = $isArabic ? 'تم رفعه مسبقًا' : __('Already uploaded');
+    $missingFileText = $isArabic ? 'ناقص، يرجى رفع هذا الملف مرة أخرى.' : __('Missing, please upload this file again.');
+    $missingNoticeTitle = $isArabic ? 'تنبيه بخصوص المستندات الناقصة' : __('Missing documents notice');
+    $missingNoticeBody = $isArabic
+        ? 'تم فتح هذه الصفحة من رابط آمن أُرسل إلى بريدك الإلكتروني حتى تتمكن من استكمال المستندات الناقصة وتحديث بيانات الطلب.'
+        : __('This form was opened from a secure email link so you can complete the missing documents and update your saved request data.');
+    $birthHintText = $isArabic ? 'يتم تعبئة تاريخ الميلاد تلقائيًا للجنسية المصرية فقط.' : __('Auto-filled for Egyptian nationality only.');
+    $mobilePlaceholderText = $isArabic ? 'أدخل رقم موبايل مكونًا من 11 رقمًا.' : __('Enter 11-digit mobile number.');
+    $uploadHintText = $isArabic ? 'ارفع صورًا واضحة بحد أقصى 5 ميجابايت.' : __('Upload clear images (max 5MB).');
+    $declarationTitleText = $isArabic ? 'إقرار صحة البيانات والمسؤولية القانونية' : __('Data Accuracy Declaration and Legal Responsibility');
+    $declarationParagraphOneText = $isArabic
+        ? 'أقر أنا مقدم الطلب بأن جميع البيانات والمستندات التي أدخلتها ورفعتها من خلال الموقع صحيحة وسارية ومطابقة للحقيقة، وقد قمت بمراجعتها بعناية قبل الإرسال.'
+        : __('I, the applicant, acknowledge that all data and documents I entered and uploaded through the website are accurate, valid, and true, and that I reviewed them carefully before submission.');
+    $declarationParagraphTwoText = $isArabic
+        ? 'وأتحمل كامل المسؤولية القانونية عن صحة هذه البيانات والمستندات، وألتزم بإخطار النقابة فورًا إذا تبين وجود أي خطأ أو لزم إجراء أي تعديل.'
+        : __('I bear full legal responsibility for the accuracy of this data and these documents, and I undertake to notify the syndicate immediately if any error is discovered or any amendment is required.');
+    $declarationParagraphThreeText = $isArabic
+        ? 'وأوافق على أنه إذا ثبت عدم صحة أي بيانات أو مستندات مقدمة، يكون للنقابة الحق في اتخاذ ما تراه من إجراءات قانونية وإدارية وفقًا للوائح والقوانين المعمول بها.'
+        : __('I agree that if any submitted data or documents are proven incorrect, the syndicate has the right to take any legal and administrative actions in accordance with applicable laws and regulations.');
+    $declarationAgreeText = $isArabic
+        ? 'أوافق على هذا الإقرار وأتحمل المسؤولية القانونية عن صحة البيانات.'
+        : __('I agree to the declaration of data accuracy and bear legal responsibility for it.');
+    $backButtonText = $isArabic ? 'السابق' : __('Back');
+    $nextButtonText = $isArabic ? 'التالي' : __('Next');
+    $submitButtonText = $isEditMode
+        ? ($isArabic ? 'تحديث الطلب' : __('Update Registration'))
+        : ($isArabic ? 'إرسال الطلب' : __('Submit Registration'));
+    $sendingButtonText = $isArabic ? 'جارٍ الإرسال...' : __('Sending...');
+    $fixFieldsText = $isArabic ? 'يرجى مراجعة الحقول المظللة.' : __('Please fix the highlighted fields.');
+    $selectRequiredText = $isArabic ? 'يرجى اختيار قيمة.' : __('Please select a value.');
+    $selectedForUploadText = $isArabic ? 'تم اختيار الملف للرفع' : __('Selected for upload');
+    $getDocumentState = static function (string $key) use ($existingDocumentKeys, $missingDocumentKeys, $isEditMode, $replaceFileText, $selectFileText, $alreadyUploadedText, $missingFileText): array {
+        $hasExisting = in_array($key, $existingDocumentKeys, true);
+        $isMissing = in_array($key, $missingDocumentKeys, true);
+
+        return [
+            'required' => ! $isEditMode || $isMissing,
+            'defaultLabel' => $hasExisting
+                ? $replaceFileText
+                : $selectFileText,
+            'status' => $isEditMode
+                ? ($hasExisting ? $alreadyUploadedText : $missingFileText)
+                : '',
+            'statusClass' => $hasExisting ? 'existing' : ($isEditMode ? 'missing' : ''),
+        ];
+    };
 @endphp
 <!doctype html>
 <html lang="{{ $locale }}" dir="{{ $locale === 'ar' ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ __('Registration Request') }}</title>
+    <title>{{ $pageTitle }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
@@ -690,6 +762,20 @@
             color: var(--soft);
         }
 
+        .file-status {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .file-status.existing {
+            color: var(--primary-strong);
+        }
+
+        .file-status.missing {
+            color: #b45309;
+        }
+
         .file-card img {
             width: 100%;
             max-height: 80px;
@@ -796,6 +882,32 @@
 
         .alert.visible {
             display: block;
+        }
+
+        .notice-box {
+            margin-bottom: 18px;
+            padding: 16px 18px;
+            border-radius: 14px;
+            border: 1px solid rgba(31, 143, 109, 0.22);
+            background: rgba(31, 143, 109, 0.09);
+        }
+
+        .notice-box h3 {
+            margin: 0 0 10px;
+            font-size: 15px;
+        }
+
+        .notice-box p,
+        .notice-box li {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.8;
+            font-size: 13px;
+        }
+
+        .notice-box ul {
+            margin: 10px 0 0;
+            padding-inline-start: 18px;
         }
 
         .success {
@@ -935,25 +1047,25 @@
     <header class="topbar">
         <div class="brand">
             <div class="brand-mark">
-                <img src="{{ asset('assets/ems-logo.png') }}" alt="{{ __('Registration Request') }}" class="brand-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';">
+                <img src="{{ asset('assets/ems-logo.png') }}" alt="{{ $pageTitle }}" class="brand-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';">
                 <div class="brand-badge">MS</div>
             </div>
             <div>
-                <h1>{{ __('Registration Request') }}</h1>
-                <p>{{ __('Registration Portal') }}</p>
+                <h1>{{ $pageTitle }}</h1>
+                <p>{{ $registrationPortalText }}</p>
             </div>
         </div>
         <nav class="topbar-actions">
-            <a href="{{ route('portal.register.retrieve', ['lang' => $locale]) }}">{{ __('Retrieve Documents') }}</a>
+            <a href="{{ route('portal.register.retrieve', ['lang' => $locale]) }}">{{ $retrieveDocumentsText }}</a>
         </nav>
     </header>
 
     <main class="layout">
         <aside class="card side-card">
             <div class="hero">
-                <span class="pill">{{ __('Registration Request') }}</span>
-                <h2>{{ __('Complete the steps below to submit your request.') }}</h2>
-                <p>{{ __('Personal Information') }} · {{ __('Residence Information') }} · {{ __('Academic Information') }} · {{ __('Submitted Documents') }}</p>
+                <span class="pill">{{ $pageTitle }}</span>
+                <h2>{{ $heroTitle }}</h2>
+                <p>{{ $personalInformationText }} · {{ $residenceInformationText }} · {{ $academicInformationText }} · {{ $submittedDocumentsText }}</p>
             </div>
 
             <div class="progress">
@@ -961,16 +1073,16 @@
                     <span class="progress-fill" data-progress-fill></span>
                 </div>
                 <div class="step-list">
-                    <button class="step-chip active" type="button" data-step-btn="0">1. {{ __('Personal Information') }}</button>
-                    <button class="step-chip" type="button" data-step-btn="1">2. {{ __('Residence Information') }}</button>
-                    <button class="step-chip" type="button" data-step-btn="2">3. {{ __('Academic Information') }}</button>
-                    <button class="step-chip" type="button" data-step-btn="3">4. {{ __('Submitted Documents') }}</button>
+                    <button class="step-chip active" type="button" data-step-btn="0">1. {{ $personalInformationText }}</button>
+                    <button class="step-chip" type="button" data-step-btn="1">2. {{ $residenceInformationText }}</button>
+                    <button class="step-chip" type="button" data-step-btn="2">3. {{ $academicInformationText }}</button>
+                    <button class="step-chip" type="button" data-step-btn="3">4. {{ $submittedDocumentsText }}</button>
                 </div>
             </div>
 
             <div class="summary">
                 <div class="summary-header">
-                    <h3>{{ __('Smart Summary') }}</h3>
+                    <h3>{{ $smartSummaryText }}</h3>
                 </div>
                 <div class="summary-grid">
                     <div class="summary-item">
@@ -998,7 +1110,7 @@
                         <strong data-preview="residence_mobile_1">—</strong>
                     </div>
                 </div>
-                <div class="summary-foot">{{ __('Data will be cleared on refresh.') }}</div>
+                <div class="summary-foot">{{ $summaryFootText }}</div>
             </div>
         </aside>
 
@@ -1007,9 +1119,23 @@
                 <div class="alert" id="form-alert"></div>
                 <div class="success" id="form-success"></div>
 
+                @if ($isEditMode)
+                    <div class="notice-box">
+                        <h3>{{ $missingNoticeTitle }}</h3>
+                        <p>{{ $missingNoticeBody }}</p>
+                        @if ($missingDocumentKeys !== [])
+                            <ul>
+                                @foreach ($missingDocumentKeys as $documentKey)
+                                    <li>{{ $documentLabels[$documentKey] ?? $documentKey }}</li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
+                @endif
+
                 <div class="form-step active" data-step="0">
                     <div class="step-title">
-                        <h2>{{ __('Personal Information') }}</h2>
+                        <h2>{{ $personalInformationText }}</h2>
                         <span>1 / 4</span>
                     </div>
                     <div class="grid grid-two name-grid">
@@ -1075,7 +1201,7 @@
                         <div class="field field-hint-float">
                             <label for="birth_date">{{ __('Birth Date') }}</label>
                             <input id="birth_date" name="birth_date" type="date">
-                            <div class="hint" data-birth-hint>{{ __('Auto-filled for Egyptian nationality only.') }}</div>
+                            <div class="hint" data-birth-hint>{{ $birthHintText }}</div>
                             <div class="error" data-error-for="birth_date"></div>
                         </div>
                     </div>
@@ -1083,7 +1209,7 @@
 
                 <div class="form-step" data-step="1">
                     <div class="step-title">
-                        <h2>{{ __('Residence Information') }}</h2>
+                        <h2>{{ $residenceInformationText }}</h2>
                         <span>2 / 4</span>
                     </div>
                     <div class="grid">
@@ -1127,7 +1253,7 @@
                             </div>
                             <div class="field">
                                 <label for="residence_mobile_1">{{ __('Mobile 1 Number') }}</label>
-                                <input id="residence_mobile_1" name="residence_mobile_1" type="tel" required minlength="11" maxlength="11" pattern="\d{11}" inputmode="numeric" placeholder="{{ __('Enter 11-digit mobile number.') }}">
+                                <input id="residence_mobile_1" name="residence_mobile_1" type="tel" required minlength="11" maxlength="11" pattern="\d{11}" inputmode="numeric" placeholder="{{ $mobilePlaceholderText }}">
                                 <div class="error" data-error-for="residence_mobile_1"></div>
                             </div>
                         </div>
@@ -1144,13 +1270,13 @@
                             </div>
                             <div class="field">
                                 <label for="residence_mobile_2">{{ __('Mobile 2 Number') }}</label>
-                                <input id="residence_mobile_2" name="residence_mobile_2" type="tel" minlength="11" maxlength="11" pattern="\d{11}" inputmode="numeric" placeholder="{{ __('Enter 11-digit mobile number.') }}">
+                                <input id="residence_mobile_2" name="residence_mobile_2" type="tel" minlength="11" maxlength="11" pattern="\d{11}" inputmode="numeric" placeholder="{{ $mobilePlaceholderText }}">
                                 <div class="error" data-error-for="residence_mobile_2"></div>
                             </div>
                         </div>
                         <div class="field span-2">
                             <label for="email">{{ __('Email') }}</label>
-                            <input id="email" name="email" type="email" required maxlength="45" autocomplete="email" pattern="[^@\s]+@[^@\s]+\.[^@\s]{2,}" placeholder="admin@example.com">
+                            <input id="email" name="email" type="email" required maxlength="50" autocomplete="email" pattern="[^@\s]+@[^@\s]+\.[^@\s]{2,}" placeholder="admin@example.com">
                             <div class="error" data-error-for="email"></div>
                         </div>
                     </div>
@@ -1158,7 +1284,7 @@
 
                 <div class="form-step" data-step="2">
                     <div class="step-title">
-                        <h2>{{ __('Academic Information') }}</h2>
+                        <h2>{{ $academicInformationText }}</h2>
                         <span>3 / 4</span>
                     </div>
                     <div class="grid">
@@ -1215,70 +1341,100 @@
 
                 <div class="form-step" data-step="3">
                     <div class="step-title">
-                        <h2>{{ __('Submitted Documents') }}</h2>
+                        <h2>{{ $submittedDocumentsText }}</h2>
                         <span>4 / 4</span>
                     </div>
-                    <div class="hint">{{ __('Upload clear images (max 5MB).') }}</div>
+                    <div class="hint">{{ $uploadHintText }}</div>
                     <div class="file-grid">
-                        <label class="file-card">
-                            <input type="file" name="personal_image" accept="image/png,image/jpeg" required>
-                            <strong>{{ __('Personal Photo') }}</strong>
-                            <span data-file-name>{{ __('Select file') }}</span>
+                        @php($personalImageState = $getDocumentState('personal_image'))
+                        <label class="file-card"
+                               data-default-file-label="{{ $personalImageState['defaultLabel'] }}"
+                               data-default-file-status="{{ $personalImageState['status'] }}"
+                               data-default-file-status-class="{{ $personalImageState['statusClass'] }}">
+                            <input type="file" name="personal_image" accept="image/png,image/jpeg" {{ $personalImageState['required'] ? 'required' : '' }}>
+                            <strong>{{ $documentLabels['personal_image'] ?? __('Personal Photo') }}</strong>
+                            <span data-file-name>{{ $personalImageState['defaultLabel'] }}</span>
+                            <small class="file-status {{ $personalImageState['statusClass'] }}" data-file-status>{{ $personalImageState['status'] }}</small>
                             <img alt="" data-file-preview>
                             <div class="error" data-error-for="personal_image"></div>
                         </label>
-                        <label class="file-card">
-                            <input type="file" name="national_id_image" accept="image/png,image/jpeg" required>
-                            <strong>{{ __('National ID Photo') }}</strong>
-                            <span data-file-name>{{ __('Select file') }}</span>
+                        @php($nationalIdImageState = $getDocumentState('national_id_image'))
+                        <label class="file-card"
+                               data-default-file-label="{{ $nationalIdImageState['defaultLabel'] }}"
+                               data-default-file-status="{{ $nationalIdImageState['status'] }}"
+                               data-default-file-status-class="{{ $nationalIdImageState['statusClass'] }}">
+                            <input type="file" name="national_id_image" accept="image/png,image/jpeg" {{ $nationalIdImageState['required'] ? 'required' : '' }}>
+                            <strong>{{ $documentLabels['national_id_image'] ?? __('National ID Photo') }}</strong>
+                            <span data-file-name>{{ $nationalIdImageState['defaultLabel'] }}</span>
+                            <small class="file-status {{ $nationalIdImageState['statusClass'] }}" data-file-status>{{ $nationalIdImageState['status'] }}</small>
                             <img alt="" data-file-preview>
                             <div class="error" data-error-for="national_id_image"></div>
                         </label>
-                        <label class="file-card">
-                            <input type="file" name="graduation_certificate_image" accept="image/png,image/jpeg" required>
-                            <strong>{{ __('Graduation Certificate') }}</strong>
-                            <span data-file-name>{{ __('Select file') }}</span>
+                        @php($graduationCertificateState = $getDocumentState('graduation_certificate_image'))
+                        <label class="file-card"
+                               data-default-file-label="{{ $graduationCertificateState['defaultLabel'] }}"
+                               data-default-file-status="{{ $graduationCertificateState['status'] }}"
+                               data-default-file-status-class="{{ $graduationCertificateState['statusClass'] }}">
+                            <input type="file" name="graduation_certificate_image" accept="image/png,image/jpeg" {{ $graduationCertificateState['required'] ? 'required' : '' }}>
+                            <strong>{{ $documentLabels['graduation_certificate_image'] ?? __('Graduation Certificate') }}</strong>
+                            <span data-file-name>{{ $graduationCertificateState['defaultLabel'] }}</span>
+                            <small class="file-status {{ $graduationCertificateState['statusClass'] }}" data-file-status>{{ $graduationCertificateState['status'] }}</small>
                             <img alt="" data-file-preview>
                             <div class="error" data-error-for="graduation_certificate_image"></div>
                         </label>
-                        <label class="file-card">
-                            <input type="file" name="internship_certificate_image" accept="image/png,image/jpeg" required>
-                            <strong>{{ __('Internship Certificate') }}</strong>
-                            <span data-file-name>{{ __('Select file') }}</span>
+                        @php($internshipCertificateState = $getDocumentState('internship_certificate_image'))
+                        <label class="file-card"
+                               data-default-file-label="{{ $internshipCertificateState['defaultLabel'] }}"
+                               data-default-file-status="{{ $internshipCertificateState['status'] }}"
+                               data-default-file-status-class="{{ $internshipCertificateState['statusClass'] }}">
+                            <input type="file" name="internship_certificate_image" accept="image/png,image/jpeg" {{ $internshipCertificateState['required'] ? 'required' : '' }}>
+                            <strong>{{ $documentLabels['internship_certificate_image'] ?? __('Internship Certificate') }}</strong>
+                            <span data-file-name>{{ $internshipCertificateState['defaultLabel'] }}</span>
+                            <small class="file-status {{ $internshipCertificateState['statusClass'] }}" data-file-status>{{ $internshipCertificateState['status'] }}</small>
                             <img alt="" data-file-preview>
                             <div class="error" data-error-for="internship_certificate_image"></div>
                         </label>
-                        <label class="file-card">
-                            <input type="file" name="criminal_record_certificate_image" accept="image/png,image/jpeg" required>
-                            <strong>{{ __('Criminal Record Certificate') }}</strong>
-                            <span data-file-name>{{ __('Select file') }}</span>
+                        @php($criminalRecordState = $getDocumentState('criminal_record_certificate_image'))
+                        <label class="file-card"
+                               data-default-file-label="{{ $criminalRecordState['defaultLabel'] }}"
+                               data-default-file-status="{{ $criminalRecordState['status'] }}"
+                               data-default-file-status-class="{{ $criminalRecordState['statusClass'] }}">
+                            <input type="file" name="criminal_record_certificate_image" accept="image/png,image/jpeg" {{ $criminalRecordState['required'] ? 'required' : '' }}>
+                            <strong>{{ $documentLabels['criminal_record_certificate_image'] ?? __('Criminal Record Certificate') }}</strong>
+                            <span data-file-name>{{ $criminalRecordState['defaultLabel'] }}</span>
+                            <small class="file-status {{ $criminalRecordState['statusClass'] }}" data-file-status>{{ $criminalRecordState['status'] }}</small>
                             <img alt="" data-file-preview>
                             <div class="error" data-error-for="criminal_record_certificate_image"></div>
                         </label>
-                        <label class="file-card">
-                            <input type="file" name="dob_image" accept="image/png,image/jpeg" required>
-                            <strong>{{ __('Date of Birth Certificate') }}</strong>
-                            <span data-file-name>{{ __('Select file') }}</span>
+                        @php($dobImageState = $getDocumentState('dob_image'))
+                        <label class="file-card"
+                               data-default-file-label="{{ $dobImageState['defaultLabel'] }}"
+                               data-default-file-status="{{ $dobImageState['status'] }}"
+                               data-default-file-status-class="{{ $dobImageState['statusClass'] }}">
+                            <input type="file" name="dob_image" accept="image/png,image/jpeg" {{ $dobImageState['required'] ? 'required' : '' }}>
+                            <strong>{{ $documentLabels['dob_image'] ?? __('Date of Birth Certificate') }}</strong>
+                            <span data-file-name>{{ $dobImageState['defaultLabel'] }}</span>
+                            <small class="file-status {{ $dobImageState['statusClass'] }}" data-file-status>{{ $dobImageState['status'] }}</small>
                             <img alt="" data-file-preview>
                             <div class="error" data-error-for="dob_image"></div>
                         </label>
                     </div>
                     <div class="field declaration-field">
-                        <h3>{{ __('Data Accuracy Declaration and Legal Responsibility') }}</h3>
-                        <p>{{ __('I, the applicant, acknowledge that all data and documents I entered and uploaded through the website are accurate, valid, and true, and that I reviewed them carefully before submission.') }}</p>
-                        <p>{{ __('I bear full legal responsibility for the accuracy of this data and these documents, and I undertake to notify the syndicate immediately if any error is discovered or any amendment is required.') }}</p>
-                        <p>{{ __('I agree that if any submitted data or documents are proven incorrect, the syndicate has the right to take any legal and administrative actions in accordance with applicable laws and regulations.') }}</p>
+                        <h3>{{ $declarationTitleText }}</h3>
+                        <p>{{ $declarationParagraphOneText }}</p>
+                        <p>{{ $declarationParagraphTwoText }}</p>
+                        <p>{{ $declarationParagraphThreeText }}</p>
                         <label class="declaration-consent" for="declaration_accepted">
                             <input id="declaration_accepted" name="declaration_accepted" type="checkbox" value="1" required>
-                            <span>{{ __('I agree to the declaration of data accuracy and bear legal responsibility for it.') }}</span>
+                            <span>{{ $declarationAgreeText }}</span>
                         </label>
                         <div class="error" data-error-for="declaration_accepted"></div>
                     </div>
                 </div>
 
                 <div class="actions">
-                    <button class="btn secondary" type="button" id="back-btn">{{ __('Back') }}</button>
-                    <button class="btn primary" type="button" id="next-btn">{{ __('Next') }}</button>
+                    <button class="btn secondary" type="button" id="back-btn">{{ $backButtonText }}</button>
+                    <button class="btn primary" type="button" id="next-btn">{{ $nextButtonText }}</button>
                 </div>
             </form>
         </section>
@@ -1289,6 +1445,9 @@
     (() => {
         const locale = document.documentElement.lang || 'ar';
         const apiBase = @json(url('/api/v1'));
+        const isEditMode = @json($isEditMode);
+        const submitUrl = @json($submitUrl);
+        const prefillData = @json($prefillData);
         const form = document.getElementById('registration-form');
         const steps = Array.from(document.querySelectorAll('[data-step]'));
         const stepButtons = Array.from(document.querySelectorAll('[data-step-btn]'));
@@ -1307,10 +1466,10 @@
         const mobile2Input = document.getElementById('residence_mobile_2');
         const declarationCheckbox = document.getElementById('declaration_accepted');
         const successPageBaseUrl = @json(route('portal.register.success'));
-        const sendingText = @json(__('Sending...'));
-        const nextText = @json(__('Next'));
-        const submitText = @json(__('Submit Registration'));
-        const fixFieldsText = @json(__('Please fix the highlighted fields.'));
+        const sendingText = @json($sendingButtonText);
+        const nextText = @json($nextButtonText);
+        const submitText = @json($submitButtonText);
+        const fixFieldsText = @json($fixFieldsText);
         const nationalIdBirthDateInvalidText = @json(__('National ID birth date is invalid.'));
         const declarationRequiredText = @json(__('You must agree to the declaration before submitting.'));
 
@@ -1415,11 +1574,18 @@
 
         const applyFixedAcademicDefaults = () => {
             if (facultyInput) {
-                facultyInput.value = 'الطب والجراحة';
+                if (!isEditMode || !prefillData.faculty) {
+                    facultyInput.value = 'الطب والجراحة';
+                }
                 facultyInput.readOnly = true;
             }
 
             if (!firstForeignLanguageSelect) {
+                return;
+            }
+
+            if (isEditMode && prefillData.first_foreign_language) {
+                firstForeignLanguageSelect.dataset.prefillValue = String(prefillData.first_foreign_language);
                 return;
             }
 
@@ -1554,6 +1720,40 @@
             }
         };
 
+        const applyPrefillData = () => {
+            Object.entries(prefillData || {}).forEach(([name, value]) => {
+                const field = findFieldByName(name);
+
+                if (!field || value === null || value === undefined) {
+                    return;
+                }
+
+                if (field.type === 'checkbox') {
+                    field.checked = Boolean(value);
+                    return;
+                }
+
+                if (field.tagName === 'SELECT') {
+                    field.dataset.prefillValue = String(value);
+
+                    if (Array.from(field.options).some((option) => option.value === String(value))) {
+                        field.value = String(value);
+                        updatePreview(field.name, field.selectedOptions[0]?.textContent || '—');
+                    }
+
+                    return;
+                }
+
+                field.value = String(value);
+                updatePreview(field.name, field.value);
+            });
+
+            syncMobile2Required();
+            syncDeclarationValidity();
+            applyNationalityRules();
+            updateBirthDate();
+        };
+
         const syncPreview = (event) => {
             const field = event.target;
             if (!field.name) {
@@ -1575,7 +1775,7 @@
         };
 
         const searchableSelects = new Map();
-        const selectRequiredText = @json(__('Please select a value.'));
+        const selectRequiredText = @json($selectRequiredText);
 
         const closeSearchableSelect = (select) => {
             const state = searchableSelects.get(select);
@@ -1785,9 +1985,17 @@
         const resetFiles = () => {
             document.querySelectorAll('.file-card').forEach((card) => {
                 const nameLabel = card.querySelector('[data-file-name]');
+                const status = card.querySelector('[data-file-status]');
                 const preview = card.querySelector('[data-file-preview]');
                 if (nameLabel) {
-                    nameLabel.textContent = @json(__('Select file'));
+                    nameLabel.textContent = card.dataset.defaultFileLabel || @json($selectFileText);
+                }
+                if (status) {
+                    status.textContent = card.dataset.defaultFileStatus || '';
+                    status.className = 'file-status';
+                    if (card.dataset.defaultFileStatusClass) {
+                        status.classList.add(card.dataset.defaultFileStatusClass);
+                    }
                 }
                 if (preview) {
                     preview.classList.remove('visible');
@@ -1801,6 +2009,7 @@
             resetPreviews();
             resetFiles();
             applyFixedAcademicDefaults();
+            applyPrefillData();
             document.querySelectorAll('select').forEach((select) => {
                 syncSearchableState(select);
             });
@@ -1822,7 +2031,7 @@
             const formData = new FormData(form);
 
             try {
-                const response = await fetch(`${apiBase}/register-request`, {
+                const response = await fetch(submitUrl, {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json',
@@ -1917,7 +2126,7 @@
                     select.appendChild(option);
                 });
                 select.disabled = false;
-                const saved = form.querySelector(`[name="${select.name}"]`)?.value;
+                const saved = select.dataset.prefillValue ?? form.querySelector(`[name="${select.name}"]`)?.value;
                 if (saved) {
                     select.value = saved;
                     const selectedText = select.selectedOptions[0]?.textContent;
@@ -1937,6 +2146,7 @@
             fileCards.forEach((card) => {
                 const input = card.querySelector('input[type="file"]');
                 const nameLabel = card.querySelector('[data-file-name]');
+                const status = card.querySelector('[data-file-status]');
                 const preview = card.querySelector('[data-file-preview]');
                 if (!input) {
                     return;
@@ -1945,12 +2155,23 @@
                     const file = input.files?.[0];
                     if (file) {
                         nameLabel.textContent = file.name;
+                        if (status) {
+                            status.textContent = @json($selectedForUploadText);
+                            status.className = 'file-status existing';
+                        }
                         if (preview && file.type.startsWith('image/')) {
                             preview.src = URL.createObjectURL(file);
                             preview.classList.add('visible');
                         }
                     } else {
-                        nameLabel.textContent = @json(__('Select file'));
+                        nameLabel.textContent = card.dataset.defaultFileLabel || @json($selectFileText);
+                        if (status) {
+                            status.textContent = card.dataset.defaultFileStatus || '';
+                            status.className = 'file-status';
+                            if (card.dataset.defaultFileStatusClass) {
+                                status.classList.add(card.dataset.defaultFileStatusClass);
+                            }
+                        }
                         if (preview) {
                             preview.classList.remove('visible');
                             preview.removeAttribute('src');

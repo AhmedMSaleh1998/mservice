@@ -74,6 +74,9 @@ class RegistrationRequest extends CustomModel
         'status',
         'reg_code',
         'oracle_register_no',
+        'edit_link_token',
+        'edit_link_sent_at',
+        'edit_link_opened_at',
         'active',
         'documents',
     ];
@@ -83,6 +86,8 @@ class RegistrationRequest extends CustomModel
         'documents' => 'array',
         'birth_date' => 'date',
         'license_date' => 'date',
+        'edit_link_sent_at' => 'datetime',
+        'edit_link_opened_at' => 'datetime',
     ];
 
     public function newEloquentBuilder($query): OtpQueryBuilder

@@ -1,0 +1,259 @@
+<?php
+
+namespace App\Http\Requests\Api;
+
+use App\Support\RegistrationRequestDocuments;
+use Carbon\Carbon;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Modules\Core\Enums\GenderEnum;
+use Modules\Core\Models\Nationality;
+use Modules\Users\Models\RegistrationRequest;
+use Throwable;
+
+class UpdateRegistrationRequestRequest extends FormRequest
+{
+    private ?RegistrationRequest $registrationRequestRecord = null;
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->isEgyptianNationality()) {
+            $birthDate = $this->extractBirthDateFromNationalId($this->input('national_id'));
+
+            if (! is_null($birthDate)) {
+                $this->merge(['birth_date' => $birthDate]);
+            }
+        }
+    }
+
+    public function rules(): array
+    {
+        $registrationRequest = $this->registrationRequest();
+
+        $nationalIdRules = [
+            'bail',
+            'required',
+            'string',
+            'max:50',
+            Rule::unique('registration_requests', 'national_id')->ignore($registrationRequest->getKey()),
+        ];
+
+        if ($this->isEgyptianNationality()) {
+            $nationalIdRules[] = 'regex:/^\d{14}$/';
+            $nationalIdRules[] = function ($attribute, $value, $fail) {
+                if (is_null($this->extractBirthDateFromNationalId($value))) {
+                    $fail(__('National ID birth date is invalid.'));
+                }
+            };
+        }
+
+        $birthDateRules = [
+            $this->isEgyptianNationality() ? 'nullable' : 'required',
+            'date',
+            function ($attribute, $value, $fail) {
+                if (blank($value)) {
+                    return;
+                }
+
+                try {
+                    $age = Carbon::parse($value)->age;
+                } catch (Throwable) {
+                    return;
+                }
+
+                if ($age < 23) {
+                    $fail(__('Minimum age for graduates is 23 years.'));
+                }
+            },
+        ];
+
+        return [
+            'full_name_ar' => ['required', 'string', 'max:255'],
+            'full_name_en' => ['required', 'string', 'max:255'],
+            'gender' => ['required', 'string', Rule::in(GenderEnum::values())],
+            'nationality' => ['required', 'integer', 'exists:nationalities,id'],
+            'religion' => ['required', 'integer', 'exists:religions,id'],
+            'national_id' => $nationalIdRules,
+            'issued_from' => ['required', 'string', 'max:100'],
+            'governorate' => ['required', 'integer', 'exists:provinces,id'],
+            'birth_date' => $birthDateRules,
+            'birth_governorate' => ['required', 'integer', 'exists:provinces,id'],
+            'residence_house_number' => ['required', 'string', 'max:10'],
+            'residence_street' => ['required', 'string', 'max:255'],
+            'residence_center' => ['required', 'string', 'max:100'],
+            'residence_governorate' => ['required', 'integer', 'exists:provinces,id'],
+            'residence_phone' => [
+                'required',
+                'string',
+                'regex:/^([0-9\\s\\-\\+\\(\\)]*)$/',
+                'max:10',
+                Rule::unique('registration_requests', 'residence_phone')->ignore($registrationRequest->getKey()),
+            ],
+            'residence_mobile_1_country_code' => ['required', 'string', 'regex:/^\+[0-9]{1,4}$/'],
+            'residence_mobile_1' => [
+                'required',
+                'string',
+                'digits:11',
+                Rule::unique('registration_requests', 'residence_mobile_1')
+                    ->ignore($registrationRequest->getKey())
+                    ->where(fn ($query) => $query->where('residence_mobile_1_country_code', $this->input('residence_mobile_1_country_code'))),
+            ],
+            'residence_mobile_2_country_code' => ['nullable', 'string', 'regex:/^\+[0-9]{1,4}$/', 'required_with:residence_mobile_2'],
+            'residence_mobile_2' => [
+                'nullable',
+                'string',
+                'digits:11',
+                'required_with:residence_mobile_2_country_code',
+                Rule::unique('registration_requests', 'residence_mobile_2')
+                    ->ignore($registrationRequest->getKey())
+                    ->where(fn ($query) => $query->where('residence_mobile_2_country_code', $this->input('residence_mobile_2_country_code'))),
+            ],
+            'email' => ['required', 'email', 'max:50', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],
+            'faculty' => ['required', 'string', 'max:255'],
+            'graduation_month' => ['required', 'string', 'max:2'],
+            'graduation_year' => ['required', 'string', 'max:10'],
+            'university' => ['required', 'integer', 'exists:medical_universities,id'],
+            'grade' => ['required', 'integer', 'exists:grades,id'],
+            'first_foreign_language' => ['required', 'integer', 'exists:languages,id'],
+            'second_foreign_language' => ['nullable', 'integer', 'exists:languages,id'],
+            'personal_image' => $this->documentRules('personal_image'),
+            'national_id_image' => $this->documentRules('national_id_image'),
+            'graduation_certificate_image' => $this->documentRules('graduation_certificate_image'),
+            'internship_certificate_image' => $this->documentRules('internship_certificate_image'),
+            'criminal_record_certificate_image' => $this->documentRules('criminal_record_certificate_image'),
+            'dob_image' => $this->documentRules('dob_image'),
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'phone.unique' => __('This phone number is already registered with an active account.'),
+            'national_id.unique' => __('This national ID is already registered.'),
+            'email.regex' => __('Email must include a valid domain like example.com.'),
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'full_name_ar' => __('Full Name (AR)'),
+            'full_name_en' => __('Full Name (EN)'),
+            'gender' => __('Gender'),
+            'nationality' => __('Nationality'),
+            'religion' => __('Religion'),
+            'national_id' => __('National ID'),
+            'issued_from' => __('Issued From'),
+            'governorate' => __('Governorate'),
+            'birth_date' => __('Birth Date'),
+            'birth_governorate' => __('Birth Governorate'),
+            'residence_house_number' => __('House Number'),
+            'residence_street' => __('Street'),
+            'residence_center' => __('Center'),
+            'residence_governorate' => __('Residence Governorate'),
+            'residence_phone' => __('Residence Phone'),
+            'residence_mobile_1_country_code' => __('Mobile 1 Country Code'),
+            'residence_mobile_1' => __('Mobile 1'),
+            'residence_mobile_2_country_code' => __('Mobile 2 Country Code'),
+            'residence_mobile_2' => __('Mobile 2'),
+            'email' => __('Email'),
+            'faculty' => __('Faculty'),
+            'graduation_month' => __('Graduation Month'),
+            'graduation_year' => __('Graduation Year'),
+            'university' => __('University'),
+            'grade' => __('Grade'),
+            'first_foreign_language' => __('First Foreign Language'),
+            'second_foreign_language' => __('Second Foreign Language'),
+            'personal_image' => __('Personal Photo'),
+            'national_id_image' => __('National ID Photo'),
+            'graduation_certificate_image' => __('Graduation Certificate'),
+            'internship_certificate_image' => __('Internship Certificate'),
+            'criminal_record_certificate_image' => __('Criminal Record Certificate'),
+            'dob_image' => __('Date of Birth Certificate'),
+        ];
+    }
+
+    public function registrationRequest(): RegistrationRequest
+    {
+        if ($this->registrationRequestRecord instanceof RegistrationRequest) {
+            return $this->registrationRequestRecord;
+        }
+
+        $regCode = (string) $this->route('reg_code');
+
+        return $this->registrationRequestRecord = RegistrationRequest::query()
+            ->where('reg_code', $regCode)
+            ->firstOrFail();
+    }
+
+    private function documentRules(string $key): array
+    {
+        $existingDocuments = RegistrationRequestDocuments::existingRequiredDocuments($this->registrationRequest());
+        $required = array_key_exists($key, $existingDocuments) ? 'nullable' : 'required';
+
+        return [$required, 'file', 'mimes:png,jpg,jpeg', 'max:5120'];
+    }
+
+    private function extractBirthDateFromNationalId(?string $nationalId): ?string
+    {
+        if (! is_string($nationalId)) {
+            return null;
+        }
+
+        $nationalId = trim($nationalId);
+        if (! preg_match('/^\d{14}$/', $nationalId)) {
+            return null;
+        }
+
+        $centuryCode = (int) $nationalId[0];
+        $centuryBase = match ($centuryCode) {
+            1 => 1800,
+            2 => 1900,
+            3 => 2000,
+            4 => 2100,
+            5 => 2200,
+            6 => 2300,
+            7 => 2400,
+            8 => 2500,
+            9 => 2600,
+            default => null,
+        };
+
+        if (is_null($centuryBase)) {
+            return null;
+        }
+
+        $year = $centuryBase + (int) substr($nationalId, 1, 2);
+        $month = (int) substr($nationalId, 3, 2);
+        $day = (int) substr($nationalId, 5, 2);
+
+        if (! checkdate($month, $day, $year)) {
+            return null;
+        }
+
+        return Carbon::createFromDate($year, $month, $day)->format('Y-m-d');
+    }
+
+    private function isEgyptianNationality(): bool
+    {
+        $nationalityId = $this->input('nationality');
+
+        if (! $nationalityId) {
+            return false;
+        }
+
+        $nationality = Nationality::query()->find($nationalityId);
+        if (! $nationality) {
+            return false;
+        }
+
+        if (in_array((int) $nationality->code, [1, 214], true)) {
+            return true;
+        }
+
+        $nameAr = (string) $nationality->getTranslation('name', 'ar');
+        $nameEn = (string) $nationality->getTranslation('name', 'en');
+
+        return str_contains($nameAr, 'مصر') || stripos($nameEn, 'egypt') !== false;
+    }
+}

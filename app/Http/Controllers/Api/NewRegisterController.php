@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\NewRegisterRequest;
 use App\Http\Requests\Api\RetrieveRegistrationDocumentsRequest;
+use App\Http\Requests\Api\UpdateRegistrationRequestRequest;
 use Illuminate\Support\Facades\URL;
 use Throwable;
 use Modules\Users\Dto\NewRegisterDTO;
@@ -12,12 +13,14 @@ use Modules\Users\Models\RegistrationRequest;
 use Modules\Users\Resources\NewRegisterResource;
 use Modules\Users\Services\NewRegisterService;
 use Modules\Users\Services\RegistrationRequestPdfService;
+use Modules\Users\Services\UpdateRegistrationRequestService;
 
 class NewRegisterController extends Controller
 {
     public function __construct(
         private readonly NewRegisterService $newRegisterService,
-        private readonly RegistrationRequestPdfService $registrationRequestPdfService
+        private readonly RegistrationRequestPdfService $registrationRequestPdfService,
+        private readonly UpdateRegistrationRequestService $updateRegistrationRequestService,
     )
     {
     }
@@ -69,6 +72,42 @@ class NewRegisterController extends Controller
                 'pdf_urls' => $this->buildSignedPdfUrls($registrationRequest),
             ],
         ]);
+    }
+
+    public function update(UpdateRegistrationRequestRequest $request, string $reg_code)
+    {
+        try {
+            $updatedRegistrationRequest = $this->updateRegistrationRequestService->update(
+                $request->registrationRequest(),
+                $request->validated(),
+                collect($request->allFiles())
+                    ->only([
+                        'personal_image',
+                        'national_id_image',
+                        'graduation_certificate_image',
+                        'internship_certificate_image',
+                        'criminal_record_certificate_image',
+                        'dob_image',
+                    ])
+                    ->all(),
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Registration request updated successfully.'),
+                'reg_code' => $updatedRegistrationRequest->reg_code,
+                'data' => new NewRegisterResource($updatedRegistrationRequest),
+                'status' => 200,
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => __('Unable to update the registration request. Please try again.'),
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
     public function downloadPdf(

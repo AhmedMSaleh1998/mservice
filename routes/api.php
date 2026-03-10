@@ -46,6 +46,10 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
     Route::get('payment-methods', [PaymentMethodsController::class, 'index']);
     Route::get('religions', [ReligionsController::class, 'index']);
     Route::post('register-request', [NewRegisterController::class, 'register']);
+    Route::post('register-request/{reg_code}/update', [NewRegisterController::class, 'update'])
+        ->middleware('signed')
+        ->where('reg_code', 'EMS\\d+')
+        ->name('register-request.update');
     Route::post('register-request/retrieve-documents', [NewRegisterController::class, 'retrieveDocuments'])
         ->middleware('throttle:5,1')
         ->name('register-documents-retrieve');
