@@ -3,6 +3,7 @@
 namespace Modules\Users\Services;
 
 use App\Support\RegistrationRequestDocuments;
+use App\Support\UploadedFileNameSanitizer;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -65,7 +66,7 @@ class UpdateRegistrationRequestService
                         continue;
                     }
 
-                    $filename = time() . "_{$key}_" . $file->getClientOriginalName();
+                    $filename = time() . "_{$key}_" . UploadedFileNameSanitizer::sanitize($file->getClientOriginalName(), $key);
                     $path = $file->storeAs($documentsDirectory, $filename, 'public');
 
                     if ($path === false) {

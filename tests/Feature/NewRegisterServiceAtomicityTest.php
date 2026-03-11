@@ -37,6 +37,7 @@ class NewRegisterServiceAtomicityTest extends TestCase
         DB::purge('sqlite');
         DB::disconnect('sqlite');
         Storage::fake('public');
+        Storage::disk('public')->deleteDirectory('documents');
 
         $this->createRegistrationRequestsTable();
     }
@@ -82,6 +83,44 @@ class NewRegisterServiceAtomicityTest extends TestCase
 
         $this->assertDatabaseCount('registration_requests', 0);
         $this->assertSame([], Storage::disk('public')->allFiles());
+    }
+
+    public function test_register_sanitizes_control_characters_in_uploaded_document_names(): void
+    {
+        $unsafeFileName = "CamScanner ١٠\u{200F}-٠٣\u{200F}-٢٠٢٦ ٠٦.٢٣.jpg";
+        $expectedPath = null;
+
+        $file = Mockery::mock(UploadedFile::class);
+        $file->shouldReceive('getClientOriginalName')->once()->andReturn($unsafeFileName);
+        $file->shouldReceive('storeAs')
+            ->once()
+            ->with(
+                Mockery::pattern('/^documents\/\d+$/'),
+                Mockery::on(function (string $filename) use (&$expectedPath): bool {
+                    $this->assertMatchesRegularExpression('/^\d+_personal_image_/', $filename);
+                    $this->assertDoesNotMatchRegularExpression('/\p{C}/u', $filename);
+                    $this->assertStringContainsString('CamScanner ١٠-٠٣-٢٠٢٦ ٠٦.٢٣.jpg', $filename);
+
+                    return true;
+                }),
+                'public',
+            )
+            ->andReturnUsing(function (string $directory, string $filename, string $disk) use (&$expectedPath): string {
+                $path = "{$directory}/{$filename}";
+                $expectedPath = $path;
+                Storage::disk($disk)->put($path, 'sanitized file');
+
+                return $path;
+            });
+
+        $registrationRequest = app(NewRegisterService::class)->register($this->makeDto([
+            'personalImg' => $file,
+        ]));
+
+        $this->assertDatabaseCount('registration_requests', 1);
+        $this->assertNotNull($expectedPath);
+        $this->assertSame($expectedPath, $registrationRequest->documents['personal_image']);
+        Storage::disk('public')->assertExists($expectedPath);
     }
 
     private function makeDto(array $overrides = []): NewRegisterDTO

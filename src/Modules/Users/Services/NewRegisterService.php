@@ -2,6 +2,7 @@
 
 namespace Modules\Users\Services;
 
+use App\Support\UploadedFileNameSanitizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Modules\Users\Dto\NewRegisterDTO;
@@ -75,7 +76,7 @@ class NewRegisterService
                 continue;
             }
 
-            $filename = time() . "_{$key}_" . $file->getClientOriginalName();
+            $filename = time() . "_{$key}_" . UploadedFileNameSanitizer::sanitize($file->getClientOriginalName(), $key);
             $path = $file->storeAs($directory, $filename, 'public');
 
             if ($path === false) {
