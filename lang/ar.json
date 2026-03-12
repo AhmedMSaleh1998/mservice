@@ -260,5 +260,7 @@
   "Too many attempts. Please try again in one minute.": "عدد المحاولات كبير. حاول مرة أخرى بعد دقيقة.",
   "The download links are not available in this session. Please retrieve your documents again.": "روابط التحميل غير متاحة في هذه الجلسة. يرجى استرجاع المستندات مرة أخرى.",
   "Generated PDF Documents": "مستندات PDF الناتجة",
+  "No doctor record matches the provided registration number and national ID in Oracle.": "لا يوجد طبيب بهذه البيانات في سجلات الأوراكل.",
+  "Unable to verify doctor data with Oracle at the moment. Please try again later.": "تعذر التحقق من بيانات الطبيب من الأوراكل حاليًا. حاول مرة أخرى لاحقًا.",
   "Global": "عام"
 }

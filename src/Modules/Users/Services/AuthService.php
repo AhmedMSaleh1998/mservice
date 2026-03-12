@@ -2,6 +2,7 @@
 
 namespace Modules\Users\Services;
 
+use App\Services\Oracle\OracleDoctorExistenceService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Modules\Core\Models\Otp;
@@ -9,9 +10,16 @@ use Modules\Users\Dto\LoginDTO;
 use Modules\Users\Dto\RegisterDTO;
 use Modules\Users\Models\User;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
 class AuthService
 {
+    public function __construct(
+        private readonly OracleDoctorExistenceService $oracleDoctorExistenceService,
+    ) {
+    }
+
     public function register(RegisterDto $dto): User
     {
 //        // Verify that the phone has been verified
@@ -27,6 +35,22 @@ class AuthService
 //                'phone' => [__('This phone number has not been verified.')],
 //            ]);
 //        }
+        try {
+            $doctorExists = $this->oracleDoctorExistenceService->doctorExists($dto->regNumber, $dto->nationalId);
+        } catch (RuntimeException $exception) {
+            throw new ServiceUnavailableHttpException(
+                null,
+                __('Unable to verify doctor data with Oracle at the moment. Please try again later.'),
+                $exception,
+            );
+        }
+
+        if (! $doctorExists) {
+            throw ValidationException::withMessages([
+                'reg_number' => [__('No doctor record matches the provided registration number and national ID in Oracle.')],
+            ]);
+        }
+
         return User::create([
             'name' => $dto->name,
             'phone' => $dto->phone,
