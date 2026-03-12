@@ -3,6 +3,7 @@
 namespace App\Services\Oracle;
 
 use PDO;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class OracleDoctorExistenceService
@@ -24,11 +25,23 @@ class OracleDoctorExistenceService
 
     public function doctorExists(string $registerNo, string $idNo): bool
     {
+        $normalizedRegisterNo = $this->normalizeLookupValue($registerNo);
+        $normalizedIdNo = $this->normalizeLookupValue($idNo);
         $connection = $this->oracleConnectionService->make();
 
-        return $connection instanceof PDO
-            ? $this->doctorExistsWithPdo($connection, $registerNo, $idNo)
-            : $this->doctorExistsWithOci8($connection, $registerNo, $idNo);
+        $doctorExists = $connection instanceof PDO
+            ? $this->doctorExistsWithPdo($connection, $normalizedRegisterNo, $normalizedIdNo)
+            : $this->doctorExistsWithOci8($connection, $normalizedRegisterNo, $normalizedIdNo);
+
+        if (! $doctorExists) {
+            Log::warning('Oracle doctor lookup returned not found.', [
+                'driver' => $connection instanceof PDO ? 'pdo_oci' : 'oci8',
+                'register_no' => $normalizedRegisterNo,
+                'id_no_last4' => $this->maskNationalId($normalizedIdNo),
+            ]);
+        }
+
+        return $doctorExists;
     }
 
     private function doctorExistsWithPdo(PDO $connection, string $registerNo, string $idNo): bool
@@ -85,6 +98,43 @@ class OracleDoctorExistenceService
             'N' => false,
             default => throw new RuntimeException('Oracle doctor lookup returned an unexpected result.'),
         };
+    }
+
+    private function normalizeLookupValue(string $value): string
+    {
+        $normalized = strtr(trim($value), [
+            '٠' => '0',
+            '١' => '1',
+            '٢' => '2',
+            '٣' => '3',
+            '٤' => '4',
+            '٥' => '5',
+            '٦' => '6',
+            '٧' => '7',
+            '٨' => '8',
+            '٩' => '9',
+            '۰' => '0',
+            '۱' => '1',
+            '۲' => '2',
+            '۳' => '3',
+            '۴' => '4',
+            '۵' => '5',
+            '۶' => '6',
+            '۷' => '7',
+            '۸' => '8',
+            '۹' => '9',
+        ]);
+
+        return preg_replace('/\D+/', '', $normalized) ?? '';
+    }
+
+    private function maskNationalId(string $idNo): string
+    {
+        if ($idNo === '') {
+            return '';
+        }
+
+        return str_repeat('*', max(strlen($idNo) - 4, 0)) . substr($idNo, -4);
     }
 
     /**
