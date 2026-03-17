@@ -23,7 +23,7 @@ class CertificateRequestController extends Controller
         return response()->json([
             'message' => 'Certificate request created successfully',
             'status' => 200,
-            'data' => new CertificateRequestResource($certificateRequest)
+            'data' => new CertificateRequestResource($certificateRequest->loadMissing('userAddress', 'order'))
         ], 201);
     }
 }

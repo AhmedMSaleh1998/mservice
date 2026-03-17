@@ -4,6 +4,7 @@ namespace Modules\Memberships\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\Core\Resources\OrderResource;
 use Modules\Users\Resources\UserAddressResource;
 
 class MembershipRequestResource extends JsonResource
@@ -25,6 +26,7 @@ class MembershipRequestResource extends JsonResource
                 'subscription' => $this->subscription_cost,
                 'total' => $this->total_amount,
             ],
+            'order' => OrderResource::make($this->whenLoaded('order')),
             'created_at' => $this->created_at->toDateTimeString(),
         ];
     }

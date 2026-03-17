@@ -4,6 +4,7 @@ namespace Modules\Certificates\Resources;
 
 use Illuminate\Http\Request;
 use Modules\Core\CustomResource;
+use Modules\Core\Resources\OrderResource;
 use Modules\Users\Resources\UserAddressResource;
 
 class CertificateRequestResource extends CustomResource
@@ -24,6 +25,7 @@ class CertificateRequestResource extends CustomResource
                 'subscription_cost' => $this->resource->subscription_cost,
                 'total' => $this->resource->total_amount,
             ],
+            'order' => OrderResource::make($this->whenLoaded('order')),
         ];
     }
 }

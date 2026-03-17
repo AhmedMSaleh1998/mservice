@@ -40,6 +40,7 @@ return [
 
     'oracle' => [
         'export_enabled' => env('ORACLE_EXPORT_ENABLED', true),
+        'register_lookup_enabled' => env('ORACLE_REGISTER_LOOKUP_ENABLED', true),
         'host' => env('ORACLE_HOST'),
         'port' => env('ORACLE_PORT', '1521'),
         'service_name' => env('ORACLE_SERVICE_NAME'),
@@ -51,6 +52,21 @@ return [
 
     'registration_documents' => [
         'signed_url_ttl' => env('REGISTRATION_DOCUMENTS_SIGNED_URL_TTL', 60),
+    ],
+
+    'fawry' => [
+        'enabled' => env('FAWRY_ENABLED', false),
+        'base_url' => env('FAWRY_BASE_URL', 'https://atfawry.fawrystaging.com'),
+        'merchant_code' => env('FAWRY_MERCHANT_CODE'),
+        'secure_key' => env('FAWRY_SECURE_KEY'),
+        'currency_code' => env('FAWRY_CURRENCY', 'EGP'),
+        'merchant_ref_prefix' => env('FAWRY_MERCHANT_REF_PREFIX'),
+        'payment_method' => env('FAWRY_PAYMENT_METHOD', 'PayAtFawry'),
+        'payment_expiry_minutes' => env('FAWRY_PAYMENT_EXPIRY_MINUTES'),
+        'payment_expiry_hours' => env('FAWRY_PAYMENT_EXPIRY_HOURS', 1),
+        'return_url' => env('FAWRY_RETURN_URL'),
+        'frontend_return_url' => env('FAWRY_FRONTEND_RETURN_URL'),
+        'webhook_url' => env('FAWRY_WEBHOOK_URL'),
     ],
 
 ];

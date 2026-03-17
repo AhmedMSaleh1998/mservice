@@ -4,7 +4,9 @@ namespace Modules\Memberships\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Modules\Core\Models\CustomModel;
+use Modules\Core\Models\Order;
 use Modules\Users\Models\UserAddress;
 
 class MembershipRequest extends CustomModel
@@ -49,5 +51,10 @@ class MembershipRequest extends CustomModel
     public function userAddress(): BelongsTo
     {
         return $this->belongsTo(UserAddress::class);
+    }
+
+    public function order(): MorphOne
+    {
+        return $this->morphOne(Order::class, 'orderable');
     }
 }

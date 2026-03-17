@@ -15,6 +15,7 @@ class RegisterRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255', 'min:5'],
+            'email' => ['required', 'email', 'max:255', 'min:5'],
             'phone' => ['required', 'string', 'regex:/^([0-9\s\-\+\(\)]*)$/', 'min:7', Rule::unique('users')->where(function ($query) {
                 return $query->where('active', true);
             })],

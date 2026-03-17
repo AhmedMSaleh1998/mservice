@@ -6,6 +6,7 @@ class RegisterDTO
 {
     public function __construct(
         public readonly string $name,
+        public readonly string $email,
         public readonly string $phone,
         public readonly string $nationalId,
         public readonly string $regNumber,
@@ -18,6 +19,7 @@ class RegisterDTO
     {
         return new self(
             name: $request->input('name'),
+            email: $request->input('email'),
             phone: $request->input('phone'),
             nationalId: $request->input('national_id'),
             regNumber: $request->input('reg_number'),

@@ -4,7 +4,9 @@ namespace Modules\Ads\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Modules\Ads\Builders\AdRequestQueryBuilder;
+use Modules\Core\Models\Order;
 use Modules\Core\Models\CustomModel;
 use Modules\Users\Models\User;
 use Spatie\MediaLibrary\HasMedia;
@@ -21,15 +23,18 @@ class AdRequest extends CustomModel implements HasMedia
         'price_per_month',
         'total_amount',
         'ad_text',
-        'design_image_path',
+        'design_image',
         'status',
-        'payment_method',
+        'starts_at',
+        'ends_at',
     ];
 
     protected $casts = [
         'duration_months' => 'integer',
         'price_per_month' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
     ];
 
     public function newEloquentBuilder($query): AdRequestQueryBuilder
@@ -45,6 +50,11 @@ class AdRequest extends CustomModel implements HasMedia
     public function adSpace(): BelongsTo
     {
         return $this->belongsTo(AdSpace::class);
+    }
+
+    public function order(): MorphOne
+    {
+        return $this->morphOne(Order::class, 'orderable');
     }
 
     public function registerMediaCollections(): void

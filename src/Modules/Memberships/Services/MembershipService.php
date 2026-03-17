@@ -4,9 +4,15 @@ namespace Modules\Memberships\Services;
 
 use Modules\Memberships\Models\MembershipRequest;
 use Illuminate\Support\Facades\DB;
+use Modules\Core\Services\OrderService;
 
 class MembershipService
 {
+    public function __construct(
+        private readonly OrderService $orderService,
+    ) {
+    }
+
     // Pricing Constants (This could be moved to config or database settings)
     const PRINTING_COST = 4000;
     const DELIVERY_COST = 4000; // Maybe 0 if pickup?
@@ -52,7 +58,7 @@ class MembershipService
         return DB::transaction(function () use ($data, $userId) {
             $costs = $this->calculateCosts($data['delivery_method'] ?? 'pickup');
 
-            return MembershipRequest::create([
+            $membershipRequest = MembershipRequest::create([
                 'user_id' => $userId,
                 'full_name' => $data['full_name'],
                 'specialty' => $data['specialty'],
@@ -67,6 +73,15 @@ class MembershipService
                 'total_amount' => $costs['total_amount'],
                 'status' => 'pending',
             ]);
+
+            $this->orderService->sync($membershipRequest, [
+                'user_id' => $userId,
+                'amount' => $costs['total_amount'],
+                'status' => 'pending_payment',
+                'payment_method' => $data['payment_method'],
+            ]);
+
+            return $membershipRequest->fresh(['userAddress', 'order']);
         });
     }
 }

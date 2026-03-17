@@ -5,7 +5,9 @@ namespace Modules\Certificates\Models;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Certificates\Builders\CertificateRequestBuilder;
 use Modules\Core\Models\CustomModel;
+use Modules\Core\Models\Order;
 use Modules\Users\Models\UserAddress;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class CertificateRequest extends CustomModel
 {
@@ -31,5 +33,10 @@ class CertificateRequest extends CustomModel
     public function userAddress(): BelongsTo
     {
         return $this->belongsTo(UserAddress::class);
+    }
+
+    public function order(): MorphOne
+    {
+        return $this->morphOne(Order::class, 'orderable');
     }
 }

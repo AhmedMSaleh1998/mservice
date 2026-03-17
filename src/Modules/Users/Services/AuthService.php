@@ -20,7 +20,7 @@ class AuthService
     ) {
     }
 
-    public function register(RegisterDto $dto): User
+    public function register(RegisterDTO $dto): User
     {
 //        // Verify that the phone has been verified
 //        $verifiedPhoneOtp = Otp::where('phone', $dto->phone)
@@ -56,6 +56,7 @@ class AuthService
             'phone' => $dto->phone,
             'password' => bcrypt($dto->password),
             'national_id' => $dto->nationalId,
+            'email' => $dto->email,
             'reg_number' => $dto->regNumber,
         ]);
     }

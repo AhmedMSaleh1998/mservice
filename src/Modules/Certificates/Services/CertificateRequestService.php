@@ -4,9 +4,14 @@ namespace Modules\Certificates\Services;
 
 use Illuminate\Support\Facades\DB;
 use Modules\Certificates\Models\CertificateRequest;
+use Modules\Core\Services\OrderService;
 
 class CertificateRequestService
 {
+    public function __construct(
+        private readonly OrderService $orderService,
+    ) {
+    }
 
     const PRINTING_COST = 4000;
     const DELIVERY_COST = 4000; // Maybe 0 if pickup?
@@ -51,7 +56,7 @@ class CertificateRequestService
     {
         return DB::transaction(function () use ($data, $userId) {
             $costs = $this->calculateCosts($data['delivery_method'] ?? 'delivery');
-            return CertificateRequest::create([
+            $certificateRequest = CertificateRequest::create([
                 'user_id' => $userId,
                 'certificate_id' => $data['certificate_id'],
                 'delivery_method' => $data['delivery_method'],
@@ -64,6 +69,14 @@ class CertificateRequestService
                 'total_amount' => $costs['total_amount'],
                 'status' => 'pending',
             ]);
+
+            $this->orderService->sync($certificateRequest, [
+                'user_id' => $userId,
+                'amount' => $costs['total_amount'],
+                'status' => 'pending_payment',
+            ]);
+
+            return $certificateRequest->fresh(['userAddress', 'order']);
         });
     }
 }

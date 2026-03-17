@@ -88,6 +88,7 @@ class RolesSeeder extends Seeder
 
         if (! $role) {
             Role::query()->create([
+                'name' => $slug,
                 'guard_name' => $guardName,
                 'translated_name' => $translatedName,
             ]);

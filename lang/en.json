@@ -252,5 +252,18 @@
   "Generated PDF Documents": "Generated PDF Documents",
   "No doctor record matches the provided registration number and national ID in Oracle.": "No doctor record matches the provided registration number and national ID in Oracle.",
   "Unable to verify doctor data with Oracle at the moment. Please try again later.": "Unable to verify doctor data with Oracle at the moment. Please try again later.",
+  "Payment Summary": "Payment Summary",
+  "Ad space booking": "Ad space booking",
+  "Mock checkout is enabled. Use the confirm payment endpoint to mark this request as paid.": "Mock checkout is enabled. Use the confirm payment endpoint to mark this request as paid.",
+  "Open the payment URL to complete your payment via Fawry.": "Open the payment URL to complete your payment via Fawry.",
+  "A valid mobile number is required before starting Fawry checkout.": "A valid mobile number is required before starting Fawry checkout.",
+  "A valid email address is required before starting Fawry checkout.": "A valid email address is required before starting Fawry checkout.",
+  "Unable to create Fawry checkout at the moment.": "Unable to create Fawry checkout at the moment.",
+  "Unable to sync Fawry payment status at the moment.": "Unable to sync Fawry payment status at the moment.",
+  "Payment status synced successfully.": "Payment status synced successfully.",
+  "Manual confirmation is not available for Fawry checkout.": "Manual confirmation is not available for Fawry checkout.",
+  "Fawry return processed successfully.": "Fawry return processed successfully.",
+  "Invalid Fawry return signature.": "Invalid Fawry return signature.",
+  "Fawry notification processed successfully.": "Fawry notification processed successfully.",
   "Global": "Global"
 }

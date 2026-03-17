@@ -3,17 +3,20 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\PayAdRequest;
 use App\Http\Requests\Api\StoreAdRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Collection;
 use Modules\Ads\Models\AdRequest;
-use Modules\Ads\Resources\AdRequestResource;
 use Modules\Ads\Services\AdRequestService;
+use Modules\Core\Resources\PaymentMethodResource;
+use Modules\Core\Services\OrderService;
 
 class AdRequestsController extends Controller
 {
     public function __construct(
-        private readonly AdRequestService $adRequestService
+        private readonly AdRequestService $adRequestService,
+        private readonly OrderService $orderService,
     ) {
     }
 
@@ -22,9 +25,9 @@ class AdRequestsController extends Controller
         $adRequest = $this->adRequestService->create($request->validated(), auth()->id());
 
         return response()->json([
-            'message' => 'Ad request created successfully.',
+            'message' => 'Order created successfully.',
             'status' => 200,
-            'data' => new AdRequestResource($adRequest),
+            'data' => $this->buildCheckoutPayload($adRequest),
         ], 201);
     }
 
@@ -46,34 +49,62 @@ class AdRequestsController extends Controller
         return response()->json([
             'message' => 'Ad request loaded successfully.',
             'status' => 200,
-            'data' => new AdRequestResource($adRequest->load('adSpace')),
-        ]);
-    }
-
-    public function pay(PayAdRequest $request, AdRequest $adRequest): JsonResponse
-    {
-        $this->ensureOwner($adRequest);
-
-        if ($adRequest->status !== 'pending_payment') {
-            return response()->json([
-                'message' => 'Ad request is not awaiting payment.',
-                'status' => 422,
-            ], 422);
-        }
-
-        $adRequest = $this->adRequestService->markPaid($adRequest, $request->validated()['payment_method']);
-
-        return response()->json([
-            'message' => 'Payment submitted successfully.',
-            'status' => 200,
-            'data' => new AdRequestResource($adRequest),
+            'data' => $this->buildCheckoutPayload($adRequest->load('adSpace.service')),
         ]);
     }
 
     private function ensureOwner(AdRequest $adRequest): void
     {
         if ($adRequest->user_id !== auth()->id()) {
-            abort(403);
+            throw new HttpResponseException(response()->json([
+                'message' => 'This ad request does not belong to the authenticated user.',
+                'status' => 403,
+            ], 403));
         }
+    }
+
+    private function buildCheckoutPayload(AdRequest $adRequest): array
+    {
+        $adRequest->loadMissing('adSpace.service', 'media', 'order');
+        $order = $adRequest->order;
+        $summary = $this->adRequestService->buildSummary($adRequest);
+
+        return [
+            'order' => $this->buildSimpleAdOrder($order, $adRequest, $summary),
+            'payment_methods' => PaymentMethodResource::collection($this->orderService->availablePaymentMethods()),
+        ];
+    }
+
+    private function buildSimpleAdOrder(?object $order, AdRequest $adRequest, array $summary): ?array
+    {
+        if (! $order) {
+            return null;
+        }
+
+        return [
+            'id' => $order->id,
+            'status' => $order->status,
+            // 'currency' => $order->currency,pay_endpoint
+            // 'payment_method' => $order->payment_method,
+            // 'gateway_status' => $order->gateway_status,
+            'request' => [
+                'id' => $adRequest->id,
+                'type' => 'ad_request',
+                'status' => $adRequest->status,
+            ],
+            'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
+            'total' => $summary['total'] ?? $order->amount,
+        ];
+    }
+
+    private function buildSimpleItems(Collection $items): array
+    {
+        return $items
+            ->map(static fn (array $item): array => [
+                'label' => $item['label'] ?? null,
+                'amount' => $item['amount'] ?? null,
+            ])
+            ->values()
+            ->all();
     }
 }

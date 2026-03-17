@@ -23,7 +23,7 @@ class MembershipController extends Controller
         return response()->json([
             'message' => 'Membership request created successfully',
             'status' => 200,
-            'data' => new \Modules\Memberships\Resources\MembershipRequestResource($membershipRequest)
+            'data' => new \Modules\Memberships\Resources\MembershipRequestResource($membershipRequest->loadMissing('userAddress', 'order'))
         ], 201);
     }
 }

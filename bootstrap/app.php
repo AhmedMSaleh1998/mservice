@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Arr;
@@ -71,10 +72,22 @@ return Application::configure(basePath: dirname(__DIR__))
         // Handle HTTP Exceptions (403, 405, etc.)
         $exceptions->renderable(function (HttpException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                return response()->json([
-                    'message' => $e->getMessage() ?: 'HTTP Error',
-                    'error' => class_basename($e)
-                ], $e->getStatusCode());
+                $statusCode = $e->getStatusCode();
+                $response = [
+                    'message' => $e->getMessage() ?: (Response::$statusTexts[$statusCode] ?? 'HTTP Error'),
+                    'error' => class_basename($e),
+                    'status' => $statusCode,
+                ];
+
+                if (config('app.debug')) {
+                    $response['debug'] = [
+                        'exception' => get_class($e),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                    ];
+                }
+
+                return response()->json($response, $statusCode);
             }
         });
 

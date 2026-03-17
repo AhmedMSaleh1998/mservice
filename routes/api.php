@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\MedicalGuideController;
 use App\Http\Controllers\Api\MembershipController;
 use App\Http\Controllers\Api\NationalitiesController;
 use App\Http\Controllers\Api\NewRegisterController;
+use App\Http\Controllers\Api\OrdersController;
 use App\Http\Controllers\Api\OtpSendController;
 use App\Http\Controllers\Api\PaymentMethodsController;
 use App\Http\Controllers\Api\ProfileController;
@@ -66,6 +67,11 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
         ->middleware('signed')
         ->where('reg_code', 'EMS\\d+');
 
+    Route::prefix('payments/fawry/orders')->group(function () {
+        Route::get('return', [OrdersController::class, 'handleFawryReturn'])->name('api.orders.fawry.return');
+        Route::post('notification', [OrdersController::class, 'handleFawryNotification'])->name('api.orders.fawry.notification');
+    });
+
     Route::controller(OtpSendController::class)->prefix('otp')->group(function () {
         Route::post('send', 'send');
         Route::post('verify', 'verify');
@@ -104,6 +110,13 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
         });
 
         Route::post('membership/request', [MembershipController::class, 'store']);
+        Route::prefix('orders')->group(function () {
+            Route::post('{order}/pay', [OrdersController::class, 'pay'])->name('api.orders.pay');
+            Route::post('{order}/sync-payment-status', [OrdersController::class, 'syncPaymentStatus'])
+                ->name('api.orders.sync-payment');
+            Route::post('{order}/confirm-payment', [OrdersController::class, 'confirmPayment'])
+                ->name('api.orders.confirm-payment');
+        });
 
         Route::apiResource('user-addresses', UserAddressController::class)->only(['index', 'store']);
         Route::post('user-addresses/{userAddress}/update', [UserAddressController::class, 'update']);
@@ -120,7 +133,6 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
             Route::get('spaces', [AdSpacesController::class, 'index']);
             Route::post('/', [AdRequestsController::class, 'store']);
             Route::get('{adRequest}', [AdRequestsController::class, 'show']);
-            Route::post('{adRequest}/pay', [AdRequestsController::class, 'pay']);
         });
     });
 

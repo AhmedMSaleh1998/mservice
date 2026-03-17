@@ -41,7 +41,7 @@ class AdRequestInfolist
                     ->schema([
                         TextEntry::make('status')
                             ->label(__('Status')),
-                        TextEntry::make('payment_method')
+                        TextEntry::make('order.payment_method')
                             ->label(__('Payment Method'))
                             ->formatStateUsing(fn ($state) => static::paymentMethodLabel($state)),
                         TextEntry::make('created_at')
