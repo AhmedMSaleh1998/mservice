@@ -1,1 +1,2 @@
-pong
+<?php
+echo now();
