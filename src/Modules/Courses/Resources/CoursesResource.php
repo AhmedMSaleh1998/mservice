@@ -19,6 +19,7 @@ class CoursesResource extends CustomResource
             'end_date' => $this->resource->end_date->format('Y-m-d'),
             'type' => __($this->resource->type),
             'price' => (float)$this->resource->price,
+            'available_count' => (int) $this->resource->available_count,
         ];
     }
 }

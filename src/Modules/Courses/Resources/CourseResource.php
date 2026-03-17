@@ -20,6 +20,7 @@ class CourseResource extends CustomResource
             'type' => __($this->resource->type),
             'description' => $this->resource->description,
             'price' => (float)$this->resource->price,
+            'available_count' => (int) $this->resource->available_count,
         ];
     }
 }
