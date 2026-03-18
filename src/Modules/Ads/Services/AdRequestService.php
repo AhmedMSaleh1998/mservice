@@ -32,44 +32,99 @@ class AdRequestService
                 ->lockForUpdate()
                 ->findOrFail($data['ad_space_id']);
 
-            if (! $adSpace->is_available) {
+            $editableRequest = AdRequest::query()
+                ->where('user_id', $userId)
+                ->where('ad_space_id', $adSpace->id)
+                ->whereIn('status', AdRequest::EDITABLE_PRE_PAYMENT_STATUSES)
+                ->latest('id')
+                ->lockForUpdate()
+                ->first();
+
+            $ownsCurrentReservation = $editableRequest
+                && in_array($editableRequest->status, AdRequest::ACTIVE_RESERVATION_STATUSES, true);
+
+            if (! $adSpace->is_available && ! $ownsCurrentReservation) {
                 throw ValidationException::withMessages([
                     'ad_space_id' => __('This ad space is no longer available.'),
                 ]);
             }
 
-            $adSpace->forceFill([
-                'is_available' => false,
-            ])->save();
+            if ($adSpace->is_available) {
+                $adSpace->forceFill([
+                    'is_available' => false,
+                ])->save();
+            }
 
             $durationMonths = (int) $data['duration_months'];
             $pricePerMonth = (float) $adSpace->price_per_month;
             $totalAmount = $pricePerMonth * $durationMonths;
-
-            $adRequest = AdRequest::create([
-                'user_id' => $userId,
-                'ad_space_id' => $adSpace->id,
-                'duration_months' => $durationMonths,
-                'price_per_month' => $pricePerMonth,
-                'total_amount' => $totalAmount,
-                'ad_text' => $data['ad_text'] ?? null,
-                'design_image' => ($data['design_image'] ?? null)?->getClientOriginalName(),
-                'status' => 'pending_payment',
-            ]);
-
             $file = $data['design_image'] ?? null;
-            if ($file) {
-                $adRequest
-                    ->addMedia($file)
-                    ->toMediaCollection('design_image');
-            }
 
-            $this->orderService->sync($adRequest, [
-                'user_id' => $userId,
-                'amount' => $totalAmount,
-                'status' => 'pending_payment',
-                'payment_method' => $data['payment_method'] ?? null,
-            ]);
+            if ($editableRequest) {
+                $editableRequest->forceFill([
+                    'duration_months' => $durationMonths,
+                    'price_per_month' => $pricePerMonth,
+                    'total_amount' => $totalAmount,
+                    'ad_text' => $data['ad_text'] ?? $editableRequest->ad_text,
+                    'status' => 'pending_payment',
+                    'starts_at' => null,
+                    'ends_at' => null,
+                ]);
+
+                if ($file) {
+                    $editableRequest->design_image = $file->getClientOriginalName();
+                }
+
+                $editableRequest->save();
+
+                if ($file) {
+                    $editableRequest
+                        ->addMedia($file)
+                        ->toMediaCollection('design_image');
+                }
+
+                $adRequest = $editableRequest;
+
+                $this->orderService->sync($adRequest, [
+                    'user_id' => $userId,
+                    'amount' => $totalAmount,
+                    'status' => 'pending_payment',
+                    'payment_method' => null,
+                    'provider' => null,
+                    'merchant_ref_num' => null,
+                    'gateway_reference' => null,
+                    'gateway_status' => null,
+                    'checkout_url' => null,
+                    'payload' => null,
+                    'payment_started_at' => null,
+                    'payment_last_synced_at' => null,
+                    'paid_at' => null,
+                ]);
+            } else {
+                $adRequest = AdRequest::create([
+                    'user_id' => $userId,
+                    'ad_space_id' => $adSpace->id,
+                    'duration_months' => $durationMonths,
+                    'price_per_month' => $pricePerMonth,
+                    'total_amount' => $totalAmount,
+                    'ad_text' => $data['ad_text'] ?? null,
+                    'design_image' => $file?->getClientOriginalName(),
+                    'status' => 'pending_payment',
+                ]);
+
+                if ($file) {
+                    $adRequest
+                        ->addMedia($file)
+                        ->toMediaCollection('design_image');
+                }
+
+                $this->orderService->sync($adRequest, [
+                    'user_id' => $userId,
+                    'amount' => $totalAmount,
+                    'status' => 'pending_payment',
+                    'payment_method' => $data['payment_method'] ?? null,
+                ]);
+            }
 
             return $adRequest->fresh(['adSpace.service', 'media', 'order']);
         });

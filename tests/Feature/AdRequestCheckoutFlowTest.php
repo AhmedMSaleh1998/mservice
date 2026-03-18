@@ -139,6 +139,87 @@ class AdRequestCheckoutFlowTest extends TestCase
         $response->assertJsonPath('message', 'The selected ad space id is invalid.');
     }
 
+    public function test_store_allows_same_user_to_update_own_pending_ad_request_and_change_duration(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $this->seedPaymentMethods();
+
+        $firstResponse = $this
+            ->withHeaders(['lang' => 'en'])
+            ->post('/api/v1/ads', [
+                'ad_space_id' => $adSpace->id,
+                'duration_months' => 1,
+                'ad_text' => 'Original reservation',
+                'design_image' => UploadedFile::fake()->image('design-one.png'),
+            ]);
+
+        $firstResponse->assertCreated();
+
+        $adRequestId = (int) $firstResponse->json('data.order.request.id');
+        $orderId = (int) $firstResponse->json('data.order.id');
+
+        AdRequest::query()->whereKey($adRequestId)->update([
+            'status' => 'checkout_pending',
+        ]);
+
+        Order::query()->whereKey($orderId)->update([
+            'status' => 'checkout_pending',
+            'payment_method' => 'fawry',
+            'provider' => 'fawry',
+            'merchant_ref_num' => 'AD-EDIT-1',
+            'gateway_reference' => '998877',
+            'gateway_status' => 'NEW',
+            'checkout_url' => 'https://atfawry.fawrystaging.com/checkout/session-edit',
+            'payment_started_at' => now(),
+            'payment_last_synced_at' => now(),
+            'payload' => ['charge_request' => ['amount' => '1000.00']],
+        ]);
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->post('/api/v1/ads', [
+                'ad_space_id' => $adSpace->id,
+                'duration_months' => 3,
+                'ad_text' => 'Updated reservation',
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.id', $orderId);
+        $response->assertJsonPath('data.order.request.id', $adRequestId);
+        $response->assertJsonPath('data.order.request.status', 'pending_payment');
+        $response->assertJsonPath('data.order.items.0.amount', '3000.00');
+        $response->assertJsonPath('data.order.total', '3000.00');
+
+        $this->assertSame(1, AdRequest::query()->count());
+
+        $this->assertDatabaseHas('ad_requests', [
+            'id' => $adRequestId,
+            'duration_months' => 3,
+            'price_per_month' => 1000,
+            'total_amount' => 3000,
+            'ad_text' => 'Updated reservation',
+            'design_image' => 'design-one.png',
+            'status' => 'pending_payment',
+        ]);
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderId,
+            'amount' => 3000,
+            'status' => 'pending_payment',
+            'payment_method' => null,
+            'provider' => null,
+            'merchant_ref_num' => null,
+            'gateway_reference' => null,
+            'gateway_status' => null,
+            'checkout_url' => null,
+            'paid_at' => null,
+        ]);
+        $this->assertDatabaseHas('ad_spaces', [
+            'id' => $adSpace->id,
+            'is_available' => 0,
+        ]);
+    }
+
     public function test_pay_starts_mock_checkout_and_confirm_marks_ad_paid(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 3, 16, 6, 15, 0, 'Africa/Cairo'));

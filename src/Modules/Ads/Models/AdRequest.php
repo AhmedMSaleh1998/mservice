@@ -16,6 +16,17 @@ class AdRequest extends CustomModel implements HasMedia
 {
     use HasFactory, InteractsWithMedia;
 
+    public const ACTIVE_RESERVATION_STATUSES = [
+        'pending_payment',
+        'checkout_pending',
+    ];
+
+    public const EDITABLE_PRE_PAYMENT_STATUSES = [
+        'pending_payment',
+        'checkout_pending',
+        'payment_expired',
+    ];
+
     protected $fillable = [
         'user_id',
         'ad_space_id',
