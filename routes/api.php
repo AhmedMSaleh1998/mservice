@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\CertificateRequestController;
 use App\Http\Controllers\Api\CertificatesController;
 use App\Http\Controllers\Api\ChangePasswordController;
 use App\Http\Controllers\Api\ChangePhoneController;
+use App\Http\Controllers\Api\CourseBookingsController;
 use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\ContactUsController;
 use App\Http\Controllers\Api\GradesController;
@@ -134,6 +135,9 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
             Route::post('/', [AdRequestsController::class, 'store']);
             Route::get('{adRequest}', [AdRequestsController::class, 'show']);
         });
+
+        Route::post('courses/{course}', [CourseBookingsController::class, 'store']);
+        Route::get('course-bookings/{courseBooking}', [CourseBookingsController::class, 'show']);
     });
 
 

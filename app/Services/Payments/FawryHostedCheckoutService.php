@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Modules\Ads\Models\AdRequest;
 use Modules\Core\Models\Order;
+use Modules\Courses\Models\CourseBooking;
 use Modules\Users\Models\User;
 use RuntimeException;
 
@@ -249,18 +250,29 @@ class FawryHostedCheckoutService
         $order->loadMissing('orderable');
         $orderable = $order->orderable;
 
-        if (! $orderable instanceof AdRequest) {
-            throw new RuntimeException('Fawry checkout is not supported for this order.');
+        if ($orderable instanceof AdRequest) {
+            $orderable->loadMissing('adSpace.service');
+
+            return [[
+                'itemId' => sprintf('ADREQ%d', $orderable->id),
+                'description' => sprintf('Ad request %d', $orderable->id),
+                'price' => (float) $this->formatAmount($orderable->price_per_month),
+                'quantity' => (int) $orderable->duration_months,
+            ]];
         }
 
-        $orderable->loadMissing('adSpace.service');
+        if ($orderable instanceof CourseBooking) {
+            $orderable->loadMissing('course');
 
-        return [[
-            'itemId' => sprintf('ADREQ%d', $orderable->id),
-            'description' => sprintf('Ad request %d', $orderable->id),
-            'price' => (float) $this->formatAmount($orderable->price_per_month),
-            'quantity' => (int) $orderable->duration_months,
-        ]];
+            return [[
+                'itemId' => sprintf('COURSEBOOK%d', $orderable->id),
+                'description' => sprintf('Course booking %d', $orderable->id),
+                'price' => (float) $this->formatAmount($orderable->total_amount),
+                'quantity' => 1,
+            ]];
+        }
+
+        throw new RuntimeException('Fawry checkout is not supported for this order.');
     }
 
     private function buildChargeSignature(string $merchantRefNum, string $customerProfileId, string $returnUrl, array $chargeItems): string
@@ -375,9 +387,11 @@ class FawryHostedCheckoutService
         $order->loadMissing('orderable');
         $prefix = trim((string) config('services.fawry.merchant_ref_prefix', ''));
         $orderable = $order->orderable;
-        $reference = $orderable instanceof AdRequest
-            ? sprintf('AD%d', $orderable->id)
-            : sprintf('ORD%d', $order->id);
+        $reference = match (true) {
+            $orderable instanceof AdRequest => sprintf('AD%d', $orderable->id),
+            $orderable instanceof CourseBooking => sprintf('CB%d', $orderable->id),
+            default => sprintf('ORD%d', $order->id),
+        };
         $attemptSuffix = Carbon::now()->format('ymdHis') . Str::upper(Str::random(4));
 
         return preg_replace('/[^A-Za-z0-9]/', '', $prefix . $reference . $attemptSuffix);

@@ -2,6 +2,7 @@
 
 namespace Modules\Courses\Models;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Core\Models\CustomModel;
 use Modules\Courses\Builders\CourseQueryBuilder;
@@ -27,5 +28,10 @@ class Course extends CustomModel implements HasMedia
     public function newEloquentBuilder($query): CourseQueryBuilder
     {
         return new CourseQueryBuilder($query);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(CourseBooking::class);
     }
 }

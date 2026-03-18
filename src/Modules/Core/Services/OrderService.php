@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Modules\Ads\Models\AdRequest;
 use Modules\Core\Models\Order;
 use Modules\Core\Models\PaymentMethod;
+use Modules\Courses\Models\CourseBooking;
 
 class OrderService
 {
@@ -239,9 +240,11 @@ class OrderService
         $orderable = $order->orderable;
         $prefix = trim((string) config('services.fawry.merchant_ref_prefix', ''));
 
-        $reference = $orderable instanceof AdRequest
-            ? sprintf('AD%d', $orderable->id)
-            : sprintf('ORD%d', $order->id);
+        $reference = match (true) {
+            $orderable instanceof AdRequest => sprintf('AD%d', $orderable->id),
+            $orderable instanceof CourseBooking => sprintf('CB%d', $orderable->id),
+            default => sprintf('ORD%d', $order->id),
+        };
 
         return $prefix !== ''
             ? preg_replace('/[^A-Za-z0-9]/', '', $prefix . $reference)
@@ -253,22 +256,36 @@ class OrderService
         $order->loadMissing('orderable');
         $orderable = $order->orderable;
 
-        if (! $orderable instanceof AdRequest) {
+        if ($orderable instanceof AdRequest) {
+            if ($orderable->status === $status && ! ($status === 'paid_successfully' && blank($orderable->starts_at))) {
+                return;
+            }
+
+            $orderable->status = $status;
+
+            if ($status === 'paid_successfully') {
+                $startsAt = $order->paid_at ?: now();
+                $orderable->starts_at = $orderable->starts_at ?: $startsAt;
+                $orderable->ends_at = $orderable->ends_at ?: $startsAt->copy()->addMonthsNoOverflow((int) $orderable->duration_months);
+            }
+
+            $orderable->save();
+
             return;
         }
 
-        if ($orderable->status === $status && ! ($status === 'paid_successfully' && blank($orderable->starts_at))) {
-            return;
+        if ($orderable instanceof CourseBooking) {
+            if ($orderable->status === $status && ! ($status === 'paid_successfully' && blank($orderable->paid_at))) {
+                return;
+            }
+
+            $orderable->status = $status;
+
+            if ($status === 'paid_successfully') {
+                $orderable->paid_at = $orderable->paid_at ?: ($order->paid_at ?: now());
+            }
+
+            $orderable->save();
         }
-
-        $orderable->status = $status;
-
-        if ($status === 'paid_successfully') {
-            $startsAt = $order->paid_at ?: now();
-            $orderable->starts_at = $orderable->starts_at ?: $startsAt;
-            $orderable->ends_at = $orderable->ends_at ?: $startsAt->copy()->addMonthsNoOverflow((int) $orderable->duration_months);
-        }
-
-        $orderable->save();
     }
 }

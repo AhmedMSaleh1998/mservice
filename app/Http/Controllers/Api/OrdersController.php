@@ -19,6 +19,8 @@ use Modules\Core\Models\Order;
 use Modules\Core\Resources\OrderResource;
 use Modules\Core\Resources\PaymentMethodResource;
 use Modules\Core\Services\OrderService;
+use Modules\Courses\Models\CourseBooking;
+use Modules\Courses\Services\CourseBookingService;
 use Modules\Memberships\Models\MembershipRequest;
 use Throwable;
 
@@ -27,6 +29,7 @@ class OrdersController extends Controller
     public function __construct(
         private readonly OrderService $orderService,
         private readonly AdRequestService $adRequestService,
+        private readonly CourseBookingService $courseBookingService,
         private readonly FawryHostedCheckoutService $fawryHostedCheckoutService,
     ) {
     }
@@ -160,7 +163,7 @@ class OrdersController extends Controller
     {
         $payload = $request->all();
         $merchantRefNum = (string) data_get($payload, 'merchantRefNumber');
-        $order = $merchantRefNum !== '' ? $this->orderService->findByMerchantReference($merchantRefNum, AdRequest::class) : null;
+        $order = $merchantRefNum !== '' ? $this->orderService->findByMerchantReference($merchantRefNum) : null;
         $statusCode = (int) data_get($payload, 'statusCode', 200);
         $signatureValid = $order !== null
             && $statusCode === 200
@@ -175,6 +178,8 @@ class OrdersController extends Controller
         $redirectUrl = $this->fawryHostedCheckoutService->frontendReturnUrl([
             'order_id' => $order?->id,
             'ad_request_id' => $orderable instanceof AdRequest ? $orderable->id : null,
+            'course_booking_id' => $orderable instanceof CourseBooking ? $orderable->id : null,
+            'course_id' => $orderable instanceof CourseBooking ? $orderable->course_id : null,
             'merchant_ref_num' => $merchantRefNum,
             'success' => $paymentSuccessful ? '1' : '0',
             'status_code' => data_get($payload, 'statusCode'),
@@ -214,6 +219,10 @@ class OrdersController extends Controller
 
         $order = $this->orderService->findByMerchantReference($merchantRefNum, AdRequest::class);
         if (! $order) {
+            $order = $this->orderService->findByMerchantReference($merchantRefNum);
+        }
+
+        if (! $order) {
             return response()->json([
                 'message' => 'Order not found.',
                 'status' => 404,
@@ -236,6 +245,7 @@ class OrdersController extends Controller
             'data' => [
                 'order_id' => $order->id,
                 'ad_request_id' => $orderable instanceof AdRequest ? $orderable->id : null,
+                'course_booking_id' => $orderable instanceof CourseBooking ? $orderable->id : null,
                 'payment_status' => $order->gateway_status,
             ],
         ]);
@@ -281,6 +291,31 @@ class OrdersController extends Controller
             }
         }
 
+        if ($orderable instanceof CourseBooking) {
+            if ($this->courseBookingService->expireReservation($orderable)) {
+                throw new HttpResponseException(response()->json([
+                    'message' => 'Course booking reservation has expired.',
+                    'status' => 422,
+                ], 422));
+            }
+
+            $orderable = $orderable->fresh();
+
+            if ($orderable?->status === 'payment_expired') {
+                throw new HttpResponseException(response()->json([
+                    'message' => 'Course booking reservation has expired.',
+                    'status' => 422,
+                ], 422));
+            }
+
+            if ($orderable?->status !== 'pending_payment') {
+                throw new HttpResponseException(response()->json([
+                    'message' => 'Course booking is not awaiting payment.',
+                    'status' => 422,
+                ], 422));
+            }
+        }
+
         if ($order->status === 'paid_successfully') {
             throw new HttpResponseException(response()->json([
                 'message' => 'Order is not awaiting payment.',
@@ -303,6 +338,23 @@ class OrdersController extends Controller
             $summary = $this->adRequestService->buildSummary($orderable);
 
             $payload['order'] = $this->buildSimpleAdOrder($order, $orderable, $summary);
+            $payload['payment_methods'] = PaymentMethodResource::collection($this->orderService->availablePaymentMethods());
+            $payload['checkout'] = $checkout;
+            $payload['actions'] = array_filter([
+                'pay_endpoint' => route('api.orders.pay', $order),
+                'sync_payment_status_endpoint' => $order->payment_method === 'fawry'
+                    ? route('api.orders.sync-payment', $order)
+                    : null,
+            ]);
+
+            return $payload;
+        }
+
+        if ($orderable instanceof CourseBooking) {
+            $orderable->loadMissing('course', 'order');
+            $summary = $this->courseBookingService->buildSummary($orderable);
+
+            $payload['order'] = $this->buildSimpleCourseOrder($order, $orderable, $summary);
             $payload['payment_methods'] = PaymentMethodResource::collection($this->orderService->availablePaymentMethods());
             $payload['checkout'] = $checkout;
             $payload['actions'] = array_filter([
@@ -356,6 +408,24 @@ class OrdersController extends Controller
         ];
     }
 
+    private function buildSimpleCourseOrder(Order $order, CourseBooking $courseBooking, array $summary): array
+    {
+        return [
+            'id' => $order->id,
+            'status' => $order->status,
+            'currency' => $order->currency,
+            'payment_method' => $order->payment_method,
+            'gateway_status' => $order->gateway_status,
+            'request' => [
+                'id' => $courseBooking->id,
+                'type' => 'course_booking',
+                'status' => $courseBooking->status,
+            ],
+            'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
+            'total' => $summary['total'] ?? $order->amount,
+        ];
+    }
+
     private function buildSimpleItems(Collection $items): array
     {
         return $items
@@ -386,12 +456,36 @@ class OrdersController extends Controller
             return $order->fresh(['orderable', 'user']);
         }
 
+        if ($orderable instanceof CourseBooking && $orderStatus === 'PAID' && $this->isLateCourseBookingPayment($orderable, $payload)) {
+            $expiredPayload = $payload;
+            $expiredPayload['originalOrderStatus'] = $orderStatus;
+            $expiredPayload['latePaymentRejected'] = true;
+            $expiredPayload['orderStatus'] = 'EXPIRED';
+
+            $order = $this->orderService->applyFawryPaymentUpdate($order, $expiredPayload, $source);
+            $this->courseBookingService->expireReservation($orderable);
+
+            return $order->fresh(['orderable', 'user']);
+        }
+
         return $this->orderService->applyFawryPaymentUpdate($order, $payload, $source);
     }
 
     private function isLateFawryPayment(AdRequest $adRequest, array $payload): bool
     {
         $reservationExpiresAt = $this->adRequestService->reservationExpiresAt($adRequest);
+        $paymentTime = data_get($payload, 'paymentTime');
+
+        if (is_numeric($paymentTime)) {
+            return Carbon::createFromTimestampMs((int) $paymentTime)->greaterThan($reservationExpiresAt);
+        }
+
+        return Carbon::now()->greaterThan($reservationExpiresAt);
+    }
+
+    private function isLateCourseBookingPayment(CourseBooking $courseBooking, array $payload): bool
+    {
+        $reservationExpiresAt = $this->courseBookingService->reservationExpiresAt($courseBooking);
         $paymentTime = data_get($payload, 'paymentTime');
 
         if (is_numeric($paymentTime)) {
