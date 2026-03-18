@@ -205,6 +205,39 @@ class OrdersController extends Controller
         ], $responseStatus);
     }
 
+    public function showFawryResult(Request $request): JsonResponse
+    {
+        $order = $this->resolveFawryResultOrder($request);
+        $requestType = $this->resolveFawryResultRequestType($request, $order);
+        $requestId = $this->resolveFawryResultRequestId($request, $order);
+        $success = $request->query('success') === '1';
+        $statusCode = (int) $request->query('status_code', 200);
+        $orderStatus = (string) $request->query('order_status', $order?->gateway_status);
+        $statusDescription = (string) $request->query('status_description', '');
+
+        return response()->json([
+            'message' => $success
+                ? 'Payment processed successfully.'
+                : 'Payment result loaded successfully.',
+            'status' => 200,
+            'data' => [
+                'success' => $success,
+                'order' => $order ? $this->buildFawryResultOrderPayload($order) : null,
+                'request' => [
+                    'id' => $requestId,
+                    'type' => $requestType,
+                ],
+                'payment' => [
+                    'status' => $orderStatus,
+                    'status_code' => $statusCode,
+                    'status_description' => $statusDescription,
+                    'merchant_ref_num' => $request->query('merchant_ref_num'),
+                    'reference_number' => $request->query('reference_number'),
+                ],
+            ],
+        ]);
+    }
+
     public function handleFawryNotification(Request $request): JsonResponse
     {
         $payload = $request->all();
@@ -436,6 +469,78 @@ class OrdersController extends Controller
             ])
             ->values()
             ->all();
+    }
+
+    private function buildFawryResultOrderPayload(Order $order): array
+    {
+        $order->loadMissing('orderable', 'user');
+        $orderable = $order->orderable;
+
+        if ($orderable instanceof AdRequest) {
+            $orderable->loadMissing('adSpace.service', 'media', 'order');
+
+            return $this->buildSimpleAdOrder($order, $orderable, $this->adRequestService->buildSummary($orderable));
+        }
+
+        if ($orderable instanceof CourseBooking) {
+            $orderable->loadMissing('course', 'order');
+
+            return $this->buildSimpleCourseOrder($order, $orderable, $this->courseBookingService->buildSummary($orderable));
+        }
+
+        return OrderResource::make($order)->resolve();
+    }
+
+    private function resolveFawryResultOrder(Request $request): ?Order
+    {
+        $orderId = (int) $request->query('order_id', 0);
+        if ($orderId > 0) {
+            return Order::query()
+                ->with('orderable', 'user')
+                ->find($orderId);
+        }
+
+        $merchantRefNum = (string) $request->query('merchant_ref_num', '');
+
+        return $merchantRefNum !== ''
+            ? $this->orderService->findByMerchantReference($merchantRefNum)
+            : null;
+    }
+
+    private function resolveFawryResultRequestType(Request $request, ?Order $order): ?string
+    {
+        $orderable = $order?->orderable;
+
+        if ($orderable instanceof AdRequest) {
+            return 'ad_request';
+        }
+
+        if ($orderable instanceof CourseBooking) {
+            return 'course_booking';
+        }
+
+        if ($request->filled('ad_request_id')) {
+            return 'ad_request';
+        }
+
+        if ($request->filled('course_booking_id')) {
+            return 'course_booking';
+        }
+
+        return null;
+    }
+
+    private function resolveFawryResultRequestId(Request $request, ?Order $order): ?int
+    {
+        $orderable = $order?->orderable;
+
+        if ($orderable instanceof AdRequest || $orderable instanceof CourseBooking) {
+            return $orderable->id;
+        }
+
+        $requestId = $request->query('ad_request_id', $request->query('course_booking_id'));
+
+        return is_numeric($requestId) ? (int) $requestId : null;
     }
 
     private function applyFawryPaymentUpdate(Order $order, array $payload, string $source): Order

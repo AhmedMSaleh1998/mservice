@@ -70,6 +70,7 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
 
     Route::prefix('payments/fawry/orders')->group(function () {
         Route::get('return', [OrdersController::class, 'handleFawryReturn'])->name('api.orders.fawry.return');
+        Route::get('result', [OrdersController::class, 'showFawryResult'])->name('api.orders.fawry.result');
         Route::post('notification', [OrdersController::class, 'handleFawryNotification'])->name('api.orders.fawry.notification');
     });
 
@@ -137,6 +138,7 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
         });
 
         Route::post('courses/{course}', [CourseBookingsController::class, 'store']);
+        Route::post('courses/{course}/booking', [CourseBookingsController::class, 'store']);
         Route::get('course-bookings/{courseBooking}', [CourseBookingsController::class, 'show']);
     });
 

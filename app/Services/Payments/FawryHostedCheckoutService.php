@@ -207,6 +207,13 @@ class FawryHostedCheckoutService
             return null;
         }
 
+        $normalizedUrl = rtrim($url, '/');
+        $normalizedAppUrl = rtrim((string) config('app.url', ''), '/');
+
+        if ($normalizedAppUrl !== '' && $normalizedUrl === $normalizedAppUrl) {
+            $url = route('api.orders.fawry.result');
+        }
+
         return $url . (str_contains($url, '?') ? '&' : '?') . http_build_query(array_filter(
             $query,
             static fn ($value) => ! is_null($value) && $value !== ''

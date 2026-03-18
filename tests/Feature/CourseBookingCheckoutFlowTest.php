@@ -96,6 +96,55 @@ class CourseBookingCheckoutFlowTest extends TestCase
         ]);
     }
 
+    public function test_store_marks_free_course_booking_as_paid_immediately(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 3, 18, 2, 40, 0, 'Africa/Cairo'));
+
+        $user = $this->seedAuthenticatedUser();
+        $course = $this->seedCourse([
+            'price' => 0,
+            'available_count' => 2,
+        ]);
+        $this->seedPaymentMethods();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->post("/api/v1/courses/{$course->id}");
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.request.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.items.0.amount', '0.00');
+        $response->assertJsonPath('data.order.total', '0.00');
+        $response->assertJsonCount(0, 'data.payment_methods');
+
+        $bookingId = (int) $response->json('data.order.request.id');
+        $orderId = (int) $response->json('data.order.id');
+
+        $this->assertDatabaseHas('course_bookings', [
+            'id' => $bookingId,
+            'course_id' => $course->id,
+            'status' => 'paid_successfully',
+            'total_amount' => 0,
+            'paid_at' => '2026-03-18 02:40:00',
+        ]);
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderId,
+            'orderable_type' => CourseBooking::class,
+            'orderable_id' => $bookingId,
+            'amount' => 0,
+            'status' => 'paid_successfully',
+            'payment_method' => 'free',
+            'provider' => 'system',
+            'gateway_status' => 'PAID',
+            'paid_at' => '2026-03-18 02:40:00',
+        ]);
+        $this->assertDatabaseHas('courses', [
+            'id' => $course->id,
+            'available_count' => 1,
+        ]);
+    }
+
     public function test_store_blocks_booking_when_course_is_fully_booked(): void
     {
         $this->seedAuthenticatedUser();
@@ -110,6 +159,34 @@ class CourseBookingCheckoutFlowTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJsonPath('message', 'This course is fully booked.');
+    }
+
+    public function test_store_blocks_duplicate_booking_for_same_user_and_course(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $course = $this->seedCourse();
+        $this->seedPaymentMethods();
+
+        CourseBooking::query()->create([
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+            'price' => 4000,
+            'total_amount' => 4000,
+            'status' => 'paid_successfully',
+            'paid_at' => now(),
+        ]);
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->post("/api/v1/courses/{$course->id}");
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('message', 'You have already booked this course.');
+
+        $this->assertDatabaseHas('courses', [
+            'id' => $course->id,
+            'available_count' => 2,
+        ]);
     }
 
     public function test_pay_and_confirm_mark_course_booking_paid(): void
@@ -326,6 +403,68 @@ class CourseBookingCheckoutFlowTest extends TestCase
             'id' => $course->id,
             'available_count' => 1,
         ]);
+    }
+
+    public function test_fawry_return_redirects_to_mobile_json_result_when_frontend_url_matches_app_url_for_courses(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $course = $this->seedCourse([
+            'available_count' => 0,
+        ]);
+        $this->seedPaymentMethods();
+        $this->configureFawry();
+        config()->set('app.url', 'https://mservice.test');
+        config()->set('services.fawry.frontend_return_url', 'https://mservice.test');
+
+        $courseBooking = CourseBooking::query()->create([
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+            'price' => 4000,
+            'total_amount' => 4000,
+            'status' => 'pending_payment',
+        ]);
+        $order = $this->createOrderForCourseBooking($courseBooking, [
+            'status' => 'checkout_pending',
+            'payment_method' => 'fawry',
+            'provider' => 'fawry',
+            'merchant_ref_num' => 'CB-JSON-1',
+            'gateway_status' => 'NEW',
+            'checkout_url' => 'https://atfawry.fawrystaging.com/checkout/session-json-course',
+        ]);
+
+        $payload = [
+            'statusCode' => 200,
+            'statusDescription' => 'Operation done successfully',
+            'referenceNumber' => '551199',
+            'merchantRefNumber' => 'CB-JSON-1',
+            'paymentAmount' => '4000.00',
+            'orderAmount' => '4000.00',
+            'orderStatus' => 'PAID',
+            'paymentMethod' => 'PayAtFawry',
+            'fawryFees' => '0.00',
+            'shippingFees' => '0.00',
+            'authNumber' => '',
+            'customerMail' => $user->email,
+            'customerMobile' => $user->phone,
+        ];
+        $payload['signature'] = $this->buildFawryReturnSignature($payload);
+
+        $response = $this->get('/api/v1/payments/fawry/orders/return?' . http_build_query($payload));
+
+        $resultUrl = 'https://mservice.test/api/v1/payments/fawry/orders/result?order_id=' . $order->id . '&course_booking_id=' . $courseBooking->id . '&course_id=' . $course->id . '&merchant_ref_num=CB-JSON-1&success=1&status_code=200&status_description=Operation+done+successfully&order_status=PAID&reference_number=551199';
+
+        $response->assertRedirect($resultUrl);
+
+        $resultResponse = $this->get('/api/v1/payments/fawry/orders/result?' . parse_url($resultUrl, PHP_URL_QUERY));
+
+        $resultResponse->assertOk();
+        $resultResponse->assertJsonPath('message', 'Payment processed successfully.');
+        $resultResponse->assertJsonPath('data.success', true);
+        $resultResponse->assertJsonPath('data.request.type', 'course_booking');
+        $resultResponse->assertJsonPath('data.request.id', $courseBooking->id);
+        $resultResponse->assertJsonPath('data.payment.status', 'PAID');
+        $resultResponse->assertJsonPath('data.order.request.type', 'course_booking');
+        $resultResponse->assertJsonPath('data.order.id', $order->id);
     }
 
     private function seedAuthenticatedUser(): User

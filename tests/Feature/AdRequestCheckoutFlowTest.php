@@ -511,6 +511,68 @@ class AdRequestCheckoutFlowTest extends TestCase
         ]);
     }
 
+    public function test_fawry_return_redirects_to_mobile_json_result_when_frontend_url_matches_app_url_for_ads(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $this->seedPaymentMethods();
+        $this->configureFawry();
+        config()->set('app.url', 'https://mservice.test');
+        config()->set('services.fawry.frontend_return_url', 'https://mservice.test');
+
+        $adRequest = AdRequest::query()->create([
+            'user_id' => $user->id,
+            'ad_space_id' => $adSpace->id,
+            'duration_months' => 1,
+            'price_per_month' => 1000,
+            'total_amount' => 1000,
+            'ad_text' => 'Test ad',
+            'status' => 'pending_payment',
+        ]);
+        $order = $this->createOrderForAdRequest($adRequest, [
+            'status' => 'checkout_pending',
+            'payment_method' => 'fawry',
+            'provider' => 'fawry',
+            'merchant_ref_num' => 'AD-JSON-1',
+            'gateway_status' => 'NEW',
+            'checkout_url' => 'https://atfawry.fawrystaging.com/checkout/session-json-ad',
+        ]);
+
+        $payload = [
+            'statusCode' => 200,
+            'statusDescription' => 'Operation done successfully',
+            'referenceNumber' => '881122',
+            'merchantRefNumber' => 'AD-JSON-1',
+            'paymentAmount' => '1000.00',
+            'orderAmount' => '1000.00',
+            'orderStatus' => 'PAID',
+            'paymentMethod' => 'PayAtFawry',
+            'fawryFees' => '0.00',
+            'shippingFees' => '0.00',
+            'authNumber' => '',
+            'customerMail' => $user->email,
+            'customerMobile' => $user->phone,
+        ];
+        $payload['signature'] = $this->buildFawryReturnSignature($payload);
+
+        $response = $this->get('/api/v1/payments/fawry/orders/return?' . http_build_query($payload));
+
+        $resultUrl = 'https://mservice.test/api/v1/payments/fawry/orders/result?order_id=' . $order->id . '&ad_request_id=' . $adRequest->id . '&merchant_ref_num=AD-JSON-1&success=1&status_code=200&status_description=Operation+done+successfully&order_status=PAID&reference_number=881122';
+
+        $response->assertRedirect($resultUrl);
+
+        $resultResponse = $this->get('/api/v1/payments/fawry/orders/result?' . parse_url($resultUrl, PHP_URL_QUERY));
+
+        $resultResponse->assertOk();
+        $resultResponse->assertJsonPath('message', 'Payment processed successfully.');
+        $resultResponse->assertJsonPath('data.success', true);
+        $resultResponse->assertJsonPath('data.request.type', 'ad_request');
+        $resultResponse->assertJsonPath('data.request.id', $adRequest->id);
+        $resultResponse->assertJsonPath('data.payment.status', 'PAID');
+        $resultResponse->assertJsonPath('data.order.request.type', 'ad_request');
+        $resultResponse->assertJsonPath('data.order.id', $order->id);
+    }
+
     public function test_fawry_return_rejects_paid_callback_when_payment_arrives_after_timeout(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 3, 16, 6, 15, 0, 'Africa/Cairo'));

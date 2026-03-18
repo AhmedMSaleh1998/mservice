@@ -61,7 +61,9 @@ class CourseBookingsController extends Controller
 
         return [
             'order' => $this->buildSimpleCourseOrder($order, $courseBooking, $summary),
-            'payment_methods' => PaymentMethodResource::collection($this->orderService->availablePaymentMethods()),
+            'payment_methods' => $order && $order->status === 'paid_successfully'
+                ? []
+                : PaymentMethodResource::collection($this->orderService->availablePaymentMethods()),
         ];
     }
 

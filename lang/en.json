@@ -264,6 +264,7 @@
   "Course booking": "Course booking",
   "This course is not available for booking.": "This course is not available for booking.",
   "This course is fully booked.": "This course is fully booked.",
+  "You have already booked this course.": "You have already booked this course.",
   "Mock checkout is enabled. Use the confirm payment endpoint to mark this request as paid.": "Mock checkout is enabled. Use the confirm payment endpoint to mark this request as paid.",
   "Open the payment URL to complete your payment via Fawry.": "Open the payment URL to complete your payment via Fawry.",
   "A valid mobile number is required before starting Fawry checkout.": "A valid mobile number is required before starting Fawry checkout.",

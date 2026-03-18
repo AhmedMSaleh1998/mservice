@@ -35,23 +35,49 @@ class CourseBookingService
                 ]);
             }
 
+            $existingBooking = CourseBooking::query()
+                ->lockForUpdate()
+                ->where('user_id', $userId)
+                ->where('course_id', $lockedCourse->id)
+                ->where('status', '!=', 'payment_expired')
+                ->first();
+
+            if ($existingBooking && $existingBooking->status === 'pending_payment' && $this->isReservationExpired($existingBooking)) {
+                $this->expireReservation($existingBooking);
+                $existingBooking = null;
+            }
+
+            if ($existingBooking) {
+                throw ValidationException::withMessages([
+                    'course_id' => __('You have already booked this course.'),
+                ]);
+            }
+
             $lockedCourse->decrement('available_count');
 
             $amount = (float) $lockedCourse->price;
+            $isFreeCourse = $amount <= 0;
+            $paidAt = $isFreeCourse ? now() : null;
+            $bookingStatus = $isFreeCourse ? 'paid_successfully' : 'pending_payment';
 
             $courseBooking = CourseBooking::query()->create([
                 'user_id' => $userId,
                 'course_id' => $lockedCourse->id,
                 'price' => $amount,
                 'total_amount' => $amount,
-                'status' => 'pending_payment',
+                'status' => $bookingStatus,
+                'paid_at' => $paidAt,
             ]);
 
             $this->orderService->sync($courseBooking, [
                 'user_id' => $userId,
                 'amount' => $amount,
-                'status' => 'pending_payment',
-                'payment_method' => $data['payment_method'] ?? null,
+                'status' => $bookingStatus,
+                'payment_method' => $isFreeCourse ? 'free' : ($data['payment_method'] ?? null),
+                'provider' => $isFreeCourse ? 'system' : null,
+                'gateway_status' => $isFreeCourse ? 'PAID' : null,
+                'paid_at' => $paidAt,
+                'payment_last_synced_at' => $isFreeCourse ? $paidAt : null,
             ]);
 
             return $courseBooking->fresh(['course', 'order']);
