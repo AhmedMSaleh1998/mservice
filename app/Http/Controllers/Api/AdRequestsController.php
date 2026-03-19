@@ -53,6 +53,23 @@ class AdRequestsController extends Controller
         ]);
     }
 
+    public function cancel(AdRequest $adRequest): JsonResponse
+    {
+        $this->ensureOwner($adRequest);
+
+        $adRequest = $this->adRequestService->cancel($adRequest);
+        $adRequest->loadMissing('adSpace.service', 'media', 'order');
+
+        return response()->json([
+            'message' => 'Ad request cancelled successfully.',
+            'status' => 200,
+            'data' => [
+                'order' => $this->buildSimpleAdOrder($adRequest->order, $adRequest, $this->adRequestService->buildSummary($adRequest)),
+                'ad_space_available' => (bool) data_get($adRequest, 'adSpace.is_available'),
+            ],
+        ]);
+    }
+
     private function ensureOwner(AdRequest $adRequest): void
     {
         if ($adRequest->user_id !== auth()->id()) {

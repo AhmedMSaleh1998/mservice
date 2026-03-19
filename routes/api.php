@@ -134,6 +134,7 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
             Route::get('/', [AdRequestsController::class, 'approved']);
             Route::get('spaces', [AdSpacesController::class, 'index']);
             Route::post('/', [AdRequestsController::class, 'store']);
+            Route::post('{adRequest}/cancel', [AdRequestsController::class, 'cancel']);
             Route::get('{adRequest}', [AdRequestsController::class, 'show']);
         });
 

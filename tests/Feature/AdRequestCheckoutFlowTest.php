@@ -220,6 +220,102 @@ class AdRequestCheckoutFlowTest extends TestCase
         ]);
     }
 
+    public function test_cancel_releases_ad_space_and_marks_request_cancelled(): void
+    {
+        $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $this->seedPaymentMethods();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->post('/api/v1/ads', [
+                'ad_space_id' => $adSpace->id,
+                'duration_months' => 2,
+                'ad_text' => 'Homepage campaign',
+                'design_image' => UploadedFile::fake()->image('design.png'),
+            ]);
+
+        $response->assertCreated();
+
+        $adRequestId = (int) $response->json('data.order.request.id');
+        $orderId = (int) $response->json('data.order.id');
+
+        $cancelResponse = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson("/api/v1/ads/{$adRequestId}/cancel");
+
+        $cancelResponse->assertOk();
+        $cancelResponse->assertJsonPath('message', 'Ad request cancelled successfully.');
+        $cancelResponse->assertJsonPath('data.order.request.status', 'cancelled');
+        $cancelResponse->assertJsonPath('data.order.status', 'cancelled');
+        $cancelResponse->assertJsonPath('data.ad_space_available', true);
+
+        $this->assertDatabaseHas('ad_requests', [
+            'id' => $adRequestId,
+            'status' => 'cancelled',
+        ]);
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderId,
+            'status' => 'cancelled',
+            'checkout_url' => null,
+        ]);
+        $this->assertDatabaseHas('ad_spaces', [
+            'id' => $adSpace->id,
+            'is_available' => 1,
+        ]);
+    }
+
+    public function test_cancel_rejects_ad_request_after_checkout_starts(): void
+    {
+        $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $this->seedPaymentMethods();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->post('/api/v1/ads', [
+                'ad_space_id' => $adSpace->id,
+                'duration_months' => 1,
+                'ad_text' => 'Checkout started campaign',
+                'design_image' => UploadedFile::fake()->image('design-started.png'),
+            ]);
+
+        $response->assertCreated();
+
+        $adRequestId = (int) $response->json('data.order.request.id');
+        $orderId = (int) $response->json('data.order.id');
+
+        Order::query()->whereKey($orderId)->update([
+            'status' => 'checkout_pending',
+            'payment_method' => 'fawry',
+            'provider' => 'fawry',
+            'merchant_ref_num' => 'AD-CANCEL-STARTED',
+            'gateway_status' => 'NEW',
+            'checkout_url' => 'https://atfawry.fawrystaging.com/checkout/session-started',
+        ]);
+
+        $cancelResponse = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson("/api/v1/ads/{$adRequestId}/cancel");
+
+        $cancelResponse->assertStatus(422);
+        $cancelResponse->assertJsonPath('message', 'This ad request can only be cancelled before payment starts.');
+
+        $this->assertDatabaseHas('ad_requests', [
+            'id' => $adRequestId,
+            'status' => 'pending_payment',
+        ]);
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderId,
+            'status' => 'checkout_pending',
+            'checkout_url' => 'https://atfawry.fawrystaging.com/checkout/session-started',
+        ]);
+        $this->assertDatabaseHas('ad_spaces', [
+            'id' => $adSpace->id,
+            'is_available' => 0,
+        ]);
+    }
+
     public function test_pay_starts_mock_checkout_and_confirm_marks_ad_paid(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 3, 16, 6, 15, 0, 'Africa/Cairo'));

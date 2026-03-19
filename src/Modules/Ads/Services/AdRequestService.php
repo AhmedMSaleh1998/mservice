@@ -200,6 +200,53 @@ class AdRequestService
         });
     }
 
+    public function cancel(AdRequest $adRequest): AdRequest
+    {
+        return DB::transaction(function () use ($adRequest): AdRequest {
+            $lockedAdRequest = AdRequest::query()
+                ->lockForUpdate()
+                ->findOrFail($adRequest->id);
+
+            $order = $lockedAdRequest->order()->lockForUpdate()->first();
+
+            if ($lockedAdRequest->status === 'cancelled' && $order?->status === 'cancelled') {
+                return $lockedAdRequest->fresh(['adSpace.service', 'media', 'order']);
+            }
+
+            if ($lockedAdRequest->status !== 'pending_payment' || $order?->status !== 'pending_payment') {
+                throw ValidationException::withMessages([
+                    'ad_request' => __('This ad request can only be cancelled before payment starts.'),
+                ]);
+            }
+
+            $adSpace = AdSpace::query()
+                ->lockForUpdate()
+                ->find($lockedAdRequest->ad_space_id);
+
+            if ($adSpace && ! $adSpace->is_available) {
+                $adSpace->forceFill([
+                    'is_available' => true,
+                ])->save();
+            }
+
+            $lockedAdRequest->forceFill([
+                'status' => 'cancelled',
+                'starts_at' => null,
+                'ends_at' => null,
+            ])->save();
+
+            if ($order) {
+                $order->forceFill([
+                    'status' => 'cancelled',
+                    'checkout_url' => null,
+                    'payment_last_synced_at' => now(),
+                ])->save();
+            }
+
+            return $lockedAdRequest->fresh(['adSpace.service', 'media', 'order']);
+        });
+    }
+
     public function completeFinishedReservation(AdRequest $adRequest): bool
     {
         return DB::transaction(function () use ($adRequest): bool {
