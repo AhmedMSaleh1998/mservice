@@ -76,7 +76,6 @@ class OrderResource extends JsonResource
             'specialty' => $membershipRequest->specialty,
             'degree' => $membershipRequest->degree,
             'registration_number' => $membershipRequest->registration_number,
-            'delivery_method' => $membershipRequest->delivery_method,
             'address' => $membershipRequest->relationLoaded('userAddress')
                 ? UserAddressResource::make($membershipRequest->userAddress)->resolve()
                 : null,

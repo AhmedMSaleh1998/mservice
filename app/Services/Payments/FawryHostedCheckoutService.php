@@ -11,6 +11,7 @@ use Illuminate\Validation\ValidationException;
 use Modules\Ads\Models\AdRequest;
 use Modules\Core\Models\Order;
 use Modules\Courses\Models\CourseBooking;
+use Modules\Memberships\Models\MembershipRequest;
 use Modules\Users\Models\User;
 use RuntimeException;
 
@@ -279,6 +280,15 @@ class FawryHostedCheckoutService
             ]];
         }
 
+        if ($orderable instanceof MembershipRequest) {
+            return [[
+                'itemId' => sprintf('MEMREQ%d', $orderable->id),
+                'description' => sprintf('Membership request %d', $orderable->id),
+                'price' => (float) $this->formatAmount($orderable->total_amount),
+                'quantity' => 1,
+            ]];
+        }
+
         throw new RuntimeException('Fawry checkout is not supported for this order.');
     }
 
@@ -397,6 +407,7 @@ class FawryHostedCheckoutService
         $reference = match (true) {
             $orderable instanceof AdRequest => sprintf('AD%d', $orderable->id),
             $orderable instanceof CourseBooking => sprintf('CB%d', $orderable->id),
+            $orderable instanceof MembershipRequest => sprintf('MID%d', $orderable->id),
             default => sprintf('ORD%d', $order->id),
         };
         $attemptSuffix = Carbon::now()->format('ymdHis') . Str::upper(Str::random(4));

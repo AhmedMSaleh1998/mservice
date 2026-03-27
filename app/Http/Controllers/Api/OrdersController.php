@@ -22,6 +22,7 @@ use Modules\Core\Services\OrderService;
 use Modules\Courses\Models\CourseBooking;
 use Modules\Courses\Services\CourseBookingService;
 use Modules\Memberships\Models\MembershipRequest;
+use Modules\Memberships\Services\MembershipService;
 use Throwable;
 
 class OrdersController extends Controller
@@ -30,6 +31,7 @@ class OrdersController extends Controller
         private readonly OrderService $orderService,
         private readonly AdRequestService $adRequestService,
         private readonly CourseBookingService $courseBookingService,
+        private readonly MembershipService $membershipService,
         private readonly FawryHostedCheckoutService $fawryHostedCheckoutService,
     ) {
     }
@@ -179,6 +181,7 @@ class OrdersController extends Controller
             'order_id' => $order?->id,
             'ad_request_id' => $orderable instanceof AdRequest ? $orderable->id : null,
             'course_booking_id' => $orderable instanceof CourseBooking ? $orderable->id : null,
+            'membership_request_id' => $orderable instanceof MembershipRequest ? $orderable->id : null,
             'course_id' => $orderable instanceof CourseBooking ? $orderable->course_id : null,
             'merchant_ref_num' => $merchantRefNum,
             'success' => $paymentSuccessful ? '1' : '0',
@@ -279,6 +282,7 @@ class OrdersController extends Controller
                 'order_id' => $order->id,
                 'ad_request_id' => $orderable instanceof AdRequest ? $orderable->id : null,
                 'course_booking_id' => $orderable instanceof CourseBooking ? $orderable->id : null,
+                'membership_request_id' => $orderable instanceof MembershipRequest ? $orderable->id : null,
                 'payment_status' => $order->gateway_status,
             ],
         ]);
@@ -349,6 +353,13 @@ class OrdersController extends Controller
             }
         }
 
+        if ($orderable instanceof MembershipRequest && $orderable->status !== 'pending_payment') {
+            throw new HttpResponseException(response()->json([
+                'message' => 'Membership request is not awaiting payment.',
+                'status' => 422,
+            ], 422));
+        }
+
         if ($order->status === 'paid_successfully') {
             throw new HttpResponseException(response()->json([
                 'message' => 'Order is not awaiting payment.',
@@ -400,6 +411,26 @@ class OrdersController extends Controller
             return $payload;
         }
 
+        if ($orderable instanceof MembershipRequest) {
+            $orderable->loadMissing('userAddress.province', 'order');
+            $summary = $this->membershipService->buildSummary($orderable);
+
+            $payload['order'] = $this->buildSimpleMembershipOrder($order, $orderable, $summary);
+            $payload['payment_methods'] = PaymentMethodResource::collection($this->orderService->availablePaymentMethods());
+            $payload['checkout'] = $checkout;
+            $payload['actions'] = array_filter([
+                'pay_endpoint' => route('api.orders.pay', $order),
+                'confirm_payment_endpoint' => $order->payment_method === 'fawry'
+                    ? null
+                    : route('api.orders.confirm-payment', $order),
+                'sync_payment_status_endpoint' => $order->payment_method === 'fawry'
+                    ? route('api.orders.sync-payment', $order)
+                    : null,
+            ]);
+
+            return $payload;
+        }
+
         $payload['payment_methods'] = PaymentMethodResource::collection($this->orderService->availablePaymentMethods());
         $payload['checkout'] = $checkout;
         $payload['actions'] = [
@@ -407,13 +438,6 @@ class OrdersController extends Controller
             'confirm_payment_endpoint' => route('api.orders.confirm-payment', $order),
             'sync_payment_status_endpoint' => route('api.orders.sync-payment', $order),
         ];
-
-        if ($orderable instanceof MembershipRequest) {
-            $orderable->loadMissing('userAddress', 'order');
-            $order->setRelation('orderable', $orderable);
-
-            return $payload;
-        }
 
         if ($orderable instanceof CertificateRequest) {
             $orderable->loadMissing('userAddress', 'order');
@@ -459,6 +483,28 @@ class OrdersController extends Controller
         ];
     }
 
+    private function buildSimpleMembershipOrder(Order $order, MembershipRequest $membershipRequest, array $summary): array
+    {
+        return [
+            'id' => $order->id,
+            'status' => $order->status,
+            'currency' => $order->currency,
+            'payment_method' => $order->payment_method,
+            'gateway_status' => $order->gateway_status,
+            'request' => [
+                'id' => $membershipRequest->id,
+                'type' => 'membership_request',
+                'status' => $membershipRequest->status,
+                'full_name' => $membershipRequest->full_name,
+                'specialty' => $membershipRequest->specialty,
+                'degree' => $membershipRequest->degree,
+                'registration_number' => $membershipRequest->registration_number,
+            ],
+            'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
+            'total' => $summary['total'] ?? $order->amount,
+        ];
+    }
+
     private function buildSimpleItems(Collection $items): array
     {
         return $items
@@ -486,6 +532,12 @@ class OrdersController extends Controller
             $orderable->loadMissing('course', 'order');
 
             return $this->buildSimpleCourseOrder($order, $orderable, $this->courseBookingService->buildSummary($orderable));
+        }
+
+        if ($orderable instanceof MembershipRequest) {
+            $orderable->loadMissing('userAddress.province', 'order');
+
+            return $this->buildSimpleMembershipOrder($order, $orderable, $this->membershipService->buildSummary($orderable));
         }
 
         return OrderResource::make($order)->resolve();
@@ -519,12 +571,20 @@ class OrdersController extends Controller
             return 'course_booking';
         }
 
+        if ($orderable instanceof MembershipRequest) {
+            return 'membership_request';
+        }
+
         if ($request->filled('ad_request_id')) {
             return 'ad_request';
         }
 
         if ($request->filled('course_booking_id')) {
             return 'course_booking';
+        }
+
+        if ($request->filled('membership_request_id')) {
+            return 'membership_request';
         }
 
         return null;
@@ -534,11 +594,14 @@ class OrdersController extends Controller
     {
         $orderable = $order?->orderable;
 
-        if ($orderable instanceof AdRequest || $orderable instanceof CourseBooking) {
+        if ($orderable instanceof AdRequest || $orderable instanceof CourseBooking || $orderable instanceof MembershipRequest) {
             return $orderable->id;
         }
 
-        $requestId = $request->query('ad_request_id', $request->query('course_booking_id'));
+        $requestId = $request->query(
+            'ad_request_id',
+            $request->query('course_booking_id', $request->query('membership_request_id'))
+        );
 
         return is_numeric($requestId) ? (int) $requestId : null;
     }

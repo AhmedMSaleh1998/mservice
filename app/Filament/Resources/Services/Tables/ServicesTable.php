@@ -61,6 +61,9 @@ class ServicesTable
                     })
                     ->searchable()
                     ->wrap(),
+                TextColumn::make('price')
+                    ->label(__('Price'))
+                    ->formatStateUsing(fn ($state): string => number_format((float) $state, 2)),
                 // IconColumn::make('is_featured')
                 //     ->label(__('Is Featured'))
                 //     ->boolean()

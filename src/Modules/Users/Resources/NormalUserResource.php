@@ -5,11 +5,14 @@ namespace Modules\Users\Resources;
 use Illuminate\Http\Request;
 use Modules\Core\CustomResource;
 use Modules\Core\Resources\MediaResource;
+use Modules\Memberships\Services\MembershipService;
 
 class NormalUserResource extends CustomResource
 {
     public function data(Request $request): array
     {
+        $membershipProfile = app(MembershipService::class)->buildProfileSnapshot($this->resource);
+
         return [
             'id' => $this->resource->id,
             'name' => $this->resource->name,
@@ -17,6 +20,7 @@ class NormalUserResource extends CustomResource
             'email' => $this->resource->email,
             'national_id' => $this->resource->national_id,
             'reg_number' => $this->resource->reg_number,
+            'membership_profile' => $membershipProfile,
             'address' => $this->resource->address,
             'neqaba_address' => $this->resource->neqaba_address,
             'photo' => MediaResource::make($this->resource->getMedia('photo')->last()),

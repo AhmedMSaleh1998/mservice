@@ -3,12 +3,10 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreMembershipRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
@@ -17,13 +15,20 @@ class StoreMembershipRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'full_name' => 'required|string|max:255',
-            'specialty' => 'required|string|max:255',
-            'degree' => 'required|string|max:255',
-            'registration_number' => 'required|string|max:50',
-            'delivery_method' => 'required|in:delivery,pickup',
-            'payment_method' => 'required|in:fawry,instapay',
-            'address_id' => 'required|exists:user_addresses,id',
+            'address_id' => [
+                'required',
+                Rule::exists('user_addresses', 'id')->where(
+                    fn ($query) => $query->where('user_id', $this->user()?->id)
+                ),
+            ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'address_id.required' => __('Please select a delivery address.'),
+            'address_id.exists' => __('The selected address is invalid.'),
         ];
     }
 }

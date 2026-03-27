@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Modules\Core\Models\CustomModel;
 use Modules\Core\Models\Order;
+use Modules\Users\Models\User;
 use Modules\Users\Models\UserAddress;
 
 class MembershipRequest extends CustomModel
@@ -38,9 +39,9 @@ class MembershipRequest extends CustomModel
         'total_amount' => 'decimal:2',
     ];
 
-    public function user()
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class);
+        return $this->belongsTo(User::class);
     }
 
     public function newEloquentBuilder($query): \Modules\Memberships\Builders\MembershipRequestQueryBuilder

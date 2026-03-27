@@ -8,6 +8,7 @@ use Modules\Ads\Models\AdRequest;
 use Modules\Core\Models\Order;
 use Modules\Core\Models\PaymentMethod;
 use Modules\Courses\Models\CourseBooking;
+use Modules\Memberships\Models\MembershipRequest;
 
 class OrderService
 {
@@ -243,6 +244,7 @@ class OrderService
         $reference = match (true) {
             $orderable instanceof AdRequest => sprintf('AD%d', $orderable->id),
             $orderable instanceof CourseBooking => sprintf('CB%d', $orderable->id),
+            $orderable instanceof MembershipRequest => sprintf('MID%d', $orderable->id),
             default => sprintf('ORD%d', $order->id),
         };
 
@@ -283,6 +285,22 @@ class OrderService
 
             if ($status === 'paid_successfully') {
                 $orderable->paid_at = $orderable->paid_at ?: ($order->paid_at ?: now());
+            }
+
+            $orderable->save();
+
+            return;
+        }
+
+        if ($orderable instanceof MembershipRequest) {
+            if ($orderable->status === $status) {
+                return;
+            }
+
+            $orderable->status = $status;
+
+            if (filled($order->payment_method)) {
+                $orderable->payment_method = $order->payment_method;
             }
 
             $orderable->save();

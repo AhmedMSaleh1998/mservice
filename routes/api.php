@@ -94,6 +94,7 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
     // Authed Routes
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('settings', [SettingsController::class, 'update']);
+        Route::get('profile/show', [ProfileController::class, 'show']);
         Route::post('profile/update', [ProfileController::class, 'update']);
         Route::post('auth/change-password', ChangePasswordController::class);
         Route::post('auth/change-phone', [ChangePhoneController::class, 'change']);

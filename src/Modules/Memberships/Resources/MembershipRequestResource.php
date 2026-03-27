@@ -17,7 +17,6 @@ class MembershipRequestResource extends JsonResource
             'specialty' => $this->specialty,
             'degree' => $this->degree,
             'registration_number' => $this->registration_number,
-            'delivery_method' => $this->delivery_method,
             'address' => UserAddressResource::make($this->userAddress),
             'status' => $this->status,
             'costs' => [
