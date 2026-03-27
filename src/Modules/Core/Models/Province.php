@@ -13,6 +13,11 @@ class Province extends Model
     protected $fillable = [
         'code',
         'name',
+        'shipping_cost',
+    ];
+
+    protected $casts = [
+        'shipping_cost' => 'decimal:2',
     ];
 
     public $translatable = ['name'];

@@ -13,6 +13,7 @@ class ProvinceResource extends CustomResource
         return [
             'id' => $this->resource->id,
             'name' => $this->resource->name,
+            'shipping_cost' => $this->resource->shipping_cost,
         ];
     }
 }
