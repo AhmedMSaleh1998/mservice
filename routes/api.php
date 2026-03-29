@@ -18,10 +18,12 @@ use App\Http\Controllers\Api\LoginController;
 use App\Http\Controllers\Api\MedicalUniversitiesController;
 use App\Http\Controllers\Api\MedicalGuideController;
 use App\Http\Controllers\Api\MembershipController;
+use App\Http\Controllers\Api\MyCoursesController;
 use App\Http\Controllers\Api\NationalitiesController;
 use App\Http\Controllers\Api\NewRegisterController;
 use App\Http\Controllers\Api\OrdersController;
 use App\Http\Controllers\Api\OtpSendController;
+use App\Http\Controllers\Api\PaymentsController;
 use App\Http\Controllers\Api\PaymentMethodsController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ProvincesController;
@@ -113,6 +115,14 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
         });
 
         Route::post('membership/request', [MembershipController::class, 'store']);
+        Route::prefix('my-courses')->group(function () {
+            Route::get('/', [MyCoursesController::class, 'index'])->name('api.my-courses.index');
+            Route::get('{courseBooking}', [MyCoursesController::class, 'show'])->name('api.my-courses.show');
+        });
+        Route::prefix('payments')->group(function () {
+            Route::get('/', [PaymentsController::class, 'index'])->name('api.payments.index');
+            Route::get('{order}', [PaymentsController::class, 'show'])->name('api.payments.show');
+        });
         Route::prefix('orders')->group(function () {
             Route::post('{order}/pay', [OrdersController::class, 'pay'])->name('api.orders.pay');
             Route::post('{order}/sync-payment-status', [OrdersController::class, 'syncPaymentStatus'])
