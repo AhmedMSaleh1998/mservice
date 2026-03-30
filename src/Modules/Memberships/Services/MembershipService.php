@@ -2,13 +2,16 @@
 
 namespace Modules\Memberships\Services;
 
+use App\Services\Oracle\OracleDoctorDataLookupService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Modules\Core\Services\OrderService;
 use Modules\Memberships\Models\MembershipRequest;
 use Modules\Services\Models\Service;
 use Modules\Users\Models\User;
 use Modules\Users\Models\UserAddress;
+use RuntimeException;
 
 class MembershipService
 {
@@ -22,6 +25,7 @@ class MembershipService
 
     public function __construct(
         private readonly OrderService $orderService,
+        private readonly OracleDoctorDataLookupService $oracleDoctorDataLookupService,
     ) {
     }
 
@@ -114,14 +118,29 @@ class MembershipService
 
     public function buildProfileSnapshot(User $user): array
     {
+        $oracleProfile = $this->loadOracleProfile($user);
+
         return [
-            'full_name' => trim((string) ($user->name ?? '')),
-            'specialty' => $this->fallback((string) data_get($user, 'specialty', ''), self::DEFAULT_SPECIALTY),
-            'degree' => $this->fallback((string) data_get($user, 'degree', ''), self::DEFAULT_DEGREE),
-            'registration_number' => $this->fallback(
-                (string) ($user->reg_number ?? ''),
-                self::DEFAULT_REGISTRATION_NUMBER
+            'full_name' => $this->firstNonEmpty(
+                (string) ($user->name ?? ''),
+                (string) data_get($oracleProfile, 'doctor_name', ''),
             ),
+            'specialty' => $this->firstNonEmpty(
+                (string) data_get($user, 'specialty', ''),
+                (string) data_get($oracleProfile, 'specialization_arabic_name', ''),
+                self::DEFAULT_SPECIALTY,
+            ),
+            'degree' => $this->firstNonEmpty(
+                (string) data_get($user, 'degree', ''),
+                (string) data_get($oracleProfile, 'consult_name', ''),
+                self::DEFAULT_DEGREE,
+            ),
+            'registration_number' => $this->firstNonEmpty(
+                (string) ($user->reg_number ?? ''),
+                (string) data_get($oracleProfile, 'register_no', ''),
+                self::DEFAULT_REGISTRATION_NUMBER,
+            ),
+            'oracle_profile' => $oracleProfile,
         ];
     }
 
@@ -146,11 +165,37 @@ class MembershipService
         return $address;
     }
 
-    private function fallback(string $value, string $fallback): string
+    private function loadOracleProfile(User $user): ?array
     {
-        $value = trim($value);
+        $registerNo = trim((string) ($user->reg_number ?? ''));
+        if ($registerNo === '') {
+            return null;
+        }
 
-        return $value !== '' ? $value : $fallback;
+        try {
+            return $this->oracleDoctorDataLookupService->findByRegisterNo($registerNo);
+        } catch (RuntimeException $exception) {
+            Log::warning('Oracle doctor data lookup failed while building membership profile snapshot.', [
+                'user_id' => $user->id,
+                'register_no' => $registerNo,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function firstNonEmpty(string ...$values): string
+    {
+        foreach ($values as $value) {
+            $value = trim($value);
+
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return '';
     }
 
     private function resolvePrintingCost(): float
