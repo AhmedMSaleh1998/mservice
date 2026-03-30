@@ -211,6 +211,7 @@
   "Select file": "اختر ملفًا",
   "This phone number is already registered with an active account.": "هذا الرقم مسجل بالفعل بحساب نشط.",
   "This national ID is already registered.": "هذا الرقم القومي مسجل بالفعل.",
+  "This email address is already registered.": "هذا البريد الإلكتروني مسجل بالفعل.",
   "Email must include a valid domain like example.com.": "البريد الإلكتروني يجب أن يحتوي على نطاق صحيح مثل example.com.",
   "Graduation year must be exactly 4 digits.": "سنة التخرج يجب أن تتكون من 4 أرقام فقط.",
   "National ID birth date is invalid.": "اكتب الرقم القومي بشكل صحيح حتى يتم ملء تاريخ الميلاد.",

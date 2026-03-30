@@ -202,6 +202,7 @@
   "Select file": "Select file",
   "This phone number is already registered with an active account.": "This phone number is already registered with an active account.",
   "This national ID is already registered.": "This national ID is already registered.",
+  "This email address is already registered.": "This email address is already registered.",
   "Email must include a valid domain like example.com.": "Email must include a valid domain like example.com.",
   "National ID birth date is invalid.": "Enter a valid national ID so birth date can be auto-filled.",
   "Registration failed. Please try again.": "Registration failed. Please try again.",
