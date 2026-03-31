@@ -57,6 +57,7 @@ class MembershipController extends Controller
                 'id' => $membershipRequest->id,
                 'type' => 'membership_request',
                 'status' => $membershipRequest->status,
+                'delivery_status' => $membershipRequest->delivery_status,
                 'full_name' => $membershipRequest->full_name,
                 'specialty' => $membershipRequest->specialty,
                 'degree' => $membershipRequest->degree,

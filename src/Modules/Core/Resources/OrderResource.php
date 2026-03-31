@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Modules\Ads\Models\AdRequest;
 use Modules\Ads\Resources\AdSpaceResource;
+use Modules\Certificates\Resources\CertificateResource as CertificateDetailsResource;
 use Modules\Certificates\Models\CertificateRequest;
 use Modules\Memberships\Models\MembershipRequest;
 use Modules\Users\Resources\UserAddressResource;
@@ -80,6 +81,7 @@ class OrderResource extends JsonResource
                 ? UserAddressResource::make($membershipRequest->userAddress)->resolve()
                 : null,
             'status' => $membershipRequest->status,
+            'delivery_status' => $membershipRequest->delivery_status,
             'costs' => [
                 'printing' => $membershipRequest->printing_cost,
                 'delivery' => $membershipRequest->delivery_cost,
@@ -94,7 +96,11 @@ class OrderResource extends JsonResource
     {
         return [
             'id' => $certificateRequest->id,
+            'certificate' => $certificateRequest->relationLoaded('certificate')
+                ? CertificateDetailsResource::make($certificateRequest->certificate)->resolve()
+                : null,
             'delivery_method' => $certificateRequest->delivery_method,
+            'delivery_status' => $certificateRequest->delivery_status,
             'phone' => $certificateRequest->phone,
             'email' => $certificateRequest->email,
             'status' => $certificateRequest->status,

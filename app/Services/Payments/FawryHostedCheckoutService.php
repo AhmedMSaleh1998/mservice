@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Modules\Ads\Models\AdRequest;
+use Modules\Certificates\Models\CertificateRequest;
 use Modules\Core\Models\Order;
 use Modules\Courses\Models\CourseBooking;
 use Modules\Memberships\Models\MembershipRequest;
@@ -289,6 +290,20 @@ class FawryHostedCheckoutService
             ]];
         }
 
+        if ($orderable instanceof CertificateRequest) {
+            $orderable->loadMissing('certificate');
+            $certificateName = trim((string) data_get($orderable->certificate, 'name'));
+
+            return [[
+                'itemId' => sprintf('CERTREQ%d', $orderable->id),
+                'description' => $certificateName !== ''
+                    ? sprintf('Certificate request %d - %s', $orderable->id, $certificateName)
+                    : sprintf('Certificate request %d', $orderable->id),
+                'price' => (float) $this->formatAmount($orderable->total_amount),
+                'quantity' => 1,
+            ]];
+        }
+
         throw new RuntimeException('Fawry checkout is not supported for this order.');
     }
 
@@ -406,6 +421,7 @@ class FawryHostedCheckoutService
         $orderable = $order->orderable;
         $reference = match (true) {
             $orderable instanceof AdRequest => sprintf('AD%d', $orderable->id),
+            $orderable instanceof CertificateRequest => sprintf('CERT%d', $orderable->id),
             $orderable instanceof CourseBooking => sprintf('CB%d', $orderable->id),
             $orderable instanceof MembershipRequest => sprintf('MID%d', $orderable->id),
             default => sprintf('ORD%d', $order->id),

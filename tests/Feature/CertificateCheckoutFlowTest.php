@@ -5,19 +5,18 @@ namespace Tests\Feature;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
+use Modules\Certificates\Models\Certificate;
+use Modules\Certificates\Models\CertificateRequest;
 use Modules\Core\Models\Order;
 use Modules\Core\Models\PaymentMethod;
 use Modules\Core\Models\Province;
-use Modules\Memberships\Models\MembershipRequest;
-use Modules\Services\Models\Service;
 use Modules\Users\Models\User;
 use Modules\Users\Models\UserAddress;
 use Tests\TestCase;
 
-class MembershipCheckoutFlowTest extends TestCase
+class CertificateCheckoutFlowTest extends TestCase
 {
     private string $databasePath;
 
@@ -25,7 +24,7 @@ class MembershipCheckoutFlowTest extends TestCase
     {
         parent::setUp();
 
-        $this->databasePath = storage_path('framework/testing/membership-checkout-flow.sqlite');
+        $this->databasePath = storage_path('framework/testing/certificate-checkout-flow.sqlite');
 
         if (! is_dir(dirname($this->databasePath))) {
             mkdir(dirname($this->databasePath), 0777, true);
@@ -56,66 +55,96 @@ class MembershipCheckoutFlowTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_store_creates_membership_request_from_authenticated_user_and_address_shipping_cost(): void
+    public function test_certificates_index_returns_active_certificates_with_prices(): void
+    {
+        $this->seedAuthenticatedUser();
+
+        Certificate::query()->create([
+            'name' => ['en' => 'Practice Certificate', 'ar' => 'شهادة مزاولة مهنة'],
+            'description' => ['en' => 'Practice Certificate', 'ar' => 'شهادة مزاولة مهنة'],
+            'price' => 4500,
+            'is_active' => true,
+            'order' => 1,
+        ]);
+
+        Certificate::query()->create([
+            'name' => ['en' => 'Hidden Certificate', 'ar' => 'شهادة مخفية'],
+            'description' => ['en' => 'Hidden Certificate', 'ar' => 'شهادة مخفية'],
+            'price' => 999,
+            'is_active' => false,
+            'order' => 2,
+        ]);
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->getJson('/api/v1/certificates');
+
+        $response->assertOk();
+        $response->assertJsonPath('message', 'certificate list loaded successfully.');
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.price', '4500.00');
+        $response->assertJsonPath('data.0.name', 'Practice Certificate');
+    }
+
+    public function test_store_creates_certificate_request_from_certificate_price_and_address_shipping_cost(): void
     {
         $user = $this->seedAuthenticatedUser();
-        $this->seedMembershipService(4500);
-        $address = $this->seedAddress($user, [
-            'shipping_cost' => 250,
-        ]);
+        $certificate = $this->seedCertificate(3500);
+        $address = $this->seedAddress($user, ['shipping_cost' => 250]);
         $this->seedPaymentMethods();
 
         $response = $this
             ->withHeaders(['lang' => 'en'])
-            ->postJson('/api/v1/membership/request', [
+            ->postJson('/api/v1/certificate/request', [
+                'certificate_id' => $certificate->id,
+                'delivery_method' => 'delivery',
                 'address_id' => $address->id,
             ]);
 
         $response->assertCreated();
         $response->assertJsonPath('message', 'Order created successfully.');
-        $response->assertJsonPath('data.order.request.type', 'membership_request');
+        $response->assertJsonPath('data.order.request.type', 'certificate_request');
         $response->assertJsonPath('data.order.request.status', 'pending_payment');
-        $response->assertJsonPath('data.order.request.full_name', 'Membership User');
-        $response->assertJsonPath('data.order.request.registration_number', '12345');
-        $response->assertJsonPath('data.order.items.0.label', 'Membership printing');
-        $response->assertJsonPath('data.order.items.0.amount', '4500.00');
+        $response->assertJsonPath('data.order.request.delivery_status', 'pending');
+        $response->assertJsonPath('data.order.request.certificate.id', $certificate->id);
+        $response->assertJsonPath('data.order.request.certificate.price', '3500.00');
+        $response->assertJsonPath('data.order.items.0.label', 'Certificate printing');
+        $response->assertJsonPath('data.order.items.0.amount', '3500.00');
         $response->assertJsonPath('data.order.items.1.label', 'Shipping fees');
         $response->assertJsonPath('data.order.items.1.amount', '250.00');
-        $response->assertJsonPath('data.order.total', '4750.00');
+        $response->assertJsonPath('data.order.total', '3750.00');
         $response->assertJsonPath('data.payment_methods.0.key', 'fawry');
 
-        $membershipRequestId = (int) $response->json('data.order.request.id');
+        $certificateRequestId = (int) $response->json('data.order.request.id');
         $orderId = (int) $response->json('data.order.id');
 
-        $this->assertDatabaseHas('membership_requests', [
-            'id' => $membershipRequestId,
+        $this->assertDatabaseHas('certificate_requests', [
+            'id' => $certificateRequestId,
             'user_id' => $user->id,
-            'full_name' => 'Membership User',
-            'specialty' => 'طبيب',
-            'degree' => 'بكالوريوس طب وجراحة',
-            'registration_number' => '12345',
+            'certificate_id' => $certificate->id,
             'delivery_method' => 'delivery',
             'user_address_id' => $address->id,
-            'printing_cost' => 4500,
+            'printing_cost' => 3500,
             'delivery_cost' => 250,
             'subscription_cost' => 0,
-            'total_amount' => 4750,
+            'total_amount' => 3750,
             'status' => 'pending_payment',
             'delivery_status' => 'pending',
         ]);
         $this->assertDatabaseHas('orders', [
             'id' => $orderId,
-            'orderable_type' => MembershipRequest::class,
-            'orderable_id' => $membershipRequestId,
-            'amount' => 4750,
+            'orderable_type' => CertificateRequest::class,
+            'orderable_id' => $certificateRequestId,
+            'amount' => 3750,
             'status' => 'pending_payment',
         ]);
     }
 
-    public function test_store_requires_address_and_enforces_ownership(): void
+    public function test_store_requires_owned_address_and_active_certificate(): void
     {
         $user = $this->seedAuthenticatedUser();
-        $this->seedMembershipService(3500);
+        $activeCertificate = $this->seedCertificate(3000);
+        $inactiveCertificate = $this->seedCertificate(2800, ['is_active' => false]);
         $this->seedPaymentMethods();
 
         $otherUser = User::query()->create([
@@ -128,56 +157,58 @@ class MembershipCheckoutFlowTest extends TestCase
             'active' => true,
             'notification_enabled' => true,
         ]);
-        $otherAddress = $this->seedAddress($otherUser);
+        $foreignAddress = $this->seedAddress($otherUser);
 
-        $missingAddressResponse = $this
+        $inactiveCertificateResponse = $this
             ->withHeaders(['lang' => 'en'])
-            ->postJson('/api/v1/membership/request', []);
+            ->postJson('/api/v1/certificate/request', [
+                'certificate_id' => $inactiveCertificate->id,
+                'delivery_method' => 'digital',
+                'email' => 'doctor@example.com',
+            ]);
 
-        $missingAddressResponse->assertStatus(422);
-        $missingAddressResponse->assertJsonValidationErrors(['address_id']);
+        $inactiveCertificateResponse->assertStatus(422);
+        $inactiveCertificateResponse->assertJsonValidationErrors(['certificate_id']);
 
         $foreignAddressResponse = $this
             ->withHeaders(['lang' => 'en'])
-            ->postJson('/api/v1/membership/request', [
-                'address_id' => $otherAddress->id,
+            ->postJson('/api/v1/certificate/request', [
+                'certificate_id' => $activeCertificate->id,
+                'delivery_method' => 'delivery',
+                'address_id' => $foreignAddress->id,
             ]);
 
         $foreignAddressResponse->assertStatus(422);
         $foreignAddressResponse->assertJsonValidationErrors(['address_id']);
+
+        $this->assertDatabaseCount('certificate_requests', 0);
     }
 
-    public function test_pay_and_confirm_mark_membership_request_paid(): void
+    public function test_pay_and_confirm_mark_certificate_request_paid_successfully(): void
     {
-        Carbon::setTestNow(Carbon::create(2026, 3, 27, 15, 0, 0, 'Africa/Cairo'));
+        Carbon::setTestNow(Carbon::create(2026, 3, 31, 14, 0, 0, 'Africa/Cairo'));
 
-        $user = $this->seedAuthenticatedUser([
-            'reg_number' => null,
-        ]);
-        $address = $this->seedAddress($user, [
-            'shipping_cost' => 200,
-        ]);
+        $user = $this->seedAuthenticatedUser();
+        $certificate = $this->seedCertificate(4000);
+        $address = $this->seedAddress($user, ['shipping_cost' => 150]);
         $this->seedPaymentMethods();
         config()->set('services.fawry.enabled', false);
 
-        $membershipRequest = MembershipRequest::query()->create([
+        $certificateRequest = CertificateRequest::query()->create([
             'user_id' => $user->id,
-            'full_name' => 'Membership User',
-            'specialty' => 'طبيب',
-            'degree' => 'بكالوريوس طب وجراحة',
-            'registration_number' => 'TEMP-REGISTRATION-NUMBER',
+            'certificate_id' => $certificate->id,
             'delivery_method' => 'delivery',
+            'user_address_id' => $address->id,
             'status' => 'pending_payment',
             'delivery_status' => 'pending',
             'printing_cost' => 4000,
-            'delivery_cost' => 200,
+            'delivery_cost' => 150,
             'subscription_cost' => 0,
-            'total_amount' => 4200,
-            'user_address_id' => $address->id,
+            'total_amount' => 4150,
         ]);
-        $order = $membershipRequest->order()->create([
+        $order = $certificateRequest->order()->create([
             'user_id' => $user->id,
-            'amount' => 4200,
+            'amount' => 4150,
             'currency' => 'EGP',
             'status' => 'pending_payment',
         ]);
@@ -189,7 +220,7 @@ class MembershipCheckoutFlowTest extends TestCase
             ]);
 
         $checkoutResponse->assertOk();
-        $checkoutResponse->assertJsonPath('data.order.request.type', 'membership_request');
+        $checkoutResponse->assertJsonPath('data.order.request.type', 'certificate_request');
         $checkoutResponse->assertJsonPath('data.checkout.mode', 'mock');
         $checkoutResponse->assertJsonPath('data.order.payment_method', 'instapay');
 
@@ -199,111 +230,29 @@ class MembershipCheckoutFlowTest extends TestCase
 
         $confirmResponse->assertOk();
         $confirmResponse->assertJsonPath('data.order.request.status', 'paid_successfully');
+        $confirmResponse->assertJsonPath('data.order.request.delivery_status', 'pending');
         $confirmResponse->assertJsonPath('data.order.status', 'paid_successfully');
 
-        $this->assertDatabaseHas('membership_requests', [
-            'id' => $membershipRequest->id,
+        $this->assertDatabaseHas('certificate_requests', [
+            'id' => $certificateRequest->id,
             'status' => 'paid_successfully',
             'delivery_status' => 'pending',
-            'payment_method' => 'instapay',
         ]);
         $this->assertDatabaseHas('orders', [
             'id' => $order->id,
             'status' => 'paid_successfully',
             'payment_method' => 'instapay',
             'gateway_status' => 'PAID',
-            'paid_at' => '2026-03-27 15:00:00',
-        ]);
-    }
-
-    public function test_pay_starts_fawry_hosted_checkout_for_membership_and_returns_payment_url(): void
-    {
-        Carbon::setTestNow(Carbon::create(2026, 3, 27, 16, 0, 0, 'Africa/Cairo'));
-
-        $user = $this->seedAuthenticatedUser();
-        $address = $this->seedAddress($user, [
-            'shipping_cost' => 300,
-        ]);
-        $this->seedPaymentMethods();
-        $this->configureFawry();
-
-        Http::fake([
-            'https://atfawry.fawrystaging.com/fawrypay-api/api/payments/init' => Http::response([
-                'statusCode' => 200,
-                'statusDescription' => 'Operation done successfully',
-                'type' => 'NEW',
-                'referenceNumber' => '44556677',
-                'url' => 'https://atfawry.fawrystaging.com/checkout/session-membership-123',
-            ], 200),
-        ]);
-
-        $membershipRequest = MembershipRequest::query()->create([
-            'user_id' => $user->id,
-            'full_name' => 'Membership User',
-            'specialty' => 'طبيب',
-            'degree' => 'بكالوريوس طب وجراحة',
-            'registration_number' => '12345',
-            'delivery_method' => 'delivery',
-            'status' => 'pending_payment',
-            'delivery_status' => 'pending',
-            'printing_cost' => 4500,
-            'delivery_cost' => 300,
-            'subscription_cost' => 0,
-            'total_amount' => 4800,
-            'user_address_id' => $address->id,
-        ]);
-        $order = $membershipRequest->order()->create([
-            'user_id' => $user->id,
-            'amount' => 4800,
-            'currency' => 'EGP',
-            'status' => 'pending_payment',
-        ]);
-
-        $response = $this
-            ->withHeaders(['lang' => 'en'])
-            ->postJson("/api/v1/orders/{$order->id}/pay", [
-                'payment_method' => 'fawry',
-            ]);
-
-        $response->assertOk();
-        $response->assertExactJson([
-            'payment_url' => 'https://atfawry.fawrystaging.com/checkout/session-membership-123',
-        ]);
-
-        $merchantRefNum = null;
-        $expectedExpiry = Carbon::now()->addMinutes(5)->getTimestampMs();
-
-        Http::assertSent(function ($request) use ($membershipRequest, $expectedExpiry, &$merchantRefNum): bool {
-            $merchantRefNum = $request['merchantRefNum'];
-
-            return $request->url() === 'https://atfawry.fawrystaging.com/fawrypay-api/api/payments/init'
-                && $request['merchantCode'] === 'TESTMERCHANT'
-                && str_starts_with($merchantRefNum, "EMSMID{$membershipRequest->id}")
-                && $request['amount'] === '4800.00'
-                && $request['currencyCode'] === 'EGP'
-                && $request['chargeItems'][0]['itemId'] === "MEMREQ{$membershipRequest->id}"
-                && $request['chargeItems'][0]['description'] === "Membership request {$membershipRequest->id}"
-                && $request['chargeItems'][0]['price'] === 4800.0
-                && $request['chargeItems'][0]['quantity'] === 1
-                && $request['paymentExpiry'] === $expectedExpiry
-                && ! isset($request['paymentMethod']);
-        });
-
-        $this->assertNotNull($merchantRefNum);
-        $this->assertDatabaseHas('orders', [
-            'id' => $order->id,
-            'payment_method' => 'fawry',
-            'merchant_ref_num' => $merchantRefNum,
-            'gateway_status' => 'NEW',
+            'paid_at' => '2026-03-31 14:00:00',
         ]);
     }
 
     private function seedAuthenticatedUser(array $attributes = []): User
     {
         $user = User::query()->create(array_merge([
-            'name' => 'Membership User',
+            'name' => 'Certificate User',
             'phone' => '01012345678',
-            'email' => 'membership@example.com',
+            'email' => 'certificate@example.com',
             'password' => bcrypt('secret123'),
             'national_id' => '29901011234567',
             'reg_number' => '12345',
@@ -316,16 +265,15 @@ class MembershipCheckoutFlowTest extends TestCase
         return $user;
     }
 
-    private function seedMembershipService(float $price = 4000): Service
+    private function seedCertificate(float $price, array $attributes = []): Certificate
     {
-        return Service::query()->create([
-            'title' => ['en' => 'Membership ID', 'ar' => 'استخراج كارنية عضوية'],
-            'description' => ['en' => 'Membership ID', 'ar' => 'استخراج كارنية عضوية'],
-            'key' => 'membership-id',
+        return Certificate::query()->create(array_merge([
+            'name' => ['en' => 'Practice Certificate', 'ar' => 'شهادة مزاولة مهنة'],
+            'description' => ['en' => 'Practice Certificate', 'ar' => 'شهادة مزاولة مهنة'],
             'price' => $price,
             'is_active' => true,
-            'is_featured' => false,
-        ]);
+            'order' => 1,
+        ], $attributes));
     }
 
     private function seedAddress(User $user, array $provinceAttributes = []): UserAddress
@@ -361,22 +309,6 @@ class MembershipCheckoutFlowTest extends TestCase
             'key' => 'instapay',
             'is_active' => true,
         ]);
-    }
-
-    private function configureFawry(): void
-    {
-        config()->set('services.fawry.enabled', true);
-        config()->set('services.fawry.base_url', 'https://atfawry.fawrystaging.com');
-        config()->set('services.fawry.merchant_code', 'TESTMERCHANT');
-        config()->set('services.fawry.secure_key', 'TESTSECUREKEY');
-        config()->set('services.fawry.currency_code', 'EGP');
-        config()->set('services.fawry.merchant_ref_prefix', 'EMS');
-        config()->set('services.fawry.payment_method', 'PayAtFawry');
-        config()->set('services.fawry.payment_expiry_minutes', 5);
-        config()->set('services.fawry.payment_expiry_hours', 1);
-        config()->set('services.fawry.return_url', 'https://api.example.test/api/v1/payments/fawry/orders/return');
-        config()->set('services.fawry.frontend_return_url', null);
-        config()->set('services.fawry.webhook_url', 'https://api.example.test/api/v1/payments/fawry/orders/notification');
     }
 
     private function createTables(): void
@@ -420,37 +352,32 @@ class MembershipCheckoutFlowTest extends TestCase
             $table->timestamps();
         });
 
-        Schema::connection('sqlite')->create('membership_requests', function (Blueprint $table): void {
+        Schema::connection('sqlite')->create('certificates', function (Blueprint $table): void {
+            $table->id();
+            $table->json('name');
+            $table->json('description')->nullable();
+            $table->decimal('price', 10, 2)->default(0);
+            $table->boolean('is_active')->default(true);
+            $table->unsignedSmallInteger('order')->default(0);
+            $table->softDeletes();
+            $table->timestamps();
+        });
+
+        Schema::connection('sqlite')->create('certificate_requests', function (Blueprint $table): void {
             $table->id();
             $table->unsignedBigInteger('user_id');
-            $table->string('full_name');
-            $table->string('specialty');
-            $table->string('degree');
-            $table->string('registration_number');
-            $table->string('delivery_method')->default('pickup');
-            $table->text('address')->nullable();
+            $table->unsignedBigInteger('certificate_id');
+            $table->string('delivery_method')->default('delivery');
+            $table->unsignedBigInteger('user_address_id')->nullable();
+            $table->string('phone')->nullable();
+            $table->string('email')->nullable();
             $table->string('status')->default('pending_payment');
             $table->string('delivery_status')->nullable();
             $table->decimal('printing_cost', 10, 2)->default(0);
             $table->decimal('delivery_cost', 10, 2)->default(0);
             $table->decimal('subscription_cost', 10, 2)->default(0);
             $table->decimal('total_amount', 10, 2)->default(0);
-            $table->unsignedBigInteger('user_address_id')->nullable();
-            $table->string('payment_method')->nullable();
             $table->timestamps();
-        });
-
-        Schema::connection('sqlite')->create('services', function (Blueprint $table): void {
-            $table->id();
-            $table->json('title');
-            $table->json('description');
-            $table->string('key')->nullable();
-            $table->unsignedBigInteger('service_type_id')->nullable();
-            $table->decimal('price', 10, 2)->default(0);
-            $table->boolean('is_featured')->default(false);
-            $table->boolean('is_active')->default(true);
-            $table->timestamps();
-            $table->softDeletes();
         });
 
         Schema::connection('sqlite')->create('payment_methods', function (Blueprint $table): void {
@@ -480,6 +407,26 @@ class MembershipCheckoutFlowTest extends TestCase
             $table->timestamp('payment_last_synced_at')->nullable();
             $table->timestamp('paid_at')->nullable();
             $table->timestamps();
+        });
+
+        Schema::connection('sqlite')->create('media', function (Blueprint $table): void {
+            $table->id();
+            $table->string('model_type');
+            $table->unsignedBigInteger('model_id');
+            $table->uuid('uuid')->nullable()->unique();
+            $table->string('collection_name');
+            $table->string('name');
+            $table->string('file_name');
+            $table->string('mime_type')->nullable();
+            $table->string('disk');
+            $table->string('conversions_disk')->nullable();
+            $table->unsignedBigInteger('size');
+            $table->text('manipulations');
+            $table->text('custom_properties');
+            $table->text('generated_conversions');
+            $table->text('responsive_images');
+            $table->unsignedInteger('order_column')->nullable();
+            $table->nullableTimestamps();
         });
     }
 }

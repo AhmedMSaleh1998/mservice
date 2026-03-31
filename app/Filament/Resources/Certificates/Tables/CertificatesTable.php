@@ -7,9 +7,11 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Forms\Components\Toggle;
 use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
@@ -19,15 +21,11 @@ class CertificatesTable
     {
         return $table
             ->columns([
-                ImageColumn::make('image')
+                SpatieMediaLibraryImageColumn::make('image')
                     ->label(__('Image'))
-                    ->getStateUsing(function ($record) {
-                        $media = $record->getFirstMedia('image');
-                        return $media ? $media->getUrl() : '';
-                    })
+                    ->collection('image')
                     ->circular()
-                    ->size(50)
-                    ->defaultImageUrl(''),
+                    ->size(50),
                 TextColumn::make('name')
                     ->label(__('Name'))
                     ->getStateUsing(function ($record) {
@@ -35,13 +33,12 @@ class CertificatesTable
                     })
                     ->searchable()
                     ->sortable(),
-                IconColumn::make('is_active')
-                    ->label(__('Is Active'))
-                    ->boolean()
-                    ->trueColor('success')
-                    ->falseColor('danger')
+                TextColumn::make('price')
+                    ->label(__('Price'))
+                    ->money('EGP')
                     ->sortable(),
-                TextColumn::make('order')->label(__('Order'))->searchable(),
+                ToggleColumn::make('is_active')
+                    ->label(__('Is Active')),
             ])
             ->filters([
                 TrashedFilter::make(),

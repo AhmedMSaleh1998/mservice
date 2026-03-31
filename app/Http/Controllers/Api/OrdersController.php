@@ -15,6 +15,7 @@ use Illuminate\Validation\ValidationException;
 use Modules\Ads\Models\AdRequest;
 use Modules\Ads\Services\AdRequestService;
 use Modules\Certificates\Models\CertificateRequest;
+use Modules\Certificates\Services\CertificateRequestService;
 use Modules\Core\Models\Order;
 use Modules\Core\Resources\OrderResource;
 use Modules\Core\Resources\PaymentMethodResource;
@@ -23,6 +24,7 @@ use Modules\Courses\Models\CourseBooking;
 use Modules\Courses\Services\CourseBookingService;
 use Modules\Memberships\Models\MembershipRequest;
 use Modules\Memberships\Services\MembershipService;
+use Modules\Users\Resources\UserAddressResource;
 use Throwable;
 
 class OrdersController extends Controller
@@ -31,6 +33,7 @@ class OrdersController extends Controller
         private readonly OrderService $orderService,
         private readonly AdRequestService $adRequestService,
         private readonly CourseBookingService $courseBookingService,
+        private readonly CertificateRequestService $certificateRequestService,
         private readonly MembershipService $membershipService,
         private readonly FawryHostedCheckoutService $fawryHostedCheckoutService,
     ) {
@@ -180,6 +183,7 @@ class OrdersController extends Controller
         $redirectUrl = $this->fawryHostedCheckoutService->frontendReturnUrl([
             'order_id' => $order?->id,
             'ad_request_id' => $orderable instanceof AdRequest ? $orderable->id : null,
+            'certificate_request_id' => $orderable instanceof CertificateRequest ? $orderable->id : null,
             'course_booking_id' => $orderable instanceof CourseBooking ? $orderable->id : null,
             'membership_request_id' => $orderable instanceof MembershipRequest ? $orderable->id : null,
             'course_id' => $orderable instanceof CourseBooking ? $orderable->course_id : null,
@@ -281,6 +285,7 @@ class OrdersController extends Controller
             'data' => [
                 'order_id' => $order->id,
                 'ad_request_id' => $orderable instanceof AdRequest ? $orderable->id : null,
+                'certificate_request_id' => $orderable instanceof CertificateRequest ? $orderable->id : null,
                 'course_booking_id' => $orderable instanceof CourseBooking ? $orderable->id : null,
                 'membership_request_id' => $orderable instanceof MembershipRequest ? $orderable->id : null,
                 'payment_status' => $order->gateway_status,
@@ -360,6 +365,13 @@ class OrdersController extends Controller
             ], 422));
         }
 
+        if ($orderable instanceof CertificateRequest && $orderable->status !== CertificateRequest::STATUS_PENDING_PAYMENT) {
+            throw new HttpResponseException(response()->json([
+                'message' => 'Certificate request is not awaiting payment.',
+                'status' => 422,
+            ], 422));
+        }
+
         if ($order->status === 'paid_successfully') {
             throw new HttpResponseException(response()->json([
                 'message' => 'Order is not awaiting payment.',
@@ -431,6 +443,26 @@ class OrdersController extends Controller
             return $payload;
         }
 
+        if ($orderable instanceof CertificateRequest) {
+            $orderable->loadMissing('certificate.media', 'userAddress.province', 'order');
+            $summary = $this->certificateRequestService->buildSummary($orderable);
+
+            $payload['order'] = $this->buildSimpleCertificateOrder($order, $orderable, $summary);
+            $payload['payment_methods'] = PaymentMethodResource::collection($this->orderService->availablePaymentMethods());
+            $payload['checkout'] = $checkout;
+            $payload['actions'] = array_filter([
+                'pay_endpoint' => route('api.orders.pay', $order),
+                'confirm_payment_endpoint' => $order->payment_method === 'fawry'
+                    ? null
+                    : route('api.orders.confirm-payment', $order),
+                'sync_payment_status_endpoint' => $order->payment_method === 'fawry'
+                    ? route('api.orders.sync-payment', $order)
+                    : null,
+            ]);
+
+            return $payload;
+        }
+
         $payload['payment_methods'] = PaymentMethodResource::collection($this->orderService->availablePaymentMethods());
         $payload['checkout'] = $checkout;
         $payload['actions'] = [
@@ -438,11 +470,6 @@ class OrdersController extends Controller
             'confirm_payment_endpoint' => route('api.orders.confirm-payment', $order),
             'sync_payment_status_endpoint' => route('api.orders.sync-payment', $order),
         ];
-
-        if ($orderable instanceof CertificateRequest) {
-            $orderable->loadMissing('userAddress', 'order');
-            $order->setRelation('orderable', $orderable);
-        }
 
         return $payload;
     }
@@ -495,10 +522,43 @@ class OrdersController extends Controller
                 'id' => $membershipRequest->id,
                 'type' => 'membership_request',
                 'status' => $membershipRequest->status,
+                'delivery_status' => $membershipRequest->delivery_status,
                 'full_name' => $membershipRequest->full_name,
                 'specialty' => $membershipRequest->specialty,
                 'degree' => $membershipRequest->degree,
                 'registration_number' => $membershipRequest->registration_number,
+            ],
+            'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
+            'total' => $summary['total'] ?? $order->amount,
+        ];
+    }
+
+    private function buildSimpleCertificateOrder(Order $order, CertificateRequest $certificateRequest, array $summary): array
+    {
+        return [
+            'id' => $order->id,
+            'status' => $order->status,
+            'currency' => $order->currency,
+            'payment_method' => $order->payment_method,
+            'gateway_status' => $order->gateway_status,
+            'request' => [
+                'id' => $certificateRequest->id,
+                'type' => 'certificate_request',
+                'status' => $certificateRequest->status,
+                'delivery_method' => $certificateRequest->delivery_method,
+                'delivery_status' => $certificateRequest->delivery_status,
+                'phone' => $certificateRequest->phone,
+                'email' => $certificateRequest->email,
+                'address' => $certificateRequest->userAddress
+                    ? UserAddressResource::make($certificateRequest->userAddress)->resolve()
+                    : null,
+                'certificate' => $certificateRequest->certificate
+                    ? [
+                        'id' => $certificateRequest->certificate->id,
+                        'name' => $certificateRequest->certificate->name,
+                        'price' => $certificateRequest->certificate->price,
+                    ]
+                    : null,
             ],
             'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
             'total' => $summary['total'] ?? $order->amount,
@@ -540,6 +600,12 @@ class OrdersController extends Controller
             return $this->buildSimpleMembershipOrder($order, $orderable, $this->membershipService->buildSummary($orderable));
         }
 
+        if ($orderable instanceof CertificateRequest) {
+            $orderable->loadMissing('certificate.media', 'userAddress.province', 'order');
+
+            return $this->buildSimpleCertificateOrder($order, $orderable, $this->certificateRequestService->buildSummary($orderable));
+        }
+
         return OrderResource::make($order)->resolve();
     }
 
@@ -571,6 +637,10 @@ class OrdersController extends Controller
             return 'course_booking';
         }
 
+        if ($orderable instanceof CertificateRequest) {
+            return 'certificate_request';
+        }
+
         if ($orderable instanceof MembershipRequest) {
             return 'membership_request';
         }
@@ -581,6 +651,10 @@ class OrdersController extends Controller
 
         if ($request->filled('course_booking_id')) {
             return 'course_booking';
+        }
+
+        if ($request->filled('certificate_request_id')) {
+            return 'certificate_request';
         }
 
         if ($request->filled('membership_request_id')) {
@@ -594,13 +668,21 @@ class OrdersController extends Controller
     {
         $orderable = $order?->orderable;
 
-        if ($orderable instanceof AdRequest || $orderable instanceof CourseBooking || $orderable instanceof MembershipRequest) {
+        if (
+            $orderable instanceof AdRequest
+            || $orderable instanceof CourseBooking
+            || $orderable instanceof CertificateRequest
+            || $orderable instanceof MembershipRequest
+        ) {
             return $orderable->id;
         }
 
         $requestId = $request->query(
             'ad_request_id',
-            $request->query('course_booking_id', $request->query('membership_request_id'))
+            $request->query(
+                'course_booking_id',
+                $request->query('certificate_request_id', $request->query('membership_request_id'))
+            )
         );
 
         return is_numeric($requestId) ? (int) $requestId : null;

@@ -19,6 +19,7 @@ class MembershipRequestResource extends JsonResource
             'registration_number' => $this->registration_number,
             'address' => UserAddressResource::make($this->userAddress),
             'status' => $this->status,
+            'delivery_status' => $this->delivery_status,
             'costs' => [
                 'printing' => $this->printing_cost,
                 'delivery' => $this->delivery_cost,

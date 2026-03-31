@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Certificates\Schemas;
 
 use AbdulmajeedJamaan\FilamentTranslatableTabs\TranslatableTabs;
-use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -31,10 +30,15 @@ class CertificateForm
                     'default' => 1,
                 ])
                     ->schema([
-                            TextInput::make('order')->label(__('Order'))->numeric()->required(),
-                            Checkbox::make('is_active')->label(__('Is Active')),
+                            TextInput::make('price')
+                                ->label(__('Price'))
+                                ->numeric()
+                                ->required()
+                                ->minValue(0)
+                                ->prefix('EGP'),
                         ]
                     )
+                    ->columnSpanFull(),
             ]);
     }
 }

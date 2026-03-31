@@ -5,6 +5,7 @@ namespace Modules\Core\Services;
 use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Modules\Ads\Models\AdRequest;
+use Modules\Certificates\Models\CertificateRequest;
 use Modules\Core\Models\Order;
 use Modules\Core\Models\PaymentMethod;
 use Modules\Courses\Models\CourseBooking;
@@ -243,6 +244,7 @@ class OrderService
 
         $reference = match (true) {
             $orderable instanceof AdRequest => sprintf('AD%d', $orderable->id),
+            $orderable instanceof CertificateRequest => sprintf('CERT%d', $orderable->id),
             $orderable instanceof CourseBooking => sprintf('CB%d', $orderable->id),
             $orderable instanceof MembershipRequest => sprintf('MID%d', $orderable->id),
             default => sprintf('ORD%d', $order->id),
@@ -303,6 +305,17 @@ class OrderService
                 $orderable->payment_method = $order->payment_method;
             }
 
+            $orderable->save();
+
+            return;
+        }
+
+        if ($orderable instanceof CertificateRequest) {
+            if ($orderable->status === $status) {
+                return;
+            }
+
+            $orderable->status = $status;
             $orderable->save();
         }
     }

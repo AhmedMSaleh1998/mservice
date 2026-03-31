@@ -13,10 +13,13 @@ class Certificate extends CustomModel implements HasMedia
 {
     use HasTranslations, SoftDeletes, InteractsWithMedia;
 
-    protected $fillable = ['name', 'description', 'is_active', 'order'];
+    protected $fillable = ['name', 'description', 'price', 'is_active', 'order'];
+
     protected $casts = [
+        'price' => 'decimal:2',
         'is_active' => 'boolean',
     ];
+
     public $translatable = ['name', 'description'];
 
     public function newEloquentBuilder($query): CertificateQueryBuilder

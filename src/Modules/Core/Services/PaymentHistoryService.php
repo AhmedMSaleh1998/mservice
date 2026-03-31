@@ -121,7 +121,7 @@ class PaymentHistoryService
             AdRequest::class => ['adSpace.service'],
             CourseBooking::class => ['course'],
             MembershipRequest::class => ['userAddress.province'],
-            CertificateRequest::class => ['userAddress'],
+            CertificateRequest::class => ['userAddress', 'certificate'],
         ]);
     }
 
@@ -188,7 +188,7 @@ class PaymentHistoryService
             $orderable instanceof AdRequest => $this->resolveAdTitle($orderable, $locale),
             $orderable instanceof CourseBooking => $this->translatedValue($orderable->course, 'title', $locale, __('Course booking')),
             $orderable instanceof MembershipRequest => $this->resolveMembershipTitle($locale),
-            $orderable instanceof CertificateRequest => __('Certificate request'),
+            $orderable instanceof CertificateRequest => $this->translatedValue($orderable->certificate, 'name', $locale, __('Certificate request')),
             default => __('Payment'),
         };
     }

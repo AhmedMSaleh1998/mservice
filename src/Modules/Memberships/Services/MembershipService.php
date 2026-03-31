@@ -103,6 +103,7 @@ class MembershipService
                 'subscription_cost' => $costs['subscription_cost'],
                 'total_amount' => $costs['total_amount'],
                 'status' => 'pending_payment',
+                'delivery_status' => MembershipRequest::DELIVERY_STATUS_PENDING,
             ]);
 
             $this->orderService->sync($membershipRequest, [

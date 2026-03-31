@@ -13,6 +13,7 @@ class CertificateResource extends CustomResource
         return [
             'id' => $this->resource->id,
             'name' => $this->resource->name,
+            'price' => $this->resource->price,
             'image' => MediaResource::make($this->resource->getMedia('image')->last()),
         ];
     }

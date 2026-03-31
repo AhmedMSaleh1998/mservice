@@ -382,6 +382,7 @@ class PaymentHistoryApiTest extends TestCase
             $table->string('delivery_method')->default('delivery');
             $table->text('address')->nullable();
             $table->string('status')->default('pending_payment');
+            $table->string('delivery_status')->nullable();
             $table->decimal('printing_cost', 10, 2)->default(0);
             $table->decimal('delivery_cost', 10, 2)->default(0);
             $table->decimal('subscription_cost', 10, 2)->default(0);
