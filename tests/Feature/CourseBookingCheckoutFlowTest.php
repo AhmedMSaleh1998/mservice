@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Services\Oracle\OraclePaymentSyncService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
@@ -222,6 +223,36 @@ class CourseBookingCheckoutFlowTest extends TestCase
         $checkoutResponse->assertJsonPath('data.checkout.mode', 'mock');
         $checkoutResponse->assertJsonPath('data.order.payment_method', 'fawry');
 
+        app()->instance(OraclePaymentSyncService::class, new class extends OraclePaymentSyncService {
+            public function __construct()
+            {
+            }
+
+            public function syncPaidOrder(Order $order): array
+            {
+                /** @var \Modules\Courses\Models\CourseBooking $booking */
+                $booking = $order->orderable;
+
+                return [
+                    'status' => 'success',
+                    'reason' => null,
+                    'attempted_at' => '2026-03-17 10:00:00',
+                    'synced_at' => '2026-03-17 10:00:00',
+                    'payment_type' => 'course',
+                    'status_code' => 200,
+                    'message' => 'Oracle synced successfully.',
+                    'request' => [
+                        'registration_no' => '12345',
+                        'amount' => '4000.00',
+                        'payment_type' => 'course',
+                        'bank_transaction_id' => 'CB1',
+                        'course_id' => $booking->course_id,
+                        'phone_number' => '01012345678',
+                    ],
+                ];
+            }
+        });
+
         $confirmResponse = $this
             ->withHeaders(['lang' => 'en'])
             ->postJson("/api/v1/orders/{$order->id}/confirm-payment");
@@ -244,6 +275,11 @@ class CourseBookingCheckoutFlowTest extends TestCase
             'id' => $course->id,
             'available_count' => 0,
         ]);
+
+        $order->refresh();
+        $this->assertSame('success', data_get($order->payload, 'oracle_payment_sync.status'));
+        $this->assertSame('course', data_get($order->payload, 'oracle_payment_sync.payment_type'));
+        $this->assertSame($course->id, data_get($order->payload, 'oracle_payment_sync.request.course_id'));
     }
 
     public function test_pay_rejects_expired_course_booking_and_releases_seat(): void

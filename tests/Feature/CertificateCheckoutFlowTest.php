@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Services\Oracle\OraclePaymentSyncService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -224,6 +225,33 @@ class CertificateCheckoutFlowTest extends TestCase
         $checkoutResponse->assertJsonPath('data.checkout.mode', 'mock');
         $checkoutResponse->assertJsonPath('data.order.payment_method', 'instapay');
 
+        app()->instance(OraclePaymentSyncService::class, new class extends OraclePaymentSyncService {
+            public function __construct()
+            {
+            }
+
+            public function syncPaidOrder(Order $order): array
+            {
+                return [
+                    'status' => 'success',
+                    'reason' => null,
+                    'attempted_at' => '2026-03-31 14:00:00',
+                    'synced_at' => '2026-03-31 14:00:00',
+                    'payment_type' => 'certificate',
+                    'status_code' => 200,
+                    'message' => 'Oracle synced successfully.',
+                    'request' => [
+                        'registration_no' => '12345',
+                        'amount' => '4150.00',
+                        'payment_type' => 'certificate',
+                        'bank_transaction_id' => 'CERT1',
+                        'course_id' => null,
+                        'phone_number' => '01012345678',
+                    ],
+                ];
+            }
+        });
+
         $confirmResponse = $this
             ->withHeaders(['lang' => 'en'])
             ->postJson("/api/v1/orders/{$order->id}/confirm-payment");
@@ -245,6 +273,11 @@ class CertificateCheckoutFlowTest extends TestCase
             'gateway_status' => 'PAID',
             'paid_at' => '2026-03-31 14:00:00',
         ]);
+
+        $order->refresh();
+        $this->assertSame('success', data_get($order->payload, 'oracle_payment_sync.status'));
+        $this->assertSame('certificate', data_get($order->payload, 'oracle_payment_sync.payment_type'));
+        $this->assertSame(200, data_get($order->payload, 'oracle_payment_sync.status_code'));
     }
 
     private function seedAuthenticatedUser(array $attributes = []): User

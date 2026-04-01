@@ -2,8 +2,10 @@
 
 namespace Modules\Core\Services;
 
+use App\Services\Oracle\OraclePaymentSyncService;
 use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Throwable;
 use Modules\Ads\Models\AdRequest;
 use Modules\Certificates\Models\CertificateRequest;
 use Modules\Core\Models\Order;
@@ -45,9 +47,11 @@ class OrderService
             }
         }
 
+        $isPaidOrder = $order->status === 'paid_successfully';
         $order->save();
 
         $freshOrder = $order->fresh(['orderable', 'user']);
+        $freshOrder = $this->synchronizePaidOrder($freshOrder, $isPaidOrder);
         $orderable->setRelation('order', $freshOrder);
 
         return $freshOrder;
@@ -146,7 +150,7 @@ class OrderService
 
     public function markPaid(Order $order, string $paymentMethod): Order
     {
-        $order = $this->sync($order->orderable, [
+        return $this->sync($order->orderable, [
             'status' => 'paid_successfully',
             'payment_method' => $paymentMethod,
             'provider' => $paymentMethod === 'fawry' ? 'fawry' : 'manual',
@@ -154,10 +158,6 @@ class OrderService
             'paid_at' => $order->paid_at ?: now(),
             'payment_last_synced_at' => now(),
         ]);
-
-        $this->syncOrderableStatus($order, 'paid_successfully');
-
-        return $order;
     }
 
     public function confirmPayment(Order $order): Order
@@ -192,13 +192,7 @@ class OrderService
             $attributes['checkout_url'] = null;
         }
 
-        $order = $this->sync($order->orderable, $attributes);
-
-        if ($order->status === 'paid_successfully') {
-            $this->syncOrderableStatus($order, 'paid_successfully');
-        }
-
-        return $order;
+        return $this->sync($order->orderable, $attributes);
     }
 
     public function findByMerchantReference(string $merchantRefNum, ?string $orderableType = null): ?Order
@@ -318,5 +312,50 @@ class OrderService
             $orderable->status = $status;
             $orderable->save();
         }
+    }
+
+    private function synchronizePaidOrder(Order $order, bool $wasPaidBeforeSave): Order
+    {
+        if ($order->status !== 'paid_successfully') {
+            return $order;
+        }
+
+        $this->syncOrderableStatus($order, 'paid_successfully');
+        $order = $order->fresh(['orderable', 'user']);
+
+        if ($wasPaidBeforeSave && $this->hasSuccessfulOraclePaymentSync($order)) {
+            return $order;
+        }
+
+        try {
+            $syncResult = app(OraclePaymentSyncService::class)->syncPaidOrder($order);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            $syncResult = [
+                'status' => 'failed',
+                'reason' => 'unexpected_error',
+                'attempted_at' => now()->format('Y-m-d H:i:s'),
+                'synced_at' => null,
+                'payment_type' => null,
+                'status_code' => null,
+                'message' => $exception->getMessage(),
+                'request' => null,
+            ];
+        }
+
+        $payload = is_array($order->payload) ? $order->payload : [];
+        $payload['oracle_payment_sync'] = $syncResult;
+
+        $order->forceFill([
+            'payload' => $payload,
+        ])->save();
+
+        return $order->fresh(['orderable', 'user']);
+    }
+
+    private function hasSuccessfulOraclePaymentSync(Order $order): bool
+    {
+        return data_get($order->payload, 'oracle_payment_sync.status') === 'success';
     }
 }
