@@ -15,6 +15,7 @@ use Modules\Ads\Models\AdRequest;
 use Modules\Ads\Models\AdSpace;
 use Modules\Core\Models\Order;
 use Modules\Core\Models\PaymentMethod;
+use Modules\Core\Services\SubscriptionChargeService;
 use Modules\Services\Models\Service;
 use Modules\Users\Models\User;
 use Tests\TestCase;
@@ -100,6 +101,46 @@ class AdRequestCheckoutFlowTest extends TestCase
             'is_available' => 0,
         ]);
         $response->assertJsonMissingPath('data.actions');
+    }
+
+    public function test_store_adds_subscription_item_when_oracle_returns_due_subscription(): void
+    {
+        $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $this->seedPaymentMethods();
+        $this->fakeSubscriptionCharge();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->post('/api/v1/ads', [
+                'ad_space_id' => $adSpace->id,
+                'duration_months' => 2,
+                'ad_text' => 'Homepage campaign',
+                'design_image' => UploadedFile::fake()->image('design.png'),
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.items.0.label', 'Ad space booking');
+        $response->assertJsonPath('data.order.items.0.amount', '2000.00');
+        $response->assertJsonPath('data.order.items.1.label', 'Subscription fees');
+        $response->assertJsonPath('data.order.items.1.amount', '690.00');
+        $response->assertJsonPath('data.order.total', '2690.00');
+
+        $adRequestId = (int) $response->json('data.order.request.id');
+        $orderId = (int) $response->json('data.order.id');
+
+        $this->assertDatabaseHas('ad_requests', [
+            'id' => $adRequestId,
+            'total_amount' => 2690,
+        ]);
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderId,
+            'amount' => 2690,
+        ]);
+
+        $order = Order::query()->findOrFail($orderId);
+        $this->assertSame('690.00', data_get($order->payload, 'subscription_charge.amount'));
+        $this->assertSame(3, data_get($order->payload, 'subscription_charge.years'));
     }
 
     public function test_store_locks_ad_space_and_blocks_another_reservation(): void
@@ -1173,6 +1214,28 @@ class AdRequestCheckoutFlowTest extends TestCase
             $table->json('responsive_images');
             $table->unsignedInteger('order_column')->nullable();
             $table->nullableTimestamps();
+        });
+    }
+
+    private function fakeSubscriptionCharge(float $amount = 690.0, int $years = 3, int $status = 200): void
+    {
+        app()->instance(SubscriptionChargeService::class, new class($amount, $years, $status) extends SubscriptionChargeService {
+            public function __construct(
+                private readonly float $amount,
+                private readonly int $years,
+                private readonly int $status,
+            ) {
+            }
+
+            public function resolveForUser(User $user): array
+            {
+                return [
+                    'register_no' => (string) $user->reg_number,
+                    'amount' => $this->amount,
+                    'years' => $this->years,
+                    'status' => $this->status,
+                ];
+            }
         });
     }
 }

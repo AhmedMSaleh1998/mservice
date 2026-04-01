@@ -15,6 +15,14 @@ use Modules\Memberships\Models\MembershipRequest;
 
 class OrderService
 {
+    private const SUBSCRIPTION_ITEM_CODES = [
+        'subscription_fees',
+        'membership_subscription',
+        'certificate_subscription',
+        'course_subscription',
+        'ad_subscription',
+    ];
+
     public function sync(Model $orderable, array $attributes = []): Order
     {
         $order = $orderable->relationLoaded('order')
@@ -208,9 +216,138 @@ class OrderService
         return $query->first();
     }
 
+    public function withSubscriptionChargePayload(array|null $payload, array $subscriptionCharge): array
+    {
+        $normalizedPayload = is_array($payload) ? $payload : [];
+        $normalizedPayload['subscription_charge'] = $this->normalizeSubscriptionChargeSnapshot($subscriptionCharge);
+
+        return $normalizedPayload;
+    }
+
+    public function subscriptionChargeSnapshot(Order $order): ?array
+    {
+        $payload = is_array($order->payload) ? $order->payload : [];
+        $subscriptionCharge = $payload['subscription_charge'] ?? null;
+
+        return is_array($subscriptionCharge) ? $subscriptionCharge : null;
+    }
+
+    public function withPricingPayload(array|null $payload, array $pricing): array
+    {
+        $normalizedPayload = is_array($payload) ? $payload : [];
+        $normalizedPayload['pricing'] = $this->buildPricingSnapshot($pricing);
+
+        return $normalizedPayload;
+    }
+
+    public function pricingSnapshot(Order $order): ?array
+    {
+        $payload = is_array($order->payload) ? $order->payload : [];
+        $pricing = $payload['pricing'] ?? null;
+
+        return is_array($pricing) ? $pricing : null;
+    }
+
+    public function pricingSummary(Order $order): ?array
+    {
+        $pricing = $this->pricingSnapshot($order);
+        if (! $pricing) {
+            return null;
+        }
+
+        return [
+            'title' => __('Payment Summary'),
+            'currency' => (string) ($pricing['currency'] ?? config('checkout.currency', 'EGP')),
+            'items' => collect($pricing['items'] ?? [])
+                ->filter(static fn (mixed $item): bool => is_array($item))
+                ->map(fn (array $item): array => [
+                    'code' => filled($item['code'] ?? null) ? (string) $item['code'] : null,
+                    'label' => $this->resolvePricingItemLabel($item),
+                    'description' => $this->resolvePricingItemDescription($item),
+                    'unit_price' => array_key_exists('unit_price', $item)
+                        ? $this->formatAmount($item['unit_price'])
+                        : null,
+                    'quantity' => max((int) ($item['quantity'] ?? 1), 1),
+                    'amount' => $this->formatAmount($item['amount'] ?? 0),
+                ])
+                ->values()
+                ->all(),
+            'subtotal' => $this->formatAmount($pricing['subtotal'] ?? 0),
+            'discount' => $this->formatAmount($pricing['discount'] ?? 0),
+            'fees' => $this->formatAmount($pricing['fees'] ?? 0),
+            'total' => $this->formatAmount($pricing['total'] ?? $order->amount),
+        ];
+    }
+
     private function formatAmount(mixed $amount): string
     {
         return number_format((float) $amount, 2, '.', '');
+    }
+
+    private function buildPricingSnapshot(array $pricing): array
+    {
+        return [
+            'currency' => (string) ($pricing['currency'] ?? config('checkout.currency', 'EGP')),
+            'items' => collect($pricing['items'] ?? [])
+                ->filter(static fn (mixed $item): bool => is_array($item))
+                ->map(fn (array $item): array => array_filter([
+                    'code' => filled($item['code'] ?? null) ? (string) $item['code'] : null,
+                    'label' => filled($item['label'] ?? null) ? (string) $item['label'] : null,
+                    'description' => filled($item['description'] ?? null) ? (string) $item['description'] : null,
+                    'unit_price' => array_key_exists('unit_price', $item)
+                        ? $this->formatAmount($item['unit_price'])
+                        : null,
+                    'quantity' => max((int) ($item['quantity'] ?? 1), 1),
+                    'amount' => $this->formatAmount($item['amount'] ?? 0),
+                    'meta' => is_array($item['meta'] ?? null) ? $item['meta'] : null,
+                ], static fn (mixed $value): bool => ! is_null($value)))
+                ->values()
+                ->all(),
+            'subtotal' => $this->formatAmount($pricing['subtotal'] ?? $pricing['total'] ?? 0),
+            'discount' => $this->formatAmount($pricing['discount'] ?? 0),
+            'fees' => $this->formatAmount($pricing['fees'] ?? 0),
+            'total' => $this->formatAmount($pricing['total'] ?? 0),
+        ];
+    }
+
+    private function normalizeSubscriptionChargeSnapshot(array $subscriptionCharge): array
+    {
+        return [
+            'register_no' => trim((string) ($subscriptionCharge['register_no'] ?? '')),
+            'amount' => $this->formatAmount($subscriptionCharge['amount'] ?? 0),
+            'years' => max((int) ($subscriptionCharge['years'] ?? 0), 0),
+            'status' => is_numeric($subscriptionCharge['status'] ?? null)
+                ? (int) $subscriptionCharge['status']
+                : ($subscriptionCharge['status'] ?? null),
+        ];
+    }
+
+    private function resolvePricingItemLabel(array $item): ?string
+    {
+        return match ((string) ($item['code'] ?? '')) {
+            'ad_space_booking' => __('Ad space booking'),
+            'course_booking' => __('Course booking'),
+            'membership_printing' => __('Membership printing'),
+            'membership_shipping', 'certificate_shipping' => __('Shipping fees'),
+            'certificate_printing' => __('Certificate printing'),
+            default => in_array((string) ($item['code'] ?? ''), self::SUBSCRIPTION_ITEM_CODES, true)
+                ? __('Subscription fees')
+                : (filled($item['label'] ?? null) ? (string) $item['label'] : null),
+        };
+    }
+
+    private function resolvePricingItemDescription(array $item): ?string
+    {
+        $code = (string) ($item['code'] ?? '');
+        $years = max((int) data_get($item, 'meta.subscription_years', data_get($item, 'meta.years', 0)), 0);
+
+        if (in_array($code, self::SUBSCRIPTION_ITEM_CODES, true) && $years > 0) {
+            return __('Subscription covers :years years.', ['years' => $years]);
+        }
+
+        $description = trim((string) ($item['description'] ?? ''));
+
+        return $description !== '' ? $description : null;
     }
 
     private function parsePaymentTime(mixed $value): ?Carbon

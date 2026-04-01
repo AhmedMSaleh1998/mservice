@@ -261,6 +261,16 @@ class FawryHostedCheckoutService
 
         if ($orderable instanceof AdRequest) {
             $orderable->loadMissing('adSpace.service');
+            $baseAmount = $this->formatAmount((float) $orderable->price_per_month * (int) $orderable->duration_months);
+
+            if ($this->formatAmount($order->amount) !== $baseAmount) {
+                return [[
+                    'itemId' => sprintf('ADREQ%d', $orderable->id),
+                    'description' => sprintf('Ad request %d', $orderable->id),
+                    'price' => (float) $this->formatAmount($order->amount),
+                    'quantity' => 1,
+                ]];
+            }
 
             return [[
                 'itemId' => sprintf('ADREQ%d', $orderable->id),

@@ -8,12 +8,20 @@ use Illuminate\Validation\ValidationException;
 use Modules\Ads\Models\AdRequest;
 use Modules\Ads\Models\AdSpace;
 use Modules\Core\Services\OrderService;
+use Modules\Core\Services\SubscriptionChargeService;
+use Modules\Users\Models\User;
+use RuntimeException;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
 class AdRequestService
 {
+    private readonly SubscriptionChargeService $subscriptionChargeService;
+
     public function __construct(
         private readonly OrderService $orderService,
+        ?SubscriptionChargeService $subscriptionChargeService = null,
     ) {
+        $this->subscriptionChargeService = $subscriptionChargeService ?? app(SubscriptionChargeService::class);
     }
 
     public function listApproved()
@@ -27,7 +35,10 @@ class AdRequestService
 
     public function create(array $data, int $userId): AdRequest
     {
-        return DB::transaction(function () use ($data, $userId) {
+        $user = User::query()->findOrFail($userId);
+        $subscriptionCharge = $this->resolveSubscriptionCharge($user);
+
+        return DB::transaction(function () use ($data, $userId, $subscriptionCharge) {
             $adSpace = AdSpace::query()
                 ->lockForUpdate()
                 ->findOrFail($data['ad_space_id']);
@@ -57,8 +68,11 @@ class AdRequestService
 
             $durationMonths = (int) $data['duration_months'];
             $pricePerMonth = (float) $adSpace->price_per_month;
-            $totalAmount = $pricePerMonth * $durationMonths;
+            $baseAmount = $pricePerMonth * $durationMonths;
+            $subscriptionAmount = (float) ($subscriptionCharge['amount'] ?? 0);
+            $totalAmount = $baseAmount + $subscriptionAmount;
             $file = $data['design_image'] ?? null;
+            $pricing = $this->buildPricingSummary($adSpace, $durationMonths, $pricePerMonth, $baseAmount, $subscriptionCharge);
 
             if ($editableRequest) {
                 $editableRequest->forceFill([
@@ -95,10 +109,13 @@ class AdRequestService
                     'gateway_reference' => null,
                     'gateway_status' => null,
                     'checkout_url' => null,
-                    'payload' => null,
                     'payment_started_at' => null,
                     'payment_last_synced_at' => null,
                     'paid_at' => null,
+                    'payload' => $this->orderService->withPricingPayload(
+                        $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
+                        $pricing,
+                    ),
                 ]);
             } else {
                 $adRequest = AdRequest::create([
@@ -123,6 +140,10 @@ class AdRequestService
                     'amount' => $totalAmount,
                     'status' => 'pending_payment',
                     'payment_method' => $data['payment_method'] ?? null,
+                    'payload' => $this->orderService->withPricingPayload(
+                        $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
+                        $pricing,
+                    ),
                 ]);
             }
 
@@ -282,10 +303,18 @@ class AdRequestService
     public function buildSummary(AdRequest $adRequest): array
     {
         $adRequest->loadMissing('adSpace.service');
+        $order = $adRequest->relationLoaded('order')
+            ? $adRequest->getRelation('order')
+            : null;
+
+        if ($order && ($summary = $this->orderService->pricingSummary($order))) {
+            return $summary;
+        }
 
         $serviceTitle = (string) data_get($adRequest, 'adSpace.service.title', 'Ad space');
         $currency = (string) config('checkout.currency', 'EGP');
         $pricePerMonth = (float) $adRequest->price_per_month;
+        $baseAmount = $pricePerMonth * (int) $adRequest->duration_months;
         $totalAmount = (float) $adRequest->total_amount;
 
         return [
@@ -298,7 +327,7 @@ class AdRequestService
                     'description' => $serviceTitle,
                     'unit_price' => $this->formatMoney($pricePerMonth),
                     'quantity' => (int) $adRequest->duration_months,
-                    'amount' => $this->formatMoney($totalAmount),
+                    'amount' => $this->formatMoney($baseAmount),
                 ],
             ],
             'subtotal' => $this->formatMoney($totalAmount),
@@ -311,5 +340,59 @@ class AdRequestService
     private function formatMoney(float|int|string $amount): string
     {
         return number_format((float) $amount, 2, '.', '');
+    }
+
+    private function resolveSubscriptionCharge(User $user): array
+    {
+        try {
+            return $this->subscriptionChargeService->resolveForUser($user);
+        } catch (RuntimeException $exception) {
+            throw new ServiceUnavailableHttpException(
+                null,
+                __('Unable to verify subscription fees with Oracle at the moment. Please try again later.'),
+                $exception,
+            );
+        }
+    }
+
+    private function buildPricingSummary(
+        AdSpace $adSpace,
+        int $durationMonths,
+        float $pricePerMonth,
+        float $baseAmount,
+        array $subscriptionCharge,
+    ): array {
+        $subscriptionAmount = (float) ($subscriptionCharge['amount'] ?? 0);
+        $totalAmount = $baseAmount + $subscriptionAmount;
+        $items = [
+            [
+                'code' => 'ad_space_booking',
+                'description' => (string) data_get($adSpace, 'service.title', 'Ad space'),
+                'unit_price' => $this->formatMoney($pricePerMonth),
+                'quantity' => $durationMonths,
+                'amount' => $this->formatMoney($baseAmount),
+            ],
+        ];
+
+        if ($subscriptionAmount > 0) {
+            $items[] = [
+                'code' => 'subscription_fees',
+                'unit_price' => $this->formatMoney($subscriptionAmount),
+                'quantity' => 1,
+                'amount' => $this->formatMoney($subscriptionAmount),
+                'meta' => [
+                    'subscription_years' => max((int) ($subscriptionCharge['years'] ?? 0), 0),
+                ],
+            ];
+        }
+
+        return [
+            'currency' => (string) config('checkout.currency', 'EGP'),
+            'items' => $items,
+            'subtotal' => $this->formatMoney($totalAmount),
+            'discount' => $this->formatMoney(0),
+            'fees' => $this->formatMoney(0),
+            'total' => $this->formatMoney($totalAmount),
+        ];
     }
 }

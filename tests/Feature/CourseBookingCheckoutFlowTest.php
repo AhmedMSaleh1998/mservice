@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 use Modules\Core\Models\Order;
 use Modules\Core\Models\PaymentMethod;
+use Modules\Core\Services\SubscriptionChargeService;
 use Modules\Courses\Models\Course;
 use Modules\Courses\Models\CourseBooking;
 use Modules\Users\Models\User;
@@ -188,6 +189,41 @@ class CourseBookingCheckoutFlowTest extends TestCase
             'id' => $course->id,
             'available_count' => 2,
         ]);
+    }
+
+    public function test_store_adds_subscription_item_when_oracle_returns_due_subscription(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $course = $this->seedCourse();
+        $this->seedPaymentMethods();
+        $this->fakeSubscriptionCharge();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->post("/api/v1/courses/{$course->id}/booking");
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.items.0.label', 'Course booking');
+        $response->assertJsonPath('data.order.items.0.amount', '4000.00');
+        $response->assertJsonPath('data.order.items.1.label', 'Subscription fees');
+        $response->assertJsonPath('data.order.items.1.amount', '690.00');
+        $response->assertJsonPath('data.order.total', '4690.00');
+
+        $bookingId = (int) $response->json('data.order.request.id');
+        $orderId = (int) $response->json('data.order.id');
+
+        $this->assertDatabaseHas('course_bookings', [
+            'id' => $bookingId,
+            'total_amount' => 4690,
+        ]);
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderId,
+            'amount' => 4690,
+        ]);
+
+        $order = Order::query()->findOrFail($orderId);
+        $this->assertSame('690.00', data_get($order->payload, 'subscription_charge.amount'));
+        $this->assertSame(3, data_get($order->payload, 'subscription_charge.years'));
     }
 
     public function test_pay_and_confirm_mark_course_booking_paid(): void
@@ -671,6 +707,28 @@ class CourseBookingCheckoutFlowTest extends TestCase
             $table->timestamp('payment_last_synced_at')->nullable();
             $table->timestamp('paid_at')->nullable();
             $table->timestamps();
+        });
+    }
+
+    private function fakeSubscriptionCharge(float $amount = 690.0, int $years = 3, int $status = 200): void
+    {
+        app()->instance(SubscriptionChargeService::class, new class($amount, $years, $status) extends SubscriptionChargeService {
+            public function __construct(
+                private readonly float $amount,
+                private readonly int $years,
+                private readonly int $status,
+            ) {
+            }
+
+            public function resolveForUser(User $user): array
+            {
+                return [
+                    'register_no' => (string) $user->reg_number,
+                    'amount' => $this->amount,
+                    'years' => $this->years,
+                    'status' => $this->status,
+                ];
+            }
         });
     }
 }

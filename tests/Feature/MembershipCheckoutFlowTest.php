@@ -12,6 +12,7 @@ use Laravel\Sanctum\Sanctum;
 use Modules\Core\Models\Order;
 use Modules\Core\Models\PaymentMethod;
 use Modules\Core\Models\Province;
+use Modules\Core\Services\SubscriptionChargeService;
 use Modules\Memberships\Models\MembershipRequest;
 use Modules\Services\Models\Service;
 use Modules\Users\Models\User;
@@ -146,6 +147,49 @@ class MembershipCheckoutFlowTest extends TestCase
 
         $foreignAddressResponse->assertStatus(422);
         $foreignAddressResponse->assertJsonValidationErrors(['address_id']);
+    }
+
+    public function test_store_adds_subscription_item_when_oracle_returns_due_subscription(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $this->seedMembershipService(4500);
+        $address = $this->seedAddress($user, [
+            'shipping_cost' => 250,
+        ]);
+        $this->seedPaymentMethods();
+        $this->fakeSubscriptionCharge();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson('/api/v1/membership/request', [
+                'address_id' => $address->id,
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.items.0.label', 'Membership printing');
+        $response->assertJsonPath('data.order.items.0.amount', '4500.00');
+        $response->assertJsonPath('data.order.items.1.label', 'Shipping fees');
+        $response->assertJsonPath('data.order.items.1.amount', '250.00');
+        $response->assertJsonPath('data.order.items.2.label', 'Subscription fees');
+        $response->assertJsonPath('data.order.items.2.amount', '690.00');
+        $response->assertJsonPath('data.order.total', '5440.00');
+
+        $membershipRequestId = (int) $response->json('data.order.request.id');
+        $orderId = (int) $response->json('data.order.id');
+
+        $this->assertDatabaseHas('membership_requests', [
+            'id' => $membershipRequestId,
+            'subscription_cost' => 690,
+            'total_amount' => 5440,
+        ]);
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderId,
+            'amount' => 5440,
+        ]);
+
+        $order = Order::query()->findOrFail($orderId);
+        $this->assertSame('690.00', data_get($order->payload, 'subscription_charge.amount'));
+        $this->assertSame(3, data_get($order->payload, 'subscription_charge.years'));
     }
 
     public function test_pay_and_confirm_mark_membership_request_paid(): void
@@ -513,6 +557,28 @@ class MembershipCheckoutFlowTest extends TestCase
             $table->timestamp('payment_last_synced_at')->nullable();
             $table->timestamp('paid_at')->nullable();
             $table->timestamps();
+        });
+    }
+
+    private function fakeSubscriptionCharge(float $amount = 690.0, int $years = 3, int $status = 200): void
+    {
+        app()->instance(SubscriptionChargeService::class, new class($amount, $years, $status) extends SubscriptionChargeService {
+            public function __construct(
+                private readonly float $amount,
+                private readonly int $years,
+                private readonly int $status,
+            ) {
+            }
+
+            public function resolveForUser(User $user): array
+            {
+                return [
+                    'register_no' => (string) $user->reg_number,
+                    'amount' => $this->amount,
+                    'years' => $this->years,
+                    'status' => $this->status,
+                ];
+            }
         });
     }
 }

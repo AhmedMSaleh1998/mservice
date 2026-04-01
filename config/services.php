@@ -41,6 +41,7 @@ return [
     'oracle' => [
         'export_enabled' => env('ORACLE_EXPORT_ENABLED', true),
         'register_lookup_enabled' => env('ORACLE_REGISTER_LOOKUP_ENABLED', true),
+        'subscription_lookup_enabled' => env('ORACLE_SUBSCRIPTION_LOOKUP_ENABLED', false),
         'payment_sync_enabled' => env('ORACLE_PAYMENT_SYNC_ENABLED', true),
         'host' => env('ORACLE_HOST'),
         'port' => env('ORACLE_PORT', '1521'),

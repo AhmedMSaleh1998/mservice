@@ -6,19 +6,30 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Core\Services\OrderService;
+use Modules\Core\Services\SubscriptionChargeService;
 use Modules\Courses\Models\Course;
 use Modules\Courses\Models\CourseBooking;
+use Modules\Users\Models\User;
+use RuntimeException;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
 class CourseBookingService
 {
+    private readonly SubscriptionChargeService $subscriptionChargeService;
+
     public function __construct(
         private readonly OrderService $orderService,
+        ?SubscriptionChargeService $subscriptionChargeService = null,
     ) {
+        $this->subscriptionChargeService = $subscriptionChargeService ?? app(SubscriptionChargeService::class);
     }
 
     public function create(Course $course, int $userId, array $data = []): CourseBooking
     {
-        return DB::transaction(function () use ($course, $userId, $data): CourseBooking {
+        $user = User::query()->findOrFail($userId);
+        $subscriptionCharge = $this->resolveSubscriptionCharge($user);
+
+        return DB::transaction(function () use ($course, $user, $data, $subscriptionCharge): CourseBooking {
             $lockedCourse = Course::query()
                 ->lockForUpdate()
                 ->findOrFail($course->id);
@@ -37,7 +48,7 @@ class CourseBookingService
 
             $existingBooking = CourseBooking::query()
                 ->lockForUpdate()
-                ->where('user_id', $userId)
+                ->where('user_id', $user->id)
                 ->where('course_id', $lockedCourse->id)
                 ->where('status', '!=', 'payment_expired')
                 ->first();
@@ -55,22 +66,25 @@ class CourseBookingService
 
             $lockedCourse->decrement('available_count');
 
-            $amount = (float) $lockedCourse->price;
+            $courseAmount = (float) $lockedCourse->price;
+            $subscriptionAmount = (float) ($subscriptionCharge['amount'] ?? 0);
+            $amount = $courseAmount + $subscriptionAmount;
             $isFreeCourse = $amount <= 0;
             $paidAt = $isFreeCourse ? now() : null;
             $bookingStatus = $isFreeCourse ? 'paid_successfully' : 'pending_payment';
+            $pricing = $this->buildPricingSummary($lockedCourse, $courseAmount, $subscriptionCharge);
 
             $courseBooking = CourseBooking::query()->create([
-                'user_id' => $userId,
+                'user_id' => $user->id,
                 'course_id' => $lockedCourse->id,
-                'price' => $amount,
+                'price' => $courseAmount,
                 'total_amount' => $amount,
                 'status' => $bookingStatus,
                 'paid_at' => $paidAt,
             ]);
 
             $this->orderService->sync($courseBooking, [
-                'user_id' => $userId,
+                'user_id' => $user->id,
                 'amount' => $amount,
                 'status' => $bookingStatus,
                 'payment_method' => $isFreeCourse ? 'free' : ($data['payment_method'] ?? null),
@@ -78,6 +92,10 @@ class CourseBookingService
                 'gateway_status' => $isFreeCourse ? 'PAID' : null,
                 'paid_at' => $paidAt,
                 'payment_last_synced_at' => $isFreeCourse ? $paidAt : null,
+                'payload' => $this->orderService->withPricingPayload(
+                    $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
+                    $pricing,
+                ),
             ]);
 
             return $courseBooking->fresh(['course', 'order']);
@@ -156,8 +174,16 @@ class CourseBookingService
     public function buildSummary(CourseBooking $courseBooking): array
     {
         $courseBooking->loadMissing('course');
+        $order = $courseBooking->relationLoaded('order')
+            ? $courseBooking->getRelation('order')
+            : null;
+
+        if ($order && ($summary = $this->orderService->pricingSummary($order))) {
+            return $summary;
+        }
 
         $title = (string) data_get($courseBooking, 'course.title', __('Course'));
+        $courseAmount = (float) $courseBooking->price;
         $totalAmount = (float) $courseBooking->total_amount;
 
         return [
@@ -170,7 +196,7 @@ class CourseBookingService
                     'description' => $title,
                     'unit_price' => $this->formatMoney($courseBooking->price),
                     'quantity' => 1,
-                    'amount' => $this->formatMoney($totalAmount),
+                    'amount' => $this->formatMoney($courseAmount),
                 ],
             ],
             'subtotal' => $this->formatMoney($totalAmount),
@@ -183,5 +209,54 @@ class CourseBookingService
     private function formatMoney(float|int|string $amount): string
     {
         return number_format((float) $amount, 2, '.', '');
+    }
+
+    private function resolveSubscriptionCharge(User $user): array
+    {
+        try {
+            return $this->subscriptionChargeService->resolveForUser($user);
+        } catch (RuntimeException $exception) {
+            throw new ServiceUnavailableHttpException(
+                null,
+                __('Unable to verify subscription fees with Oracle at the moment. Please try again later.'),
+                $exception,
+            );
+        }
+    }
+
+    private function buildPricingSummary(Course $course, float $courseAmount, array $subscriptionCharge): array
+    {
+        $subscriptionAmount = (float) ($subscriptionCharge['amount'] ?? 0);
+        $totalAmount = $courseAmount + $subscriptionAmount;
+        $items = [
+            [
+                'code' => 'course_booking',
+                'description' => (string) ($course->title ?? __('Course')),
+                'unit_price' => $this->formatMoney($courseAmount),
+                'quantity' => 1,
+                'amount' => $this->formatMoney($courseAmount),
+            ],
+        ];
+
+        if ($subscriptionAmount > 0) {
+            $items[] = [
+                'code' => 'subscription_fees',
+                'unit_price' => $this->formatMoney($subscriptionAmount),
+                'quantity' => 1,
+                'amount' => $this->formatMoney($subscriptionAmount),
+                'meta' => [
+                    'subscription_years' => max((int) ($subscriptionCharge['years'] ?? 0), 0),
+                ],
+            ];
+        }
+
+        return [
+            'currency' => (string) config('checkout.currency', 'EGP'),
+            'items' => $items,
+            'subtotal' => $this->formatMoney($totalAmount),
+            'discount' => $this->formatMoney(0),
+            'fees' => $this->formatMoney(0),
+            'total' => $this->formatMoney($totalAmount),
+        ];
     }
 }
