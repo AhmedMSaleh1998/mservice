@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ResetUnits\Tables;
 
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -10,6 +11,7 @@ use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -27,10 +29,8 @@ class ResetUnitsTable
                 TextColumn::make('single_rooms')->label(__('Single Rooms')),
                 TextColumn::make('double_rooms')->label(__('Double Rooms')),
                 TextColumn::make('single_bed')->label(__('Single Beds')),
-                IconColumn::make('is_active')
-                    ->boolean()
-                    ->trueColor('success')
-                    ->falseColor('danger')
+                ToggleColumn::make('is_active')
+                    ->label(__('Is Active'))
                     ->sortable(),
             ])
             ->filters([
@@ -43,8 +43,10 @@ class ResetUnitsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
