@@ -358,12 +358,12 @@ class MembershipCheckoutFlowTest extends TestCase
                 && str_starts_with($merchantRefNum, "EMSMID{$membershipRequest->id}")
                 && $request['amount'] === '4800.00'
                 && $request['currencyCode'] === 'EGP'
+                && $request['paymentMethod'] === 'PayAtFawry'
                 && $request['chargeItems'][0]['itemId'] === "MEMREQ{$membershipRequest->id}"
                 && $request['chargeItems'][0]['description'] === "Membership request {$membershipRequest->id}"
                 && $request['chargeItems'][0]['price'] === 4800.0
                 && $request['chargeItems'][0]['quantity'] === 1
-                && $request['paymentExpiry'] === $expectedExpiry
-                && ! isset($request['paymentMethod']);
+                && $request['paymentExpiry'] === $expectedExpiry;
         });
 
         $this->assertNotNull($merchantRefNum);

@@ -10,7 +10,9 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Modules\Ads\Models\AdRequest;
 use Modules\Ads\Services\AdRequestService;
@@ -175,6 +177,15 @@ class OrdersController extends Controller
             $order = $this->applyFawryPaymentUpdate($order, $payload, 'return_response');
         }
 
+        if (! $signatureValid) {
+            Log::warning('Fawry return could not be verified or completed', [
+                'merchant_ref_num' => $merchantRefNum,
+                'status_code' => $statusCode,
+                'order_found' => $order !== null,
+                'payload' => Arr::except($payload, ['signature']),
+            ]);
+        }
+
         $paymentSuccessful = $signatureValid && $order?->status === 'paid_successfully';
         $orderable = $order?->orderable;
         $redirectUrl = $this->fawryHostedCheckoutService->frontendReturnUrl([
@@ -219,6 +230,13 @@ class OrdersController extends Controller
         $statusCode = (int) $request->query('status_code', 200);
         $orderStatus = (string) $request->query('order_status', $order?->gateway_status);
         $statusDescription = (string) $request->query('status_description', '');
+
+        if (! $success || ! $order) {
+            Log::warning('Fawry result reported unsuccessful payment or unresolved order', [
+                'order_found' => $order !== null,
+                'query' => $request->query(),
+            ]);
+        }
 
         return response()->json([
             'message' => $success

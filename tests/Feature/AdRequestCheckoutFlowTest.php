@@ -466,10 +466,10 @@ class AdRequestCheckoutFlowTest extends TestCase
                 && str_starts_with($merchantRefNum, "EMSAD{$adRequest->id}")
                 && $request['amount'] === '1000.00'
                 && $request['currencyCode'] === 'EGP'
+                && $request['paymentMethod'] === 'PayAtFawry'
                 && $request['chargeItems'][0]['itemId'] === "ADREQ{$adRequest->id}"
                 && $request['chargeItems'][0]['description'] === "Ad request {$adRequest->id}"
-                && $request['paymentExpiry'] === $expectedExpiry
-                && ! isset($request['paymentMethod']);
+                && $request['paymentExpiry'] === $expectedExpiry;
         });
 
         $this->assertNotNull($merchantRefNum);

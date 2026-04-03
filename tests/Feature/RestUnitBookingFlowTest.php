@@ -310,6 +310,7 @@ class RestUnitBookingFlowTest extends TestCase
             $newMerchantRefNum = $request['merchantRefNum'];
 
             return $request->url() === 'https://atfawry.fawrystaging.com/fawrypay-api/api/payments/init'
+                && $request['paymentMethod'] === 'PayAtFawry'
                 && str_starts_with($newMerchantRefNum, "EMSRUB{$booking->id}")
                 && $newMerchantRefNum !== $oldMerchantRefNum;
         });

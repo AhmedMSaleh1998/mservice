@@ -51,6 +51,7 @@ class FawryHostedCheckoutService
             'customerEmail' => (string) $user->email,
             'amount' => $totalAmount,
             'currencyCode' => (string) config('services.fawry.currency_code', 'EGP'),
+            'paymentMethod' => (string) config('services.fawry.payment_method', 'CARD'),
             'paymentExpiry' => $this->paymentExpiry($order),
             'chargeItems' => $chargeItems,
             'returnUrl' => $returnUrl,
