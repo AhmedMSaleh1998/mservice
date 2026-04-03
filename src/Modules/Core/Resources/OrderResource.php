@@ -9,6 +9,8 @@ use Modules\Ads\Resources\AdSpaceResource;
 use Modules\Certificates\Resources\CertificateResource as CertificateDetailsResource;
 use Modules\Certificates\Models\CertificateRequest;
 use Modules\Memberships\Models\MembershipRequest;
+use Modules\Services\Models\RestUnitBooking;
+use Modules\Services\Resources\RestUnitResource as RestUnitDetailsResource;
 use Modules\Users\Resources\UserAddressResource;
 
 class OrderResource extends JsonResource
@@ -44,6 +46,10 @@ class OrderResource extends JsonResource
 
         if ($orderable instanceof CertificateRequest) {
             $payload['certificate_request'] = $this->certificateRequestPayload($orderable);
+        }
+
+        if ($orderable instanceof RestUnitBooking) {
+            $payload['rest_unit_booking'] = $this->restUnitBookingPayload($orderable);
         }
 
         return $payload;
@@ -114,6 +120,24 @@ class OrderResource extends JsonResource
                 'total' => $certificateRequest->total_amount,
             ],
             'created_at' => optional($certificateRequest->created_at)->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    private function restUnitBookingPayload(RestUnitBooking $restUnitBooking): array
+    {
+        return [
+            'id' => $restUnitBooking->id,
+            'rest_unit_id' => $restUnitBooking->rest_unit_id,
+            'unit_type' => $restUnitBooking->unit_type,
+            'start_date' => optional($restUnitBooking->start_date)->toDateString(),
+            'end_date' => optional($restUnitBooking->end_date)->toDateString(),
+            'status' => $restUnitBooking->status,
+            'total_price' => $restUnitBooking->total_price,
+            'paid_at' => optional($restUnitBooking->paid_at)->format('Y-m-d H:i:s'),
+            'rest_unit' => $restUnitBooking->relationLoaded('restUnit')
+                ? RestUnitDetailsResource::make($restUnitBooking->restUnit)->resolve()
+                : null,
+            'created_at' => optional($restUnitBooking->created_at)->format('Y-m-d H:i:s'),
         ];
     }
 }

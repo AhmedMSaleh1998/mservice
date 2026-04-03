@@ -28,7 +28,7 @@ class ResetUnitsTable
                 TextColumn::make('province.name')->label(__('Province')),
                 TextColumn::make('single_rooms')->label(__('Single Rooms')),
                 TextColumn::make('double_rooms')->label(__('Double Rooms')),
-                TextColumn::make('single_bed')->label(__('Single Beds')),
+                TextColumn::make('triple_rooms')->label(__('Triple Rooms')),
                 ToggleColumn::make('is_active')
                     ->label(__('Is Active'))
                     ->sortable(),

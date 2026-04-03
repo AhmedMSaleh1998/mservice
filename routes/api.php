@@ -112,6 +112,8 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
             Route::get('/rest-units', [RestUnitsController::class, 'index']);
             Route::get('/rest-units/{id}', [RestUnitsController::class, 'show']);
             Route::post('rest-units/booking', [RestUnitsController::class, 'booking']);
+            Route::get('rest-units/bookings/{restUnitBooking}', [RestUnitsController::class, 'showBooking'])
+                ->name('api.services.rest-units.bookings.show');
         });
 
         Route::post('membership/request', [MembershipController::class, 'store']);

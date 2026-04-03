@@ -24,6 +24,8 @@ use Modules\Courses\Models\CourseBooking;
 use Modules\Courses\Services\CourseBookingService;
 use Modules\Memberships\Models\MembershipRequest;
 use Modules\Memberships\Services\MembershipService;
+use Modules\Services\Models\RestUnitBooking;
+use Modules\Services\Services\RestUnitService;
 use Modules\Users\Resources\UserAddressResource;
 use Throwable;
 
@@ -35,6 +37,7 @@ class OrdersController extends Controller
         private readonly CourseBookingService $courseBookingService,
         private readonly CertificateRequestService $certificateRequestService,
         private readonly MembershipService $membershipService,
+        private readonly RestUnitService $restUnitService,
         private readonly FawryHostedCheckoutService $fawryHostedCheckoutService,
     ) {
     }
@@ -48,19 +51,13 @@ class OrdersController extends Controller
 
         try {
             if ($paymentMethod === 'fawry' && $this->fawryHostedCheckoutService->isEnabled()) {
-                $checkout = $this->orderService->reusableFawryCheckout($order);
+                $checkout = $this->fawryHostedCheckoutService->createCheckout(
+                    $order,
+                    $request->user(),
+                    (string) $request->header('lang', app()->getLocale())
+                );
 
-                if (! $checkout) {
-                    $checkout = $this->fawryHostedCheckoutService->createCheckout(
-                        $order,
-                        $request->user(),
-                        (string) $request->header('lang', app()->getLocale())
-                    );
-
-                    $order = $this->orderService->recordFawryCheckout($order, $checkout);
-                } else {
-                    $order = $order->fresh(['orderable', 'user']);
-                }
+                $order = $this->orderService->recordFawryCheckout($order, $checkout);
             } else {
                 $checkout = $this->orderService->startCheckout($order, $paymentMethod);
                 $order = $order->fresh(['orderable', 'user']);
@@ -186,6 +183,7 @@ class OrdersController extends Controller
             'certificate_request_id' => $orderable instanceof CertificateRequest ? $orderable->id : null,
             'course_booking_id' => $orderable instanceof CourseBooking ? $orderable->id : null,
             'membership_request_id' => $orderable instanceof MembershipRequest ? $orderable->id : null,
+            'rest_unit_booking_id' => $orderable instanceof RestUnitBooking ? $orderable->id : null,
             'course_id' => $orderable instanceof CourseBooking ? $orderable->course_id : null,
             'merchant_ref_num' => $merchantRefNum,
             'success' => $paymentSuccessful ? '1' : '0',
@@ -288,6 +286,7 @@ class OrdersController extends Controller
                 'certificate_request_id' => $orderable instanceof CertificateRequest ? $orderable->id : null,
                 'course_booking_id' => $orderable instanceof CourseBooking ? $orderable->id : null,
                 'membership_request_id' => $orderable instanceof MembershipRequest ? $orderable->id : null,
+                'rest_unit_booking_id' => $orderable instanceof RestUnitBooking ? $orderable->id : null,
                 'payment_status' => $order->gateway_status,
             ],
         ]);
@@ -372,6 +371,31 @@ class OrdersController extends Controller
             ], 422));
         }
 
+        if ($orderable instanceof RestUnitBooking) {
+            if ($this->restUnitService->expireReservation($orderable)) {
+                throw new HttpResponseException(response()->json([
+                    'message' => 'Rest unit booking reservation has expired.',
+                    'status' => 422,
+                ], 422));
+            }
+
+            $orderable = $orderable->fresh();
+
+            if ($orderable?->status === RestUnitBooking::STATUS_PAYMENT_EXPIRED) {
+                throw new HttpResponseException(response()->json([
+                    'message' => 'Rest unit booking reservation has expired.',
+                    'status' => 422,
+                ], 422));
+            }
+
+            if ($orderable?->status !== RestUnitBooking::STATUS_PENDING_PAYMENT) {
+                throw new HttpResponseException(response()->json([
+                    'message' => 'Rest unit booking is not awaiting payment.',
+                    'status' => 422,
+                ], 422));
+            }
+        }
+
         if ($order->status === 'paid_successfully') {
             throw new HttpResponseException(response()->json([
                 'message' => 'Order is not awaiting payment.',
@@ -449,6 +473,28 @@ class OrdersController extends Controller
 
             $payload['order'] = $this->buildSimpleCertificateOrder($order, $orderable, $summary);
             $payload['payment_methods'] = PaymentMethodResource::collection($this->orderService->availablePaymentMethods());
+            $payload['checkout'] = $checkout;
+            $payload['actions'] = array_filter([
+                'pay_endpoint' => route('api.orders.pay', $order),
+                'confirm_payment_endpoint' => $order->payment_method === 'fawry'
+                    ? null
+                    : route('api.orders.confirm-payment', $order),
+                'sync_payment_status_endpoint' => $order->payment_method === 'fawry'
+                    ? route('api.orders.sync-payment', $order)
+                    : null,
+            ]);
+
+            return $payload;
+        }
+
+        if ($orderable instanceof RestUnitBooking) {
+            $orderable->loadMissing('restUnit.province', 'restUnit.media', 'order');
+            $summary = $this->restUnitService->buildSummary($orderable);
+
+            $payload['order'] = $this->buildSimpleRestUnitOrder($order, $orderable, $summary);
+            $payload['payment_methods'] = $order->status === 'paid_successfully'
+                ? []
+                : PaymentMethodResource::collection($this->orderService->availablePaymentMethods());
             $payload['checkout'] = $checkout;
             $payload['actions'] = array_filter([
                 'pay_endpoint' => route('api.orders.pay', $order),
@@ -565,12 +611,36 @@ class OrdersController extends Controller
         ];
     }
 
+    private function buildSimpleRestUnitOrder(Order $order, RestUnitBooking $restUnitBooking, array $summary): array
+    {
+        return [
+            'id' => $order->id,
+            'status' => $order->status,
+            'currency' => $order->currency,
+            'payment_method' => $order->payment_method,
+            'gateway_status' => $order->gateway_status,
+            'request' => [
+                'id' => $restUnitBooking->id,
+                'type' => 'rest_unit_booking',
+                'status' => $restUnitBooking->status,
+                'unit_type' => $restUnitBooking->unit_type,
+                'start_date' => optional($restUnitBooking->start_date)->toDateString(),
+                'end_date' => optional($restUnitBooking->end_date)->toDateString(),
+                'rest_unit_id' => $restUnitBooking->rest_unit_id,
+                'paid_at' => optional($restUnitBooking->paid_at)->format('Y-m-d H:i:s'),
+            ],
+            'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
+            'total' => $summary['total'] ?? $order->amount,
+        ];
+    }
+
     private function buildSimpleItems(Collection $items): array
     {
         return $items
             ->map(static fn (array $item): array => [
                 'code' => $item['code'] ?? null,
                 'label' => $item['label'] ?? null,
+                'description' => $item['description'] ?? null,
                 'amount' => $item['amount'] ?? null,
             ])
             ->values()
@@ -604,6 +674,12 @@ class OrdersController extends Controller
             $orderable->loadMissing('certificate.media', 'userAddress.province', 'order');
 
             return $this->buildSimpleCertificateOrder($order, $orderable, $this->certificateRequestService->buildSummary($orderable));
+        }
+
+        if ($orderable instanceof RestUnitBooking) {
+            $orderable->loadMissing('restUnit.province', 'restUnit.media', 'order');
+
+            return $this->buildSimpleRestUnitOrder($order, $orderable, $this->restUnitService->buildSummary($orderable));
         }
 
         return OrderResource::make($order)->resolve();
@@ -645,6 +721,10 @@ class OrdersController extends Controller
             return 'membership_request';
         }
 
+        if ($orderable instanceof RestUnitBooking) {
+            return 'rest_unit_booking';
+        }
+
         if ($request->filled('ad_request_id')) {
             return 'ad_request';
         }
@@ -661,6 +741,10 @@ class OrdersController extends Controller
             return 'membership_request';
         }
 
+        if ($request->filled('rest_unit_booking_id')) {
+            return 'rest_unit_booking';
+        }
+
         return null;
     }
 
@@ -673,6 +757,7 @@ class OrdersController extends Controller
             || $orderable instanceof CourseBooking
             || $orderable instanceof CertificateRequest
             || $orderable instanceof MembershipRequest
+            || $orderable instanceof RestUnitBooking
         ) {
             return $orderable->id;
         }
@@ -681,7 +766,10 @@ class OrdersController extends Controller
             'ad_request_id',
             $request->query(
                 'course_booking_id',
-                $request->query('certificate_request_id', $request->query('membership_request_id'))
+                $request->query(
+                    'certificate_request_id',
+                    $request->query('membership_request_id', $request->query('rest_unit_booking_id'))
+                )
             )
         );
 
@@ -718,6 +806,18 @@ class OrdersController extends Controller
             return $order->fresh(['orderable', 'user']);
         }
 
+        if ($orderable instanceof RestUnitBooking && $orderStatus === 'PAID' && $this->isLateRestUnitBookingPayment($orderable, $payload)) {
+            $expiredPayload = $payload;
+            $expiredPayload['originalOrderStatus'] = $orderStatus;
+            $expiredPayload['latePaymentRejected'] = true;
+            $expiredPayload['orderStatus'] = 'EXPIRED';
+
+            $order = $this->orderService->applyFawryPaymentUpdate($order, $expiredPayload, $source);
+            $this->restUnitService->expireReservation($orderable);
+
+            return $order->fresh(['orderable', 'user']);
+        }
+
         return $this->orderService->applyFawryPaymentUpdate($order, $payload, $source);
     }
 
@@ -736,6 +836,18 @@ class OrdersController extends Controller
     private function isLateCourseBookingPayment(CourseBooking $courseBooking, array $payload): bool
     {
         $reservationExpiresAt = $this->courseBookingService->reservationExpiresAt($courseBooking);
+        $paymentTime = data_get($payload, 'paymentTime');
+
+        if (is_numeric($paymentTime)) {
+            return Carbon::createFromTimestampMs((int) $paymentTime)->greaterThan($reservationExpiresAt);
+        }
+
+        return Carbon::now()->greaterThan($reservationExpiresAt);
+    }
+
+    private function isLateRestUnitBookingPayment(RestUnitBooking $restUnitBooking, array $payload): bool
+    {
+        $reservationExpiresAt = $this->restUnitService->reservationExpiresAt($restUnitBooking);
         $paymentTime = data_get($payload, 'paymentTime');
 
         if (is_numeric($paymentTime)) {

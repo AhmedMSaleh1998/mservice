@@ -7,26 +7,23 @@ use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Modules\Services\Models\RestUnit;
 use Modules\Services\Models\RestUnitBooking;
 
 class RestUnitBookingResource extends Resource
 {
     protected static ?string $model = RestUnitBooking::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = null; // Setting to null to avoid enum issues or import Heroicon if needed. 
-    // Or just string 'heroicon-o-calendar' if passing string is supported (type hint says string|BackedEnum|null).
-    // Reviewing 'ProvinceResource': protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-    // I don't have Heroicon imported or know the Enum values. I'll stick to string if allowed, or null.
-    // 'heroicon-o-calendar' string works in v3. If v4 allows string, it's fine.
-    
+    protected static string|\BackedEnum|null $navigationIcon = null;
+
     protected static string|\UnitEnum|null $navigationGroup = 'Rest units';
 
     public static function getModelLabel(): string
@@ -59,16 +56,15 @@ class RestUnitBookingResource extends Resource
                 Select::make('rest_unit_id')
                     ->relationship('restUnit', 'name')
                     ->required(),
+                Select::make('unit_type')
+                    ->options(self::roomTypeOptions())
+                    ->required(),
                 DatePicker::make('start_date')
                     ->required(),
                 DatePicker::make('end_date')
                     ->required(),
                 Select::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'active' => 'Active',
-                        'cancelled' => 'Cancelled',
-                    ])
+                    ->options(self::statusOptions())
                     ->required(),
             ]);
     }
@@ -79,67 +75,64 @@ class RestUnitBookingResource extends Resource
             ->columns([
                 TextColumn::make('id')->sortable(),
                 TextColumn::make('user.name')
-                    ->label('User')
+                    ->label(__('User'))
                     ->searchable()
                     ->action(
                         Action::make('viewUser')
-                            ->modalHeading('User Details')
+                            ->modalHeading(__('User Details'))
                             ->modalSubmitAction(false)
-                            ->modalCancelAction(fn (Action $action) => $action->label('Close'))
-                            ->infolist(fn (Schema $schema) => $schema
-                                ->components([
-                                    Section::make('User Info')
+                            ->modalCancelAction(fn (Action $action) => $action->label(__('Close')))
+                            ->infolist(fn (Infolist $infolist) => $infolist
+                                ->schema([
+                                    Section::make(__('User Info'))
                                         ->schema([
-                                            TextEntry::make('user.name')->label('Name'),
-                                            TextEntry::make('user.email')->label('Email'),
-                                            TextEntry::make('user.phone')->label('Phone'),
-                                        ])->columns(3),
-                                ])
-                            )
+                                            TextEntry::make('user.name')->label(__('Name')),
+                                            TextEntry::make('user.email')->label(__('Email')),
+                                            TextEntry::make('user.phone')->label(__('Phone')),
+                                        ])
+                                        ->columns(3),
+                                ]))
                     ),
                 TextColumn::make('restUnit.name')
-                    ->label('Rest Unit')
+                    ->label(__('Rest Unit'))
                     ->searchable()
                     ->action(
                         Action::make('viewRestUnit')
-                            ->modalHeading('Rest Unit Details')
+                            ->modalHeading(__('Rest Unit Details'))
                             ->modalSubmitAction(false)
-                            ->modalCancelAction(fn (Action $action) => $action->label('Close'))
-                            ->infolist(fn (Schema $schema) => $schema
-                                ->components([
-                                    Section::make('General Info')
+                            ->modalCancelAction(fn (Action $action) => $action->label(__('Close')))
+                            ->infolist(fn (Infolist $infolist) => $infolist
+                                ->schema([
+                                    Section::make(__('General Info'))
                                         ->schema([
-                                            TextEntry::make('restUnit.name')->label('Name'),
-                                            TextEntry::make('restUnit.address')->label('Address'),
-                                            TextEntry::make('restUnit.province.name')->label('Province'),
-                                        ])->columns(3),
-                                    Section::make('Capacity')
+                                            TextEntry::make('restUnit.name')->label(__('Name')),
+                                            TextEntry::make('restUnit.address')->label(__('Address')),
+                                            TextEntry::make('restUnit.province.name')->label(__('Province')),
+                                        ])
+                                        ->columns(3),
+                                    Section::make(__('Capacity'))
                                         ->schema([
-                                            TextEntry::make('restUnit.single_rooms')->label('Single Rooms'),
-                                            TextEntry::make('restUnit.double_rooms')->label('Double Rooms'),
-                                            TextEntry::make('restUnit.single_bed')->label('Single Beds'),
-                                        ])->columns(3),
-                                    Section::make('Pricing (Per Night)')
+                                            TextEntry::make('restUnit.single_rooms')->label(__('Single Rooms')),
+                                            TextEntry::make('restUnit.double_rooms')->label(__('Double Rooms')),
+                                            TextEntry::make('restUnit.triple_rooms')->label(__('Triple Rooms')),
+                                        ])
+                                        ->columns(3),
+                                    Section::make(__('Pricing (Per Night)'))
                                         ->schema([
-                                            TextEntry::make('restUnit.single_room_price')->label('Single Room Price')->money('USD'),
-                                            TextEntry::make('restUnit.double_room_price')->label('Double Room Price')->money('USD'),
-                                            TextEntry::make('restUnit.single_bed_price')->label('Single Bed Price')->money('USD'),
-                                        ])->columns(3),
-                                ])
-                            )
+                                            TextEntry::make('restUnit.single_room_price')->label(__('Single Room Price'))->money('EGP'),
+                                            TextEntry::make('restUnit.double_room_price')->label(__('Double Room Price'))->money('EGP'),
+                                            TextEntry::make('restUnit.triple_room_price')->label(__('Triple Room Price'))->money('EGP'),
+                                        ])
+                                        ->columns(3),
+                                ]))
                     ),
                 TextColumn::make('unit_type')
-                    ->label('Type')
+                    ->label(__('Type'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'single_rooms' => 'Single Room',
-                        'double_rooms' => 'Double Room',
-                        'single_bed' => 'Single Bed',
-                        default => $state,
-                    })
+                    ->formatStateUsing(fn (?string $state): string => self::roomTypeOptions()[$state ?? ''] ?? (string) $state)
                     ->color('info'),
                 TextColumn::make('total_price')
-                    ->money(currency: 'USD') // Or project default currency
+                    ->money(currency: 'EGP')
                     ->sortable(),
                 TextColumn::make('start_date')
                     ->date()
@@ -149,35 +142,28 @@ class RestUnitBookingResource extends Resource
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'gray',
-                        'active' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'warning',
+                    ->formatStateUsing(fn (?string $state): string => self::statusOptions()[$state ?? ''] ?? (string) $state)
+                    ->color(fn (?string $state): string => match ($state) {
+                        RestUnitBooking::STATUS_PENDING_PAYMENT => 'warning',
+                        RestUnitBooking::STATUS_PAID_SUCCESSFULLY => 'success',
+                        RestUnitBooking::STATUS_PAYMENT_EXPIRED => 'gray',
+                        RestUnitBooking::STATUS_CANCELLED => 'danger',
+                        default => 'gray',
                     }),
             ])
             ->filters([
                 SelectFilter::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'active' => 'Active',
-                        'cancelled' => 'Cancelled',
-                    ]),
+                    ->options(self::statusOptions()),
             ])
             ->recordActions([
                 EditAction::make(),
-                Action::make('approve')
-                    ->action(fn (RestUnitBooking $record) => $record->update(['status' => 'active']))
-                    ->requiresConfirmation()
-                    ->color('success')
-                    ->icon('heroicon-o-check')
-                    ->visible(fn (RestUnitBooking $record) => $record->status === 'pending'),
-                Action::make('reject')
-                    ->action(fn (RestUnitBooking $record) => $record->update(['status' => 'cancelled']))
+                Action::make('cancel')
+                    ->label(__('Cancel'))
+                    ->action(fn (RestUnitBooking $record) => $record->update(['status' => RestUnitBooking::STATUS_CANCELLED]))
                     ->requiresConfirmation()
                     ->color('danger')
                     ->icon('heroicon-o-x-mark')
-                    ->visible(fn (RestUnitBooking $record) => $record->status === 'pending'),
+                    ->visible(fn (RestUnitBooking $record) => $record->status === RestUnitBooking::STATUS_PENDING_PAYMENT),
             ]);
     }
 
@@ -194,6 +180,28 @@ class RestUnitBookingResource extends Resource
             'index' => Pages\ListRestUnitBookings::route('/'),
             'create' => Pages\CreateRestUnitBooking::route('/create'),
             'edit' => Pages\EditRestUnitBooking::route('/{record}/edit'),
+        ];
+    }
+
+    private static function roomTypeOptions(): array
+    {
+        return [
+            RestUnit::TYPE_SINGLE_ROOM => __('Single room'),
+            RestUnit::TYPE_DOUBLE_ROOM => __('Double room'),
+            RestUnit::TYPE_TRIPLE_ROOM => __('Triple room'),
+            'single_rooms' => __('Single room'),
+            'double_rooms' => __('Double room'),
+            'single_bed' => __('Triple room'),
+        ];
+    }
+
+    private static function statusOptions(): array
+    {
+        return [
+            RestUnitBooking::STATUS_PENDING_PAYMENT => __('Pending Payment'),
+            RestUnitBooking::STATUS_PAID_SUCCESSFULLY => __('Paid Successfully'),
+            RestUnitBooking::STATUS_PAYMENT_EXPIRED => __('Payment Expired'),
+            RestUnitBooking::STATUS_CANCELLED => __('Cancelled'),
         ];
     }
 }

@@ -25,9 +25,10 @@ class RestUnitVerificationSeeder extends Seeder
             'province_id' => $province->id,
             'single_rooms' => 5,
             'double_rooms' => 2,
-            'single_bed' => 0,
+            'triple_rooms' => 0,
             'single_room_price' => 100.00,
             'double_room_price' => 200.00,
+            'triple_room_price' => 0,
             'is_active' => true,
         ]);
 

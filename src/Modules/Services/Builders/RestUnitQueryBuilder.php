@@ -3,30 +3,47 @@
 namespace Modules\Services\Builders;
 
 use Illuminate\Database\Eloquent\Builder;
+use Modules\Services\Models\RestUnit;
+use Modules\Services\Models\RestUnitBooking;
 
 class RestUnitQueryBuilder extends Builder
 {
-
-    public function whereProvince($provinceId)
+    public function whereProvince(int|array|null $provinceIds)
     {
-        return $this->when($provinceId, function ($query, $provinceId) {
-            $query->where('province_id', $provinceId);
-        });
+        if (blank($provinceIds)) {
+            return $this;
+        }
+
+        $provinceIds = collect(is_array($provinceIds) ? $provinceIds : [$provinceIds])
+            ->filter(fn (mixed $value): bool => is_numeric($value))
+            ->map(fn (mixed $value): int => (int) $value)
+            ->unique()
+            ->values();
+
+        return $provinceIds->count() === 1
+            ? $this->where('province_id', $provinceIds->first())
+            : $this->whereIn('province_id', $provinceIds->all());
     }
 
-    public function whereHasRoomType($roomType)
+    public function whereHasRoomType(string|array|null $roomTypes)
     {
-        return $this->when($roomType, function ($query, $roomType) {
-            // Mapping frontend room types to database columns
-            $column = match ($roomType) {
-                'single_rooms' => 'single_rooms',
-                'double_rooms' => 'double_rooms',
-                'single_bed' => 'single_bed', // Assuming 'single_bed' is the column name for single beds in shared rooms? Or just beds? Matches schema.
-                default => null,
-            };
+        if (blank($roomTypes)) {
+            return $this;
+        }
 
-            if ($column) {
-                $query->where($column, '>', 0);
+        $roomTypes = collect(is_array($roomTypes) ? $roomTypes : [$roomTypes])
+            ->map(fn (mixed $value): ?string => RestUnit::normalizeUnitType((string) $value))
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $this->where(function (Builder $query) use ($roomTypes): void {
+            foreach ($roomTypes as $type) {
+                $column = RestUnit::inventoryColumnForType($type);
+
+                if ($column) {
+                    $query->orWhere($column, '>', 0);
+                }
             }
         });
     }
@@ -36,11 +53,12 @@ class RestUnitQueryBuilder extends Builder
         return $this->when($startDate && $endDate, function ($query) use ($startDate, $endDate) {
             $query->whereDoesntHave('bookings', function ($q) use ($startDate, $endDate) {
                 $q->where(function ($subQ) use ($startDate, $endDate) {
-                   // Check for overlap
-                   // (StartA <= EndB) and (EndA >= StartB)
-                   $subQ->where('start_date', '<=', $endDate)
+                    $subQ->where('start_date', '<=', $endDate)
                         ->where('end_date', '>=', $startDate)
-                        ->where('status', '!=', 'cancelled'); // Consider active and pending bookings
+                        ->whereNotIn('status', [
+                            RestUnitBooking::STATUS_CANCELLED,
+                            RestUnitBooking::STATUS_PAYMENT_EXPIRED,
+                        ]);
                 });
             });
         });

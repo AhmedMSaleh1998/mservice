@@ -13,6 +13,7 @@ use Modules\Certificates\Models\CertificateRequest;
 use Modules\Core\Models\Order;
 use Modules\Courses\Models\CourseBooking;
 use Modules\Memberships\Models\MembershipRequest;
+use Modules\Services\Models\RestUnitBooking;
 use Modules\Users\Models\User;
 use RuntimeException;
 
@@ -314,6 +315,16 @@ class FawryHostedCheckoutService
             ]];
         }
 
+        if ($orderable instanceof RestUnitBooking) {
+            $orderable->loadMissing('restUnit');
+
+            return $this->buildPricingChargeItems(
+                $order,
+                sprintf('RUB%d', $orderable->id),
+                sprintf('Rest unit booking %d', $orderable->id),
+            );
+        }
+
         throw new RuntimeException('Fawry checkout is not supported for this order.');
     }
 
@@ -434,10 +445,48 @@ class FawryHostedCheckoutService
             $orderable instanceof CertificateRequest => sprintf('CERT%d', $orderable->id),
             $orderable instanceof CourseBooking => sprintf('CB%d', $orderable->id),
             $orderable instanceof MembershipRequest => sprintf('MID%d', $orderable->id),
+            $orderable instanceof RestUnitBooking => sprintf('RUB%d', $orderable->id),
             default => sprintf('ORD%d', $order->id),
         };
         $attemptSuffix = Carbon::now()->format('ymdHis') . Str::upper(Str::random(4));
 
         return preg_replace('/[^A-Za-z0-9]/', '', $prefix . $reference . $attemptSuffix);
+    }
+
+    private function buildPricingChargeItems(Order $order, string $itemPrefix, string $fallbackDescription): array
+    {
+        $items = collect(data_get($order->payload, 'pricing.items', []))
+            ->filter(static fn (mixed $item): bool => is_array($item))
+            ->map(function (array $item, int $index) use ($itemPrefix): array {
+                $quantity = max((int) ($item['quantity'] ?? 1), 1);
+                $amount = (float) ($item['amount'] ?? 0);
+                $unitPrice = array_key_exists('unit_price', $item)
+                    ? (float) $item['unit_price']
+                    : ($quantity > 0 ? $amount / $quantity : $amount);
+                $description = trim((string) ($item['description'] ?? $item['label'] ?? ''));
+                $suffix = preg_replace('/[^A-Za-z0-9]/', '', strtoupper((string) ($item['code'] ?? '')));
+
+                return [
+                    'itemId' => $itemPrefix . ($suffix !== '' ? $suffix : (string) ($index + 1)),
+                    'description' => $description !== '' ? $description : sprintf('Item %d', $index + 1),
+                    'price' => (float) $this->formatAmount($unitPrice),
+                    'quantity' => $quantity,
+                ];
+            })
+            ->filter(static fn (array $item): bool => $item['price'] > 0 && $item['quantity'] > 0)
+            ->values();
+
+        $totalFromItems = $items->sum(static fn (array $item): float => ((float) $item['price']) * (int) $item['quantity']);
+
+        if ($items->isEmpty() || abs($totalFromItems - (float) $order->amount) > 0.01) {
+            return [[
+                'itemId' => $itemPrefix,
+                'description' => $fallbackDescription,
+                'price' => (float) $this->formatAmount($order->amount),
+                'quantity' => 1,
+            ]];
+        }
+
+        return $items->all();
     }
 }

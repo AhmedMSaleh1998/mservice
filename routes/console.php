@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('ads:release-expired-reservations')->everyMinute();
 Schedule::command('courses:release-expired-bookings')->everyMinute();
+Schedule::command('rest-units:release-expired-bookings')->everyMinute();

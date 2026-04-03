@@ -17,6 +17,8 @@ use Modules\Courses\Services\CourseBookingService;
 use Modules\Memberships\Models\MembershipRequest;
 use Modules\Memberships\Services\MembershipService;
 use Modules\Services\Models\Service;
+use Modules\Services\Models\RestUnitBooking;
+use Modules\Services\Services\RestUnitService;
 use Modules\Users\Models\User;
 
 class PaymentHistoryService
@@ -25,6 +27,7 @@ class PaymentHistoryService
         private readonly AdRequestService $adRequestService,
         private readonly CourseBookingService $courseBookingService,
         private readonly MembershipService $membershipService,
+        private readonly RestUnitService $restUnitService,
     ) {
     }
 
@@ -122,6 +125,7 @@ class PaymentHistoryService
             CourseBooking::class => ['course'],
             MembershipRequest::class => ['userAddress.province'],
             CertificateRequest::class => ['userAddress', 'certificate'],
+            RestUnitBooking::class => ['restUnit.province', 'restUnit.media'],
         ]);
     }
 
@@ -132,6 +136,7 @@ class PaymentHistoryService
             $orderable instanceof CourseBooking => $this->courseBookingService->buildSummary($orderable),
             $orderable instanceof MembershipRequest => $this->membershipService->buildSummary($orderable),
             $orderable instanceof CertificateRequest => $this->buildCertificateSummary($orderable),
+            $orderable instanceof RestUnitBooking => $this->restUnitService->buildSummary($orderable),
             default => [
                 'items' => [],
                 'total' => $this->formatMoney(data_get($orderable, 'total_amount', 0)),
@@ -189,6 +194,7 @@ class PaymentHistoryService
             $orderable instanceof CourseBooking => $this->translatedValue($orderable->course, 'title', $locale, __('Course booking')),
             $orderable instanceof MembershipRequest => $this->resolveMembershipTitle($locale),
             $orderable instanceof CertificateRequest => $this->translatedValue($orderable->certificate, 'name', $locale, __('Certificate request')),
+            $orderable instanceof RestUnitBooking => $this->translatedValue($orderable->restUnit, 'name', $locale, __('Rest Unit Booking')),
             default => __('Payment'),
         };
     }
@@ -218,6 +224,7 @@ class PaymentHistoryService
             $orderable instanceof CourseBooking => 'course_booking',
             $orderable instanceof MembershipRequest => 'membership_request',
             $orderable instanceof CertificateRequest => 'certificate_request',
+            $orderable instanceof RestUnitBooking => 'rest_unit_booking',
             default => null,
         };
     }
@@ -231,6 +238,10 @@ class PaymentHistoryService
     {
         if ($orderable instanceof AdRequest) {
             return $orderable->getFirstMedia('design_image')?->getUrl();
+        }
+
+        if ($orderable instanceof RestUnitBooking) {
+            return $orderable->restUnit?->getFirstMedia('cover_image')?->getUrl();
         }
 
         return null;
