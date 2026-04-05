@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Modules\Ads\Models\AdRequest;
 use Modules\Ads\Models\AdSpace;
@@ -70,11 +71,24 @@ class StoreAdRequest extends FormRequest
             return false;
         }
 
-        return AdRequest::query()
+        $adRequest = AdRequest::query()
             ->where('user_id', $userId)
             ->where('ad_space_id', $adSpaceId)
             ->whereIn('status', AdRequest::EDITABLE_PRE_PAYMENT_STATUSES)
-            ->exists();
+            ->latest('id')
+            ->first();
+
+        if (! $adRequest) {
+            return false;
+        }
+
+        $createdAt = $adRequest->created_at instanceof Carbon
+            ? $adRequest->created_at->copy()
+            : Carbon::now();
+
+        return $createdAt
+            ->addMinutes((int) config('checkout.reservation_timeout_minutes', 5))
+            ->isFuture();
     }
 
     private function userOwnsActiveReservation(int $adSpaceId): bool

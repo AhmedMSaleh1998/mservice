@@ -29,7 +29,7 @@ class RestUnitsController extends Controller
             'room_type' => 'nullable|string|in:single_room,single_rooms,double_room,double_rooms,triple_room,triple_rooms,single_bed',
             'room_types' => 'nullable|array',
             'room_types.*' => 'string|in:single_room,single_rooms,double_room,double_rooms,triple_room,triple_rooms,single_bed',
-            'from_date' => 'nullable|date|required_with:to_date',
+            'from_date' => 'nullable|date|required_with:to_date|after_or_equal:today',
             'to_date' => 'nullable|date|required_with:from_date|after_or_equal:from_date',
             'page' => 'nullable|integer|min:1',
         ]);
@@ -42,7 +42,7 @@ class RestUnitsController extends Controller
     public function show(Request $request, $id): RestUnitDetailResource
     {
         $validated = $request->validate([
-            'from_date' => 'nullable|date|required_with:to_date',
+            'from_date' => 'nullable|date|required_with:to_date|after_or_equal:today',
             'to_date' => 'nullable|date|required_with:from_date|after_or_equal:from_date',
             'room_type' => 'nullable|string|in:single_room,single_rooms,double_room,double_rooms,triple_room,triple_rooms,single_bed',
             'room_types' => 'nullable|array',

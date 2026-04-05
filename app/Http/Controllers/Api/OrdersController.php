@@ -230,7 +230,7 @@ class OrdersController extends Controller
         $statusCode = (int) $request->query('status_code', 200);
         $orderStatus = (string) $request->query('order_status', $order?->gateway_status);
         $statusDescription = (string) $request->query('status_description', '');
-
+        
         if (! $success || ! $order) {
             Log::warning('Fawry result reported unsuccessful payment or unresolved order', [
                 'order_found' => $order !== null,

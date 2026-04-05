@@ -51,6 +51,14 @@ class AdRequestService
                 ->lockForUpdate()
                 ->first();
 
+            if ($editableRequest && $this->isReservationExpired($editableRequest)) {
+                $this->expireReservation($editableRequest);
+                $editableRequest = null;
+                $adSpace = AdSpace::query()
+                    ->lockForUpdate()
+                    ->findOrFail($data['ad_space_id']);
+            }
+
             $ownsCurrentReservation = $editableRequest
                 && in_array($editableRequest->status, AdRequest::ACTIVE_RESERVATION_STATUSES, true);
 

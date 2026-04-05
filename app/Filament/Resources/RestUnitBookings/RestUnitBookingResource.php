@@ -3,8 +3,11 @@
 namespace App\Filament\Resources\RestUnitBookings;
 
 use App\Filament\Resources\RestUnitBookings\Pages;
+use App\Filament\Resources\RestUnitBookings\Schemas\RestUnitBookingInfolist;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Infolists\Components\TextEntry;
@@ -69,6 +72,11 @@ class RestUnitBookingResource extends Resource
             ]);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return RestUnitBookingInfolist::configure($schema);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -129,7 +137,7 @@ class RestUnitBookingResource extends Resource
                 TextColumn::make('unit_type')
                     ->label(__('Type'))
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => self::roomTypeOptions()[$state ?? ''] ?? (string) $state)
+                    ->formatStateUsing(fn (?string $state): string => self::getRoomTypeLabel($state))
                     ->color('info'),
                 TextColumn::make('total_price')
                     ->money(currency: 'EGP')
@@ -142,28 +150,25 @@ class RestUnitBookingResource extends Resource
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => self::statusOptions()[$state ?? ''] ?? (string) $state)
-                    ->color(fn (?string $state): string => match ($state) {
-                        RestUnitBooking::STATUS_PENDING_PAYMENT => 'warning',
-                        RestUnitBooking::STATUS_PAID_SUCCESSFULLY => 'success',
-                        RestUnitBooking::STATUS_PAYMENT_EXPIRED => 'gray',
-                        RestUnitBooking::STATUS_CANCELLED => 'danger',
-                        default => 'gray',
-                    }),
+                    ->formatStateUsing(fn (?string $state): string => self::getStatusLabel($state))
+                    ->color(fn (?string $state): string => self::getStatusColor($state)),
             ])
             ->filters([
                 SelectFilter::make('status')
                     ->options(self::statusOptions()),
             ])
             ->recordActions([
-                EditAction::make(),
-                Action::make('cancel')
-                    ->label(__('Cancel'))
-                    ->action(fn (RestUnitBooking $record) => $record->update(['status' => RestUnitBooking::STATUS_CANCELLED]))
-                    ->requiresConfirmation()
-                    ->color('danger')
-                    ->icon('heroicon-o-x-mark')
-                    ->visible(fn (RestUnitBooking $record) => $record->status === RestUnitBooking::STATUS_PENDING_PAYMENT),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                    Action::make('cancel')
+                        ->label(__('Cancel'))
+                        ->action(fn (RestUnitBooking $record) => $record->update(['status' => RestUnitBooking::STATUS_CANCELLED]))
+                        ->requiresConfirmation()
+                        ->color('danger')
+                        ->icon('heroicon-o-x-mark')
+                        ->visible(fn (RestUnitBooking $record) => $record->status === RestUnitBooking::STATUS_PENDING_PAYMENT),
+                ]),
             ]);
     }
 
@@ -179,11 +184,12 @@ class RestUnitBookingResource extends Resource
         return [
             'index' => Pages\ListRestUnitBookings::route('/'),
             'create' => Pages\CreateRestUnitBooking::route('/create'),
+            'view' => Pages\ViewRestUnitBooking::route('/{record}'),
             'edit' => Pages\EditRestUnitBooking::route('/{record}/edit'),
         ];
     }
 
-    private static function roomTypeOptions(): array
+    public static function roomTypeOptions(): array
     {
         return [
             RestUnit::TYPE_SINGLE_ROOM => __('Single room'),
@@ -195,7 +201,12 @@ class RestUnitBookingResource extends Resource
         ];
     }
 
-    private static function statusOptions(): array
+    public static function getRoomTypeLabel(?string $state): string
+    {
+        return static::roomTypeOptions()[$state ?? ''] ?? (string) $state;
+    }
+
+    public static function statusOptions(): array
     {
         return [
             RestUnitBooking::STATUS_PENDING_PAYMENT => __('Pending Payment'),
@@ -203,5 +214,25 @@ class RestUnitBookingResource extends Resource
             RestUnitBooking::STATUS_PAYMENT_EXPIRED => __('Payment Expired'),
             RestUnitBooking::STATUS_CANCELLED => __('Cancelled'),
         ];
+    }
+
+    public static function getStatusLabel(?string $state): string
+    {
+        return match ($state) {
+            'checkout_pending' => __('Checkout Pending'),
+            default => static::statusOptions()[$state ?? ''] ?? (string) $state,
+        };
+    }
+
+    public static function getStatusColor(?string $state): string
+    {
+        return match ($state) {
+            RestUnitBooking::STATUS_PENDING_PAYMENT => 'warning',
+            'checkout_pending' => 'info',
+            RestUnitBooking::STATUS_PAID_SUCCESSFULLY => 'success',
+            RestUnitBooking::STATUS_PAYMENT_EXPIRED => 'gray',
+            RestUnitBooking::STATUS_CANCELLED => 'danger',
+            default => 'gray',
+        };
     }
 }

@@ -24,7 +24,6 @@ class AdRequest extends CustomModel implements HasMedia
     public const EDITABLE_PRE_PAYMENT_STATUSES = [
         'pending_payment',
         'checkout_pending',
-        'payment_expired',
     ];
 
     protected $fillable = [

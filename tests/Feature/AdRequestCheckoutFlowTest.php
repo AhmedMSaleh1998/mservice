@@ -261,6 +261,133 @@ class AdRequestCheckoutFlowTest extends TestCase
         ]);
     }
 
+    public function test_store_creates_new_ad_request_and_order_when_previous_reservation_has_expired(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 4, 4, 19, 0, 0, 'Africa/Cairo'));
+
+        $user = $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $this->seedPaymentMethods();
+
+        $expiredAt = Carbon::now()->subMinutes(6);
+
+        $adRequest = AdRequest::query()->create([
+            'user_id' => $user->id,
+            'ad_space_id' => $adSpace->id,
+            'duration_months' => 1,
+            'price_per_month' => 1000,
+            'total_amount' => 1000,
+            'ad_text' => 'Expired reservation',
+            'design_image' => 'expired-design.png',
+            'status' => 'pending_payment',
+        ]);
+        $order = $this->createOrderForAdRequest($adRequest);
+        $adRequest->forceFill([
+            'created_at' => $expiredAt,
+            'updated_at' => $expiredAt,
+        ])->save();
+        $order->forceFill([
+            'created_at' => $expiredAt,
+            'updated_at' => $expiredAt,
+        ])->save();
+        $adSpace->forceFill(['is_available' => false])->save();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->post('/api/v1/ads', [
+                'ad_space_id' => $adSpace->id,
+                'duration_months' => 2,
+                'ad_text' => 'Replacement reservation',
+                'design_image' => UploadedFile::fake()->image('replacement-design.png'),
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('message', 'Order created successfully.');
+        $response->assertJsonPath('data.order.request.status', 'pending_payment');
+
+        $newAdRequestId = (int) $response->json('data.order.request.id');
+        $newOrderId = (int) $response->json('data.order.id');
+
+        $this->assertNotSame($adRequest->id, $newAdRequestId);
+        $this->assertNotSame($order->id, $newOrderId);
+        $this->assertSame(2, AdRequest::query()->count());
+        $this->assertSame(2, Order::query()->count());
+
+        $this->assertDatabaseHas('ad_requests', [
+            'id' => $adRequest->id,
+            'status' => 'payment_expired',
+        ]);
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => 'payment_expired',
+            'gateway_status' => 'EXPIRED',
+            'checkout_url' => null,
+        ]);
+        $this->assertDatabaseHas('ad_requests', [
+            'id' => $newAdRequestId,
+            'status' => 'pending_payment',
+            'duration_months' => 2,
+            'total_amount' => 2000,
+            'design_image' => 'replacement-design.png',
+        ]);
+        $this->assertDatabaseHas('orders', [
+            'id' => $newOrderId,
+            'orderable_id' => $newAdRequestId,
+            'orderable_type' => AdRequest::class,
+            'status' => 'pending_payment',
+            'amount' => 2000,
+        ]);
+        $this->assertDatabaseHas('ad_spaces', [
+            'id' => $adSpace->id,
+            'is_available' => 0,
+        ]);
+    }
+
+    public function test_approved_returns_only_approved_ads(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+
+        $approvedAd = AdRequest::query()->create([
+            'user_id' => $user->id,
+            'ad_space_id' => $adSpace->id,
+            'duration_months' => 2,
+            'price_per_month' => 1000,
+            'total_amount' => 2000,
+            'ad_text' => 'Approved homepage campaign',
+            'status' => 'approved',
+            'starts_at' => now(),
+            'ends_at' => now()->addMonths(2),
+        ]);
+        $this->createOrderForAdRequest($approvedAd, [
+            'status' => 'paid_successfully',
+            'payment_method' => 'fawry',
+        ]);
+
+        AdRequest::query()->create([
+            'user_id' => $user->id,
+            'ad_space_id' => $adSpace->id,
+            'duration_months' => 1,
+            'price_per_month' => 1000,
+            'total_amount' => 1000,
+            'ad_text' => 'Pending campaign',
+            'status' => 'pending_payment',
+        ]);
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->getJson('/api/v1/ads');
+
+        $response->assertOk();
+        $response->assertJsonPath('message', 'Approved ads loaded successfully.');
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $approvedAd->id);
+        $response->assertJsonPath('data.0.status', 'approved');
+        $response->assertJsonPath('data.0.ad_text', 'Approved homepage campaign');
+        $response->assertJsonPath('data.0.payment_method', 'fawry');
+        $response->assertJsonPath('data.0.ad_space.id', $adSpace->id);
+    }
+
     public function test_cancel_releases_ad_space_and_marks_request_cancelled(): void
     {
         $this->seedAuthenticatedUser();

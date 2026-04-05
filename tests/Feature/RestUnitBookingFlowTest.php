@@ -133,6 +133,27 @@ class RestUnitBookingFlowTest extends TestCase
         $response->assertJsonMissingPath('data.single_bed');
     }
 
+    public function test_show_rejects_past_start_date_and_end_date_before_start_date(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 8, 10, 10, 0, 0, 'Africa/Cairo'));
+
+        $this->seedAuthenticatedUser();
+        $province = $this->seedProvince();
+        $unit = $this->seedRestUnit([
+            'province_id' => $province->id,
+        ]);
+
+        $pastDateResponse = $this->getJson("/api/v1/services/rest-units/{$unit->id}?from_date=2026-08-09&to_date=2026-08-10");
+
+        $pastDateResponse->assertStatus(422);
+        $pastDateResponse->assertJsonValidationErrors(['from_date']);
+
+        $invalidRangeResponse = $this->getJson("/api/v1/services/rest-units/{$unit->id}?from_date=2026-08-10&to_date=2026-08-09");
+
+        $invalidRangeResponse->assertStatus(422);
+        $invalidRangeResponse->assertJsonValidationErrors(['to_date']);
+    }
+
     public function test_index_supports_multiple_province_and_room_type_filters(): void
     {
         $user = $this->seedAuthenticatedUser();
@@ -176,6 +197,22 @@ class RestUnitBookingFlowTest extends TestCase
         $response->assertJsonMissingPath('data.0.single_room_price');
         $response->assertJsonMissingPath('meta');
         $this->assertStringEndsWith('/api/v1/services/rest-units?page=1', (string) $response->json('links.first'));
+    }
+
+    public function test_index_rejects_past_start_date(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 8, 10, 10, 0, 0, 'Africa/Cairo'));
+
+        $this->seedAuthenticatedUser();
+        $province = $this->seedProvince();
+        $this->seedRestUnit([
+            'province_id' => $province->id,
+        ]);
+
+        $response = $this->getJson('/api/v1/services/rest-units?from_date=2026-08-09&to_date=2026-08-10');
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['from_date']);
     }
 
     public function test_booking_creates_pending_order_with_payment_summary(): void
