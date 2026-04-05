@@ -8,6 +8,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
 use Modules\Ads\Models\AdRequest;
+use Modules\Ads\Resources\AdRequestResource;
 use Modules\Ads\Services\AdRequestService;
 use Modules\Core\Resources\PaymentMethodResource;
 use Modules\Core\Services\OrderService;
