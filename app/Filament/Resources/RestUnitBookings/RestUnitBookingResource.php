@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\RestUnitBookings;
 
+use App\Filament\Resources\ResetUnits\ResetUnitResource;
 use App\Filament\Resources\RestUnitBookings\Pages;
 use App\Filament\Resources\RestUnitBookings\Schemas\RestUnitBookingInfolist;
 use Filament\Actions\Action;
@@ -15,6 +16,7 @@ use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -25,9 +27,11 @@ class RestUnitBookingResource extends Resource
 {
     protected static ?string $model = RestUnitBooking::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = null;
+    protected static string|\BackedEnum|null $navigationIcon = Heroicon::CalendarDays;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Rest units';
+    protected static string|\UnitEnum|null $navigationGroup = null;
+
+    protected static ?int $navigationSort = 21;
 
     public static function getModelLabel(): string
     {
@@ -41,12 +45,17 @@ class RestUnitBookingResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return static::getPluralModelLabel();
+        return __('Bookings');
     }
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Rest Units');
+        return null;
+    }
+
+    public static function getNavigationParentItem(): ?string
+    {
+        return ResetUnitResource::getNavigationLabel();
     }
 
     public static function form(Schema $schema): Schema

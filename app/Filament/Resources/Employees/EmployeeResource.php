@@ -20,7 +20,9 @@ class EmployeeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Access Management';
+    protected static \UnitEnum|string|null $navigationGroup = null;
+
+    protected static ?int $navigationSort = 110;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -41,7 +43,7 @@ class EmployeeResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Access Management');
+        return null;
     }
 
     public static function form(Schema $schema): Schema

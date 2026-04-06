@@ -20,6 +20,8 @@ class ProcedureResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
+    protected static ?int $navigationSort = 60;
+
     public static function getModelLabel(): string
     {
         return __('Procedure');
@@ -37,7 +39,7 @@ class ProcedureResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Services');
+        return null;
     }
 
     public static function form(Schema $schema): Schema

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Filament\Resources\ResetUnits\ResetUnitResource;
 use App\Filament\Resources\RestUnitBookings\Pages\ListRestUnitBookings;
 use App\Filament\Resources\RestUnitBookings\Pages\ViewRestUnitBooking;
 use App\Filament\Resources\RestUnitBookings\RestUnitBookingResource;
@@ -103,6 +104,13 @@ class RestUnitBookingResourceTest extends TestCase
             ->assertSuccessful()
             ->assertCanSeeTableRecords([$booking])
             ->assertTableActionExists('view', null, $booking);
+    }
+
+    public function test_resource_is_nested_under_rest_units_inside_services_navigation(): void
+    {
+        $this->assertNull(RestUnitBookingResource::getNavigationGroup());
+        $this->assertSame('Bookings', RestUnitBookingResource::getNavigationLabel());
+        $this->assertSame(ResetUnitResource::getNavigationLabel(), RestUnitBookingResource::getNavigationParentItem());
     }
 
     public function test_view_page_displays_booking_payment_summary_and_raw_gateway_data(): void

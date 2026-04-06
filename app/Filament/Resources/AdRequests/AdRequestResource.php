@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\AdRequests;
 
+use App\Filament\Resources\AdSpaces\AdSpaceResource;
 use App\Filament\Resources\AdRequests\Pages\EditAdRequest;
 use App\Filament\Resources\AdRequests\Pages\ListAdRequests;
 use App\Filament\Resources\AdRequests\Pages\ViewAdRequest;
@@ -19,9 +20,11 @@ class AdRequestResource extends Resource
 {
     protected static ?string $model = AdRequest::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::ClipboardDocumentList;
 
     protected static ?string $recordTitleAttribute = 'id';
+
+    protected static ?int $navigationSort = 31;
 
     public static function getModelLabel(): string
     {
@@ -40,7 +43,12 @@ class AdRequestResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Services');
+        return null;
+    }
+
+    public static function getNavigationParentItem(): ?string
+    {
+        return AdSpaceResource::getNavigationLabel();
     }
 
     public static function form(Schema $schema): Schema

@@ -20,7 +20,9 @@ class UserResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Settings';
+    protected static \UnitEnum|string|null $navigationGroup = null;
+
+    protected static ?int $navigationSort = 120;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -41,7 +43,7 @@ class UserResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Settings');
+        return null;
     }
 
     public static function form(Schema $schema): Schema

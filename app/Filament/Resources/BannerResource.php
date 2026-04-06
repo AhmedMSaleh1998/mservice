@@ -24,7 +24,9 @@ class BannerResource extends Resource
 
     protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-photo';
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Settings';
+    protected static \UnitEnum|string|null $navigationGroup = null;
+
+    protected static ?int $navigationSort = 123;
 
     public static function getModelLabel(): string
     {
@@ -43,7 +45,7 @@ class BannerResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Settings');
+        return null;
     }
 
     public static function form(Schema $schema): Schema

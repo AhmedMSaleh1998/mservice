@@ -20,7 +20,9 @@ class ServiceResource extends Resource
 {
     protected static ?string $model = Service::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::Briefcase;
+
+    protected static ?int $navigationSort = 10;
 
     public static function getModelLabel(): string
     {
@@ -39,7 +41,7 @@ class ServiceResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Services');
+        return null;
     }
 
     public static function form(Schema $schema): Schema

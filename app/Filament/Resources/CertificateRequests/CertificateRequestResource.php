@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CertificateRequests;
 
+use App\Filament\Resources\Certificates\CertificateResource;
 use App\Filament\Resources\CertificateRequests\Pages\EditCertificateRequest;
 use App\Filament\Resources\CertificateRequests\Pages\ListCertificateRequests;
 use App\Filament\Resources\CertificateRequests\Schemas\CertificateRequestForm;
@@ -17,9 +18,11 @@ class CertificateRequestResource extends Resource
 {
     protected static ?string $model = CertificateRequest::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::QueueList;
 
     protected static ?string $recordTitleAttribute = 'id';
+
+    protected static ?int $navigationSort = 41;
 
     public static function getModelLabel(): string
     {
@@ -38,7 +41,12 @@ class CertificateRequestResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Services');
+        return null;
+    }
+
+    public static function getNavigationParentItem(): ?string
+    {
+        return CertificateResource::getNavigationLabel();
     }
 
     public static function form(Schema $schema): Schema

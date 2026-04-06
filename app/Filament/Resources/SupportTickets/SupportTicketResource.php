@@ -21,6 +21,8 @@ class SupportTicketResource extends Resource
 
     protected static ?string $navigationLabel = 'Support Tickets';
 
+    protected static ?int $navigationSort = 100;
+
     public static function getModelLabel(): string
     {
         return __('Support Ticket');
@@ -38,7 +40,7 @@ class SupportTicketResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Support');
+        return null;
     }
 
     public static function table(Table $table): Table

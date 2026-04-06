@@ -24,7 +24,9 @@ class CourseResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAcademicCap;
     
-    protected static UnitEnum|string|null $navigationGroup = 'Courses';
+    protected static UnitEnum|string|null $navigationGroup = null;
+
+    protected static ?int $navigationSort = 70;
 
 
     protected static ?string $recordTitleAttribute = 'title';
@@ -46,7 +48,7 @@ class CourseResource extends Resource
 
     public static function getNavigationGroup(): UnitEnum|string|null
     {
-        return __('Courses');
+        return null;
     }
 
     public static function form(Schema $schema): Schema

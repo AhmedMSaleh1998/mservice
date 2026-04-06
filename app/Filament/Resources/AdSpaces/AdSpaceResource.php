@@ -19,7 +19,9 @@ class AdSpaceResource extends Resource
 {
     protected static ?string $model = AdSpace::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::Megaphone;
+
+    protected static ?int $navigationSort = 30;
 
     public static function getModelLabel(): string
     {
@@ -38,7 +40,7 @@ class AdSpaceResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Services');
+        return null;
     }
 
     public static function form(Schema $schema): Schema

@@ -44,15 +44,6 @@ class ManagePanelProvider extends PanelProvider
             ])
             ->resourceCreatePageRedirect('index')
             ->resourceEditPageRedirect('index')
-            ->navigationGroups([
-                'Services',
-                'Courses',
-                'Medical Guides',
-                'Rest units',
-                'Blogs',
-                'Access Management',
-                'Settings',
-            ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
@@ -60,7 +51,7 @@ class ManagePanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
-                AccountWidget::class,
+                // AccountWidget::class,
 //                FilamentInfoWidget::class,
             ])
             ->middleware([
