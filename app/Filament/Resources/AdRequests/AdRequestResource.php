@@ -14,6 +14,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Modules\Ads\Models\AdSpace;
 use Modules\Ads\Models\AdRequest;
 
 class AdRequestResource extends Resource
@@ -49,6 +50,18 @@ class AdRequestResource extends Resource
     public static function getNavigationParentItem(): ?string
     {
         return AdSpaceResource::getNavigationLabel();
+    }
+
+    public static function getAdSpaceLabel(AdSpace|null $adSpace): string
+    {
+        $service = $adSpace?->service;
+
+        if (! $service) {
+            return '-';
+        }
+
+        return $service->getTranslation('title', app()->getLocale())
+            ?: ($service->getTranslation('title', 'en') ?: ($service->key ?? '-'));
     }
 
     public static function form(Schema $schema): Schema

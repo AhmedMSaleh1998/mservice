@@ -87,4 +87,3 @@ class AuthServiceProvider extends ServiceProvider
         User::class => UserPolicy::class,
     ];
 }
-

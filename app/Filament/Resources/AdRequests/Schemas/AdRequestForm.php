@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\AdRequests\Schemas;
 
+use App\Filament\Resources\AdRequests\AdRequestResource;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Modules\Ads\Models\AdRequest;
 
 class AdRequestForm
 {
@@ -22,13 +24,7 @@ class AdRequestForm
                             ->content(fn ($record) => $record?->user?->name ?? '-'),
                         Placeholder::make('ad_space_name')
                             ->label(__('Ad Space'))
-                            ->content(function ($record) {
-                                if (! $record?->adSpace) {
-                                    return '-';
-                                }
-
-                                return $record->adSpace->getTranslation('name', app()->getLocale());
-                            }),
+                            ->content(fn (?AdRequest $record): string => AdRequestResource::getAdSpaceLabel($record?->adSpace)),
                         TextInput::make('duration_months')
                             ->label(__('Duration Months'))
                             ->numeric()

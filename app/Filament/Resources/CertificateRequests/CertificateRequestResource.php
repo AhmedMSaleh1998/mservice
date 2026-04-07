@@ -5,7 +5,9 @@ namespace App\Filament\Resources\CertificateRequests;
 use App\Filament\Resources\Certificates\CertificateResource;
 use App\Filament\Resources\CertificateRequests\Pages\EditCertificateRequest;
 use App\Filament\Resources\CertificateRequests\Pages\ListCertificateRequests;
+use App\Filament\Resources\CertificateRequests\Pages\ViewCertificateRequest;
 use App\Filament\Resources\CertificateRequests\Schemas\CertificateRequestForm;
+use App\Filament\Resources\CertificateRequests\Schemas\CertificateRequestInfolist;
 use App\Filament\Resources\CertificateRequests\Tables\CertificateRequestsTable;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -59,6 +61,11 @@ class CertificateRequestResource extends Resource
         return CertificateRequestsTable::configure($table);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return CertificateRequestInfolist::configure($schema);
+    }
+
     public static function getRelations(): array
     {
         return [
@@ -70,6 +77,7 @@ class CertificateRequestResource extends Resource
     {
         return [
             'index' => ListCertificateRequests::route('/'),
+            'view' => ViewCertificateRequest::route('/{record}'),
             'edit' => EditCertificateRequest::route('/{record}/edit'),
         ];
     }

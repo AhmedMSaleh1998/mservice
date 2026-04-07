@@ -16,6 +16,7 @@ class AdRequestsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['user', 'adSpace.service', 'order']))
             ->columns([
                 TextColumn::make('id')
                     ->label(__('ID'))
@@ -26,7 +27,7 @@ class AdRequestsTable
                     ->sortable(),
                 TextColumn::make('adSpace.name')
                     ->label(__('Ad Space'))
-                    ->getStateUsing(fn ($record) => $record->adSpace?->getTranslation('name', app()->getLocale())),
+                    ->getStateUsing(fn (AdRequest $record): string => AdRequestResource::getAdSpaceLabel($record->adSpace)),
                 TextColumn::make('duration_months')
                     ->label(__('Months'))
                     ->numeric()

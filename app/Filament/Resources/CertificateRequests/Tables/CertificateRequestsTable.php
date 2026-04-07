@@ -3,10 +3,16 @@
 namespace App\Filament\Resources\CertificateRequests\Tables;
 
 use App\Filament\Resources\CertificateRequests\CertificateRequestResource;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 use Modules\Certificates\Models\CertificateRequest;
 
 class CertificateRequestsTable
@@ -71,9 +77,67 @@ class CertificateRequestsTable
                     ->label(__('Delivery Status'))
                     ->options(CertificateRequest::deliveryStatusOptions()),
             ])
-            ->recordUrl(fn (CertificateRequest $record): string => CertificateRequestResource::getUrl('edit', ['record' => $record]))
+            ->recordUrl(fn (CertificateRequest $record): string => CertificateRequestResource::getUrl('view', ['record' => $record]))
             ->recordActions([
+                ViewAction::make(),
                 EditAction::make(),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('updateStatus')
+                        ->label(__('Update Status'))
+                        ->icon('heroicon-o-arrow-path')
+                        ->schema([
+                            Select::make('status')
+                                ->label(__('Status'))
+                                ->options(CertificateRequest::statusOptions())
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $records->each(fn (CertificateRequest $record) => $record->update([
+                                'status' => $data['status'],
+                            ]));
+
+                            Notification::make()
+                                ->title(__('Status updated for :count requests.', ['count' => $records->count()]))
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('updateDeliveryStatus')
+                        ->label(__('Update Delivery Status'))
+                        ->icon('heroicon-o-truck')
+                        ->schema([
+                            Select::make('delivery_status')
+                                ->label(__('Delivery Status'))
+                                ->options(CertificateRequest::deliveryStatusOptions())
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $deliveryRecords = $records->filter(
+                                fn (CertificateRequest $record): bool => $record->delivery_method === 'delivery'
+                            );
+
+                            $deliveryRecords->each(fn (CertificateRequest $record) => $record->update([
+                                'delivery_status' => $data['delivery_status'],
+                            ]));
+
+                            if ($deliveryRecords->isEmpty()) {
+                                Notification::make()
+                                    ->title(__('No delivery requests were selected.'))
+                                    ->warning()
+                                    ->send();
+
+                                return;
+                            }
+
+                            Notification::make()
+                                ->title(__('Delivery status updated for :count requests.', ['count' => $deliveryRecords->count()]))
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
             ])
             ->defaultSort('created_at', 'desc');
     }
