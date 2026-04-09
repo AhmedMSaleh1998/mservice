@@ -28,6 +28,8 @@ use Modules\Memberships\Models\MembershipRequest;
 use Modules\Memberships\Services\MembershipService;
 use Modules\Services\Models\RestUnitBooking;
 use Modules\Services\Services\RestUnitService;
+use Modules\Travels\Models\TravelBooking;
+use Modules\Travels\Services\TravelService;
 use Modules\Users\Resources\UserAddressResource;
 use Throwable;
 
@@ -40,6 +42,7 @@ class OrdersController extends Controller
         private readonly CertificateRequestService $certificateRequestService,
         private readonly MembershipService $membershipService,
         private readonly RestUnitService $restUnitService,
+        private readonly TravelService $travelService,
         private readonly FawryHostedCheckoutService $fawryHostedCheckoutService,
     ) {
     }
@@ -195,6 +198,7 @@ class OrdersController extends Controller
             'course_booking_id' => $orderable instanceof CourseBooking ? $orderable->id : null,
             'membership_request_id' => $orderable instanceof MembershipRequest ? $orderable->id : null,
             'rest_unit_booking_id' => $orderable instanceof RestUnitBooking ? $orderable->id : null,
+            'travel_booking_id' => $orderable instanceof TravelBooking ? $orderable->id : null,
             'course_id' => $orderable instanceof CourseBooking ? $orderable->course_id : null,
             'merchant_ref_num' => $merchantRefNum,
             'success' => $paymentSuccessful ? '1' : '0',
@@ -305,6 +309,7 @@ class OrdersController extends Controller
                 'course_booking_id' => $orderable instanceof CourseBooking ? $orderable->id : null,
                 'membership_request_id' => $orderable instanceof MembershipRequest ? $orderable->id : null,
                 'rest_unit_booking_id' => $orderable instanceof RestUnitBooking ? $orderable->id : null,
+                'travel_booking_id' => $orderable instanceof TravelBooking ? $orderable->id : null,
                 'payment_status' => $order->gateway_status,
             ],
         ]);
@@ -414,6 +419,31 @@ class OrdersController extends Controller
             }
         }
 
+        if ($orderable instanceof TravelBooking) {
+            if ($this->travelService->expireReservation($orderable)) {
+                throw new HttpResponseException(response()->json([
+                    'message' => __('Travel booking reservation has expired.'),
+                    'status' => 422,
+                ], 422));
+            }
+
+            $orderable = $orderable->fresh();
+
+            if ($orderable?->status === TravelBooking::STATUS_PAYMENT_EXPIRED) {
+                throw new HttpResponseException(response()->json([
+                    'message' => __('Travel booking reservation has expired.'),
+                    'status' => 422,
+                ], 422));
+            }
+
+            if ($orderable?->status !== TravelBooking::STATUS_PENDING_PAYMENT) {
+                throw new HttpResponseException(response()->json([
+                    'message' => __('Travel booking is not awaiting payment.'),
+                    'status' => 422,
+                ], 422));
+            }
+        }
+
         if ($order->status === 'paid_successfully') {
             throw new HttpResponseException(response()->json([
                 'message' => 'Order is not awaiting payment.',
@@ -510,6 +540,28 @@ class OrdersController extends Controller
             $summary = $this->restUnitService->buildSummary($orderable);
 
             $payload['order'] = $this->buildSimpleRestUnitOrder($order, $orderable, $summary);
+            $payload['payment_methods'] = $order->status === 'paid_successfully'
+                ? []
+                : PaymentMethodResource::collection($this->orderService->availablePaymentMethods());
+            $payload['checkout'] = $checkout;
+            $payload['actions'] = array_filter([
+                'pay_endpoint' => route('api.orders.pay', $order),
+                'confirm_payment_endpoint' => $order->payment_method === 'fawry'
+                    ? null
+                    : route('api.orders.confirm-payment', $order),
+                'sync_payment_status_endpoint' => $order->payment_method === 'fawry'
+                    ? route('api.orders.sync-payment', $order)
+                    : null,
+            ]);
+
+            return $payload;
+        }
+
+        if ($orderable instanceof TravelBooking) {
+            $orderable->loadMissing('travel.province', 'travel.categories', 'items.category', 'order');
+            $summary = $this->travelService->buildSummary($orderable);
+
+            $payload['order'] = $this->buildSimpleTravelOrder($order, $orderable, $summary);
             $payload['payment_methods'] = $order->status === 'paid_successfully'
                 ? []
                 : PaymentMethodResource::collection($this->orderService->availablePaymentMethods());
@@ -652,6 +704,51 @@ class OrdersController extends Controller
         ];
     }
 
+    private function buildSimpleTravelOrder(Order $order, TravelBooking $travelBooking, array $summary): array
+    {
+        return [
+            'id' => $order->id,
+            'status' => $order->status,
+            'currency' => $order->currency,
+            'payment_method' => $order->payment_method,
+            'gateway_status' => $order->gateway_status,
+            'request' => [
+                'id' => $travelBooking->id,
+                'type' => 'travel_booking',
+                'status' => $travelBooking->status,
+                'participants_count' => $travelBooking->participants_count,
+                'paid_at' => optional($travelBooking->paid_at)->format('Y-m-d H:i:s'),
+                'travel_id' => $travelBooking->travel_id,
+                'travel' => $travelBooking->travel ? [
+                    'id' => $travelBooking->travel->id,
+                    'title' => $travelBooking->travel->title,
+                    'location' => $travelBooking->travel->location,
+                    'province' => [
+                        'id' => $travelBooking->travel->province_id,
+                        'name' => data_get($travelBooking->travel, 'province.name'),
+                    ],
+                    'start_date' => optional($travelBooking->travel->start_date)->toDateString(),
+                    'end_date' => optional($travelBooking->travel->end_date)->toDateString(),
+                    'image_url' => $travelBooking->travel->getFirstMedia('image')?->getFullUrl()
+                        ?: $travelBooking->travel->getFirstMedia('cover_image')?->getFullUrl(),
+                ] : null,
+                'categories' => $travelBooking->items
+                    ->map(fn ($item): array => [
+                        'travel_category_id' => $item->travel_category_id,
+                        'code' => $item->category_code,
+                        'label' => $item->category_name,
+                        'unit_price' => number_format((float) $item->unit_price, 2, '.', ''),
+                        'quantity' => (int) $item->quantity,
+                        'amount' => number_format((float) $item->total_price, 2, '.', ''),
+                    ])
+                    ->values()
+                    ->all(),
+            ],
+            'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
+            'total' => $summary['total'] ?? $order->amount,
+        ];
+    }
+
     private function buildSimpleItems(Collection $items): array
     {
         return $items
@@ -700,6 +797,12 @@ class OrdersController extends Controller
             return $this->buildSimpleRestUnitOrder($order, $orderable, $this->restUnitService->buildSummary($orderable));
         }
 
+        if ($orderable instanceof TravelBooking) {
+            $orderable->loadMissing('travel.province', 'travel.categories', 'items.category', 'order');
+
+            return $this->buildSimpleTravelOrder($order, $orderable, $this->travelService->buildSummary($orderable));
+        }
+
         return OrderResource::make($order)->resolve();
     }
 
@@ -743,6 +846,10 @@ class OrdersController extends Controller
             return 'rest_unit_booking';
         }
 
+        if ($orderable instanceof TravelBooking) {
+            return 'travel_booking';
+        }
+
         if ($request->filled('ad_request_id')) {
             return 'ad_request';
         }
@@ -763,6 +870,10 @@ class OrdersController extends Controller
             return 'rest_unit_booking';
         }
 
+        if ($request->filled('travel_booking_id')) {
+            return 'travel_booking';
+        }
+
         return null;
     }
 
@@ -776,6 +887,7 @@ class OrdersController extends Controller
             || $orderable instanceof CertificateRequest
             || $orderable instanceof MembershipRequest
             || $orderable instanceof RestUnitBooking
+            || $orderable instanceof TravelBooking
         ) {
             return $orderable->id;
         }
@@ -786,7 +898,10 @@ class OrdersController extends Controller
                 'course_booking_id',
                 $request->query(
                     'certificate_request_id',
-                    $request->query('membership_request_id', $request->query('rest_unit_booking_id'))
+                    $request->query(
+                        'membership_request_id',
+                        $request->query('rest_unit_booking_id', $request->query('travel_booking_id'))
+                    )
                 )
             )
         );
@@ -836,6 +951,18 @@ class OrdersController extends Controller
             return $order->fresh(['orderable', 'user']);
         }
 
+        if ($orderable instanceof TravelBooking && $orderStatus === 'PAID' && $this->isLateTravelBookingPayment($orderable, $payload)) {
+            $expiredPayload = $payload;
+            $expiredPayload['originalOrderStatus'] = $orderStatus;
+            $expiredPayload['latePaymentRejected'] = true;
+            $expiredPayload['orderStatus'] = 'EXPIRED';
+
+            $order = $this->orderService->applyFawryPaymentUpdate($order, $expiredPayload, $source);
+            $this->travelService->expireReservation($orderable);
+
+            return $order->fresh(['orderable', 'user']);
+        }
+
         return $this->orderService->applyFawryPaymentUpdate($order, $payload, $source);
     }
 
@@ -866,6 +993,18 @@ class OrdersController extends Controller
     private function isLateRestUnitBookingPayment(RestUnitBooking $restUnitBooking, array $payload): bool
     {
         $reservationExpiresAt = $this->restUnitService->reservationExpiresAt($restUnitBooking);
+        $paymentTime = data_get($payload, 'paymentTime');
+
+        if (is_numeric($paymentTime)) {
+            return Carbon::createFromTimestampMs((int) $paymentTime)->greaterThan($reservationExpiresAt);
+        }
+
+        return Carbon::now()->greaterThan($reservationExpiresAt);
+    }
+
+    private function isLateTravelBookingPayment(TravelBooking $travelBooking, array $payload): bool
+    {
+        $reservationExpiresAt = $this->travelService->reservationExpiresAt($travelBooking);
         $paymentTime = data_get($payload, 'paymentTime');
 
         if (is_numeric($paymentTime)) {

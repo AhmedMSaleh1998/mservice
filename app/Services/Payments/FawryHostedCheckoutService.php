@@ -14,6 +14,7 @@ use Modules\Core\Models\Order;
 use Modules\Courses\Models\CourseBooking;
 use Modules\Memberships\Models\MembershipRequest;
 use Modules\Services\Models\RestUnitBooking;
+use Modules\Travels\Models\TravelBooking;
 use Modules\Users\Models\User;
 use RuntimeException;
 
@@ -326,6 +327,16 @@ class FawryHostedCheckoutService
             );
         }
 
+        if ($orderable instanceof TravelBooking) {
+            $orderable->loadMissing('travel');
+
+            return $this->buildPricingChargeItems(
+                $order,
+                sprintf('TRV%d', $orderable->id),
+                sprintf('Travel booking %d', $orderable->id),
+            );
+        }
+
         throw new RuntimeException('Fawry checkout is not supported for this order.');
     }
 
@@ -447,6 +458,7 @@ class FawryHostedCheckoutService
             $orderable instanceof CourseBooking => sprintf('CB%d', $orderable->id),
             $orderable instanceof MembershipRequest => sprintf('MID%d', $orderable->id),
             $orderable instanceof RestUnitBooking => sprintf('RUB%d', $orderable->id),
+            $orderable instanceof TravelBooking => sprintf('TRV%d', $orderable->id),
             default => sprintf('ORD%d', $order->id),
         };
         $attemptSuffix = Carbon::now()->format('ymdHis') . Str::upper(Str::random(4));

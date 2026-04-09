@@ -11,6 +11,7 @@ use Modules\Certificates\Models\CertificateRequest;
 use Modules\Memberships\Models\MembershipRequest;
 use Modules\Services\Models\RestUnitBooking;
 use Modules\Services\Resources\RestUnitResource as RestUnitDetailsResource;
+use Modules\Travels\Models\TravelBooking;
 use Modules\Users\Resources\UserAddressResource;
 
 class OrderResource extends JsonResource
@@ -50,6 +51,10 @@ class OrderResource extends JsonResource
 
         if ($orderable instanceof RestUnitBooking) {
             $payload['rest_unit_booking'] = $this->restUnitBookingPayload($orderable);
+        }
+
+        if ($orderable instanceof TravelBooking) {
+            $payload['travel_booking'] = $this->travelBookingPayload($orderable);
         }
 
         return $payload;
@@ -138,6 +143,28 @@ class OrderResource extends JsonResource
                 ? RestUnitDetailsResource::make($restUnitBooking->restUnit)->resolve()
                 : null,
             'created_at' => optional($restUnitBooking->created_at)->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    private function travelBookingPayload(TravelBooking $travelBooking): array
+    {
+        return [
+            'id' => $travelBooking->id,
+            'travel_id' => $travelBooking->travel_id,
+            'status' => $travelBooking->status,
+            'participants_count' => $travelBooking->participants_count,
+            'total_amount' => $travelBooking->total_amount,
+            'paid_at' => optional($travelBooking->paid_at)->format('Y-m-d H:i:s'),
+            'travel' => $travelBooking->relationLoaded('travel')
+                ? [
+                    'id' => $travelBooking->travel?->id,
+                    'title' => $travelBooking->travel?->title,
+                    'location' => $travelBooking->travel?->location,
+                    'start_date' => optional($travelBooking->travel?->start_date)->toDateString(),
+                    'end_date' => optional($travelBooking->travel?->end_date)->toDateString(),
+                ]
+                : null,
+            'created_at' => optional($travelBooking->created_at)->format('Y-m-d H:i:s'),
         ];
     }
 }

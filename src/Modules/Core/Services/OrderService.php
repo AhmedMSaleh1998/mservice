@@ -13,6 +13,7 @@ use Modules\Core\Models\PaymentMethod;
 use Modules\Courses\Models\CourseBooking;
 use Modules\Memberships\Models\MembershipRequest;
 use Modules\Services\Models\RestUnitBooking;
+use Modules\Travels\Models\TravelBooking;
 
 class OrderService
 {
@@ -332,6 +333,7 @@ class OrderService
             'membership_shipping', 'certificate_shipping' => __('Shipping fees'),
             'certificate_printing' => __('Certificate printing'),
             'rest_unit_stay' => __('Stay fees'),
+            'travel_booking' => __('Travel booking'),
             default => in_array((string) ($item['code'] ?? ''), self::SUBSCRIPTION_ITEM_CODES, true)
                 ? __('Subscription fees')
                 : (filled($item['label'] ?? null) ? (string) $item['label'] : null),
@@ -381,6 +383,7 @@ class OrderService
             $orderable instanceof CourseBooking => sprintf('CB%d', $orderable->id),
             $orderable instanceof MembershipRequest => sprintf('MID%d', $orderable->id),
             $orderable instanceof RestUnitBooking => sprintf('RUB%d', $orderable->id),
+            $orderable instanceof TravelBooking => sprintf('TRV%d', $orderable->id),
             default => sprintf('ORD%d', $order->id),
         };
 
@@ -464,6 +467,22 @@ class OrderService
 
             if ($status === 'paid_successfully') {
                 $orderable->paid_at = $orderable->paid_at ?: ($order->paid_at ?: now());
+            }
+
+            $orderable->save();
+
+            return;
+        }
+
+        if ($orderable instanceof TravelBooking) {
+            if ($orderable->status === $status && ! ($status === 'paid_successfully' && blank($orderable->paid_at))) {
+                return;
+            }
+
+            $orderable->status = $status;
+
+            if ($status === 'paid_successfully') {
+                $orderable->paid_at = $order->paid_at ?: ($orderable->paid_at ?: now());
             }
 
             $orderable->save();

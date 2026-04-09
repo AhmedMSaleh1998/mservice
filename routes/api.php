@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\RestUnitsController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\SupportTicketsController;
+use App\Http\Controllers\Api\TravelsController;
 use App\Http\Controllers\Api\UserAddressController;
 use App\Http\Controllers\ServicesController;
 use App\Http\Middleware\ValidateHeadersMiddleware;
@@ -121,6 +122,14 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
             Route::get('/', [MyCoursesController::class, 'index'])->name('api.my-courses.index');
             Route::get('{courseBooking}', [MyCoursesController::class, 'show'])->name('api.my-courses.show');
         });
+        Route::prefix('travels')->group(function () {
+            Route::controller(TravelsController::class)->group(function () {
+                Route::get('/', 'index');
+                Route::get('/{travel}', 'show');
+            });
+        });
+        Route::post('travels/{travel}/booking', [TravelsController::class, 'booking']);
+        Route::get('travel-bookings/{travelBooking}', [TravelsController::class, 'showBooking']);
         Route::prefix('payments')->group(function () {
             Route::get('/', [PaymentsController::class, 'index'])->name('api.payments.index');
             Route::get('{order}', [PaymentsController::class, 'show'])->name('api.payments.show');

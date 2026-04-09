@@ -17,6 +17,7 @@ use Modules\Memberships\Models\MembershipRequest;
 use Modules\Services\Models\RestUnit;
 use Modules\Services\Models\RestUnitBooking;
 use Modules\Services\Models\Service;
+use Modules\Travels\Models\TravelBooking;
 use Modules\Users\Models\UserAddress;
 
 class OrderAdminSupport
@@ -33,6 +34,7 @@ class OrderAdminSupport
                 MembershipRequest::class => ['userAddress.province'],
                 CertificateRequest::class => ['certificate', 'userAddress.province'],
                 RestUnitBooking::class => ['restUnit.province'],
+                TravelBooking::class => ['travel.province'],
             ]),
         ]);
     }
@@ -65,6 +67,7 @@ class OrderAdminSupport
             MembershipRequest::class => ['userAddress.province'],
             CertificateRequest::class => ['certificate', 'userAddress.province'],
             RestUnitBooking::class => ['restUnit.province'],
+            TravelBooking::class => ['travel.province'],
         ]);
     }
 
@@ -76,6 +79,7 @@ class OrderAdminSupport
             MembershipRequest::class => __('Membership Request'),
             CertificateRequest::class => __('Certificate Request'),
             RestUnitBooking::class => __('Rest Unit Booking'),
+            TravelBooking::class => __('Travel booking'),
         ];
     }
 
@@ -133,6 +137,7 @@ class OrderAdminSupport
             $orderable instanceof MembershipRequest => static::membershipTitle($locale),
             $orderable instanceof CertificateRequest => static::translatedValue($orderable->certificate, 'name', __('Certificate request')),
             $orderable instanceof RestUnitBooking => static::translatedValue($orderable->restUnit, 'name', __('Rest Unit Booking')),
+            $orderable instanceof TravelBooking => static::translatedValue($orderable->travel, 'title', __('Travel booking')),
             default => __('Payment'),
         };
     }
@@ -165,6 +170,15 @@ class OrderAdminSupport
                 static::dateRange(
                     optional($orderable->start_date)->toDateString(),
                     optional($orderable->end_date)->toDateString(),
+                ),
+            ]),
+            $orderable instanceof TravelBooking => static::joinSummary([
+                $orderable->participants_count
+                    ? __(':count travelers', ['count' => $orderable->participants_count])
+                    : null,
+                static::dateRange(
+                    optional($orderable->travel?->start_date)->toDateString(),
+                    optional($orderable->travel?->end_date)->toDateString(),
                 ),
             ]),
             default => '',
@@ -228,6 +242,16 @@ class OrderAdminSupport
                     optional($orderable->end_date)->toDateString(),
                 )),
                 static::detail(__('Total Amount'), static::money($orderable->total_price, $order->currency)),
+            ],
+            $orderable instanceof TravelBooking => [
+                static::detail(__('Travel'), static::translatedValue($orderable->travel, 'title')),
+                static::detail(__('Location'), static::translatedValue($orderable->travel, 'location')),
+                static::detail(__('Trip Dates'), static::dateRange(
+                    optional($orderable->travel?->start_date)->toDateString(),
+                    optional($orderable->travel?->end_date)->toDateString(),
+                )),
+                static::detail(__('Travelers'), $orderable->participants_count ? (string) $orderable->participants_count : null),
+                static::detail(__('Total Amount'), static::money($orderable->total_amount, $order->currency)),
             ],
             default => [],
         };
