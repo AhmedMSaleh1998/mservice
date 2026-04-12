@@ -29,6 +29,7 @@ use App\Policies\RestUnitPolicy;
 use App\Policies\RolePolicy;
 use App\Policies\ServicePolicy;
 use App\Policies\ServiceTypePolicy;
+use App\Policies\SmsMessagePolicy;
 use App\Policies\SupportTicketPolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
@@ -44,6 +45,7 @@ use Modules\Core\Models\Nationality;
 use Modules\Core\Models\PaymentMethod;
 use Modules\Core\Models\Province;
 use Modules\Core\Models\Religion;
+use Modules\Core\Models\SmsMessage;
 use Modules\Courses\Models\Course;
 use Modules\MedicalGuide\Models\MedicalGuide;
 use Modules\Procedures\Models\Procedure;
@@ -83,6 +85,7 @@ class AuthServiceProvider extends ServiceProvider
         Role::class => RolePolicy::class,
         Service::class => ServicePolicy::class,
         ServiceType::class => ServiceTypePolicy::class,
+        SmsMessage::class => SmsMessagePolicy::class,
         SupportTicket::class => SupportTicketPolicy::class,
         User::class => UserPolicy::class,
     ];

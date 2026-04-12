@@ -38,6 +38,17 @@ return [
         'key' => env('GOOGLE_MAPS_API_KEY', 'AIzaSyBaZBOxrXVrT2bdxdz2VbT_G4iZIygOuIY'),
     ],
 
+    'community_sms' => [
+        'enabled' => env('COMMUNITY_SMS_ENABLED', false),
+        'endpoint' => env('COMMUNITY_SMS_ENDPOINT', 'https://app.community-ads.com/SendSMSAPI/api/SMSSender/SendSMSWithDLR'),
+        'username' => env('COMMUNITY_SMS_USERNAME'),
+        'password' => env('COMMUNITY_SMS_PASSWORD'),
+        'sender' => env('COMMUNITY_SMS_SENDER'),
+        'lang' => env('COMMUNITY_SMS_LANG', 'a'),
+        'dlr_url' => env('COMMUNITY_SMS_DLR_URL'),
+        'normalize_receivers' => env('COMMUNITY_SMS_NORMALIZE_RECEIVERS', true),
+    ],
+
     'oracle' => [
         'export_enabled' => env('ORACLE_EXPORT_ENABLED', true),
         'register_lookup_enabled' => env('ORACLE_REGISTER_LOOKUP_ENABLED', true),

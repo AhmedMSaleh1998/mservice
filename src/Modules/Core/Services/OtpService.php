@@ -2,11 +2,17 @@
 
 namespace Modules\Core\Services;
 
+use App\Services\Sms\CommunitySmsService;
 use Illuminate\Validation\ValidationException;
 use Modules\Core\Models\Otp;
 
 class OtpService
 {
+    public function __construct(
+        private readonly CommunitySmsService $communitySmsService,
+    ) {
+    }
+
     public function generatePhoneOtp(string $phone, string $action): Otp
     {
         $existingOtp = Otp::query()->findValidByPhone($phone, $action)->first();
@@ -35,7 +41,13 @@ class OtpService
             'attempts' => 0,
         ]);
 
-        $this->sendSmsOtp($phone, $code);
+        try {
+            $this->sendSmsOtp($phone, $code, $action);
+        } catch (\Throwable $exception) {
+            $otp->update(['expired_at' => now()]);
+
+            throw $exception;
+        }
 
         return $otp;
     }
@@ -70,9 +82,16 @@ class OtpService
         return $this->generatePhoneOtp($phone, $action);
     }
 
-    private function sendSmsOtp(string $phone, string $code)
+    private function sendSmsOtp(string $phone, string $code, string $action): void
     {
-        // todo: here we will implement sending sms otp
-        return true;
+        if (config('app.otp_mode') === 'test') {
+            return;
+        }
+
+        $this->communitySmsService->sendOtp($phone, $code, [
+            'metadata' => [
+                'action' => $action,
+            ],
+        ]);
     }
 }

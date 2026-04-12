@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\CertificateRequestController;
 use App\Http\Controllers\Api\CertificatesController;
 use App\Http\Controllers\Api\ChangePasswordController;
 use App\Http\Controllers\Api\ChangePhoneController;
+use App\Http\Controllers\Api\CommunitySmsDlrController;
 use App\Http\Controllers\Api\CourseBookingsController;
 use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\ContactUsController;
@@ -40,6 +41,8 @@ use App\Http\Middleware\ValidateHeadersMiddleware;
 use Illuminate\Support\Facades\Route;
 use Modules\Users\Services\RegistrationRequestPdfService;
 
+Route::match(['GET', 'POST'], 'sms/community/dlr', CommunitySmsDlrController::class)
+    ->name('api.sms.community.dlr');
 
 Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(function () {
     Route::get('nationalities', [NationalitiesController::class, 'index']);
