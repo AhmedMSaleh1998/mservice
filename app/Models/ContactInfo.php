@@ -13,6 +13,7 @@ class ContactInfo extends Model
         'address',
         'email',
         'phones',
+        'whatsapp',
         'fax',
     ];
 
