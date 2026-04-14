@@ -115,13 +115,13 @@ class CourseBookingCheckoutFlowTest extends TestCase
 
         $response->assertCreated();
         $response->assertJsonPath('data.order.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.id', null);
         $response->assertJsonPath('data.order.request.status', 'paid_successfully');
         $response->assertJsonPath('data.order.items.0.amount', '0.00');
         $response->assertJsonPath('data.order.total', '0.00');
         $response->assertJsonCount(0, 'data.payment_methods');
 
         $bookingId = (int) $response->json('data.order.request.id');
-        $orderId = (int) $response->json('data.order.id');
 
         $this->assertDatabaseHas('course_bookings', [
             'id' => $bookingId,
@@ -130,16 +130,9 @@ class CourseBookingCheckoutFlowTest extends TestCase
             'total_amount' => 0,
             'paid_at' => '2026-03-18 02:40:00',
         ]);
-        $this->assertDatabaseHas('orders', [
-            'id' => $orderId,
+        $this->assertDatabaseMissing('orders', [
             'orderable_type' => CourseBooking::class,
             'orderable_id' => $bookingId,
-            'amount' => 0,
-            'status' => 'paid_successfully',
-            'payment_method' => 'free',
-            'provider' => 'system',
-            'gateway_status' => 'PAID',
-            'paid_at' => '2026-03-18 02:40:00',
         ]);
         $this->assertDatabaseHas('courses', [
             'id' => $course->id,

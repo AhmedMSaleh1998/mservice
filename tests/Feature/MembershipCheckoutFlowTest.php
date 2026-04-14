@@ -192,6 +192,46 @@ class MembershipCheckoutFlowTest extends TestCase
         $this->assertSame(3, data_get($order->payload, 'subscription_charge.years'));
     }
 
+    public function test_store_marks_free_membership_request_as_paid_without_creating_order(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $this->seedMembershipService(0);
+        $address = $this->seedAddress($user, [
+            'shipping_cost' => 0,
+        ]);
+        $this->seedPaymentMethods();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson('/api/v1/membership/request', [
+                'address_id' => $address->id,
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.id', null);
+        $response->assertJsonPath('data.order.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.request.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.items.0.label', 'Membership printing');
+        $response->assertJsonPath('data.order.items.0.amount', '0.00');
+        $response->assertJsonPath('data.order.total', '0.00');
+        $response->assertJsonCount(0, 'data.payment_methods');
+
+        $membershipRequestId = (int) $response->json('data.order.request.id');
+
+        $this->assertDatabaseHas('membership_requests', [
+            'id' => $membershipRequestId,
+            'user_id' => $user->id,
+            'total_amount' => 0,
+            'status' => 'paid_successfully',
+            'payment_method' => 'free',
+            'delivery_status' => 'pending',
+        ]);
+        $this->assertDatabaseMissing('orders', [
+            'orderable_type' => MembershipRequest::class,
+            'orderable_id' => $membershipRequestId,
+        ]);
+    }
+
     public function test_pay_and_confirm_mark_membership_request_paid(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 3, 27, 15, 0, 0, 'Africa/Cairo'));

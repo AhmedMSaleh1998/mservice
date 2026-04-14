@@ -75,6 +75,17 @@ class OrderService
             ->get();
     }
 
+    public function isFreeAmount(mixed $amount): bool
+    {
+        return (float) $amount <= 0;
+    }
+
+    public function deleteFor(Model $orderable): void
+    {
+        $orderable->order()->delete();
+        $orderable->unsetRelation('order');
+    }
+
     public function buildPaymentState(Order $order): array
     {
         return [

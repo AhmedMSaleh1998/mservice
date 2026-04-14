@@ -112,6 +112,9 @@ class MembershipService
 
             $costs = $this->calculateCosts($address, $subscriptionCharge);
             $pricing = $this->buildPricingSummary($costs);
+            $isFreeRequest = $this->orderService->isFreeAmount($costs['total_amount']);
+            $requestStatus = $isFreeRequest ? 'paid_successfully' : 'pending_payment';
+            $paymentMethod = $isFreeRequest ? 'free' : null;
 
             $membershipRequest = MembershipRequest::create([
                 'user_id' => $user->id,
@@ -120,26 +123,28 @@ class MembershipService
                 'degree' => $snapshot['degree'],
                 'registration_number' => $snapshot['registration_number'],
                 'delivery_method' => 'delivery',
-                'payment_method' => null,
+                'payment_method' => $paymentMethod,
                 'user_address_id' => $address->id,
                 'printing_cost' => $costs['printing_cost'],
                 'delivery_cost' => $costs['delivery_cost'],
                 'subscription_cost' => $costs['subscription_cost'],
                 'total_amount' => $costs['total_amount'],
-                'status' => 'pending_payment',
+                'status' => $requestStatus,
                 'delivery_status' => MembershipRequest::DELIVERY_STATUS_PENDING,
             ]);
 
-            $this->orderService->sync($membershipRequest, [
-                'user_id' => $user->id,
-                'amount' => $costs['total_amount'],
-                'status' => 'pending_payment',
-                'payment_method' => null,
-                'payload' => $this->orderService->withPricingPayload(
-                    $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
-                    $pricing,
-                ),
-            ]);
+            if (! $isFreeRequest) {
+                $this->orderService->sync($membershipRequest, [
+                    'user_id' => $user->id,
+                    'amount' => $costs['total_amount'],
+                    'status' => $requestStatus,
+                    'payment_method' => null,
+                    'payload' => $this->orderService->withPricingPayload(
+                        $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
+                        $pricing,
+                    ),
+                ]);
+            }
 
             return $membershipRequest->fresh(['userAddress.province', 'order']);
         });

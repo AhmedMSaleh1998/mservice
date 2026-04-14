@@ -270,6 +270,63 @@ class TravelBookingFlowTest extends TestCase
         $this->assertSame('4000.00', data_get($order->payload, 'subscription_charge.amount'));
     }
 
+    public function test_booking_marks_free_travel_booking_as_paid_without_creating_order(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 8, 10, 10, 0, 0, 'Africa/Cairo'));
+
+        $user = $this->seedAuthenticatedUser();
+        $this->seedPaymentMethods();
+        $travel = $this->seedTravel([
+            'title' => ['en' => 'Free Travel', 'ar' => 'رحلة مجانية'],
+            'location' => ['en' => 'Alexandria', 'ar' => 'الإسكندرية'],
+            'start_date' => '2026-08-22',
+            'end_date' => '2026-08-22',
+        ]);
+        $category = $this->seedCategory($travel, [
+            'code' => 'F',
+            'name' => ['en' => 'Free Seat', 'ar' => 'مقعد مجاني'],
+            'price' => 0,
+            'capacity' => 5,
+        ]);
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson("/api/v1/travels/{$travel->id}/booking", [
+                'items' => [
+                    ['travel_category_id' => $category->id, 'quantity' => 1],
+                ],
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.id', null);
+        $response->assertJsonPath('data.order.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.payment_method', 'free');
+        $response->assertJsonPath('data.order.gateway_status', 'PAID');
+        $response->assertJsonPath('data.order.request.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.items.0.label', 'Free Seat');
+        $response->assertJsonPath('data.order.items.0.amount', '0.00');
+        $response->assertJsonPath('data.order.total', '0.00');
+        $response->assertJsonCount(0, 'data.payment_methods');
+        $response->assertJsonPath('data.actions', []);
+
+        $bookingId = (int) $response->json('data.order.request.id');
+
+        $this->assertDatabaseHas('travel_bookings', [
+            'id' => $bookingId,
+            'travel_id' => $travel->id,
+            'user_id' => $user->id,
+            'status' => TravelBooking::STATUS_PAID_SUCCESSFULLY,
+            'participants_count' => 1,
+            'total_amount' => 0,
+            'paid_at' => '2026-08-10 10:00:00',
+        ]);
+        $this->assertSame(1, DB::table('travel_booking_items')->where('travel_booking_id', $bookingId)->count());
+        $this->assertDatabaseMissing('orders', [
+            'orderable_type' => TravelBooking::class,
+            'orderable_id' => $bookingId,
+        ]);
+    }
+
     public function test_pay_confirm_and_payment_history_include_travel_booking(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 8, 10, 10, 0, 0, 'Africa/Cairo'));

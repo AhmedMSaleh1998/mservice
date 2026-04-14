@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\Travels\Tables;
 
+use App\Filament\Resources\Travels\TravelResource;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -64,6 +66,8 @@ class TravelsTable
             ])
             ->recordActions([
                 ActionGroup::make([
+                    ViewAction::make()
+                        ->url(fn (Travel $record): string => TravelResource::getUrl('view', ['record' => $record])),
                     EditAction::make(),
                 ]),
             ])

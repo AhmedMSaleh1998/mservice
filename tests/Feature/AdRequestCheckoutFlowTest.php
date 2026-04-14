@@ -143,6 +143,56 @@ class AdRequestCheckoutFlowTest extends TestCase
         $this->assertSame(3, data_get($order->payload, 'subscription_charge.years'));
     }
 
+    public function test_store_marks_free_ad_request_as_paid_without_creating_order(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 4, 14, 10, 0, 0, 'Africa/Cairo'));
+
+        $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $adSpace->forceFill([
+            'price_per_month' => 0,
+        ])->save();
+        $this->seedPaymentMethods();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->post('/api/v1/ads', [
+                'ad_space_id' => $adSpace->id,
+                'duration_months' => 2,
+                'ad_text' => 'Free homepage campaign',
+                'design_image' => UploadedFile::fake()->image('design.png'),
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.id', null);
+        $response->assertJsonPath('data.order.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.request.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.items.0.label', 'Ad space booking');
+        $response->assertJsonPath('data.order.items.0.amount', '0.00');
+        $response->assertJsonPath('data.order.total', '0.00');
+        $response->assertJsonCount(0, 'data.payment_methods');
+        $response->assertJsonMissingPath('data.actions');
+
+        $adRequestId = (int) $response->json('data.order.request.id');
+
+        $this->assertDatabaseHas('ad_requests', [
+            'id' => $adRequestId,
+            'status' => 'paid_successfully',
+            'price_per_month' => 0,
+            'total_amount' => 0,
+            'starts_at' => '2026-04-14 10:00:00',
+            'ends_at' => '2026-06-14 10:00:00',
+        ]);
+        $this->assertDatabaseMissing('orders', [
+            'orderable_type' => AdRequest::class,
+            'orderable_id' => $adRequestId,
+        ]);
+        $this->assertDatabaseHas('ad_spaces', [
+            'id' => $adSpace->id,
+            'is_available' => 0,
+        ]);
+    }
+
     public function test_store_locks_ad_space_and_blocks_another_reservation(): void
     {
         $user = $this->seedAuthenticatedUser();

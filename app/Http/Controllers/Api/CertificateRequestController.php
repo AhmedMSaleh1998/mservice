@@ -41,7 +41,7 @@ class CertificateRequestController extends Controller
 
         return [
             'order' => $this->buildSimpleCertificateOrder($order, $certificateRequest, $summary),
-            'payment_methods' => $order && $order->status === 'paid_successfully'
+            'payment_methods' => ($order?->status ?? $certificateRequest->status) === 'paid_successfully'
                 ? []
                 : PaymentMethodResource::collection($this->orderService->availablePaymentMethods()),
         ];
@@ -49,13 +49,13 @@ class CertificateRequestController extends Controller
 
     private function buildSimpleCertificateOrder(?object $order, CertificateRequestModel $certificateRequest, array $summary): ?array
     {
-        if (! $order) {
+        if (! $order && $certificateRequest->status !== CertificateRequestModel::STATUS_PAID_SUCCESSFULLY) {
             return null;
         }
 
         return [
-            'id' => $order->id,
-            'status' => $order->status,
+            'id' => $order?->id,
+            'status' => $order?->status ?? $certificateRequest->status,
             'request' => [
                 'id' => $certificateRequest->id,
                 'type' => 'certificate_request',
@@ -76,7 +76,7 @@ class CertificateRequestController extends Controller
                     : null,
             ],
             'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
-            'total' => $summary['total'] ?? $order->amount,
+            'total' => $summary['total'] ?? $order?->amount ?? $certificateRequest->total_amount,
         ];
     }
 

@@ -84,7 +84,7 @@ class TravelsController extends Controller
 
         return [
             'order' => $this->buildSimpleTravelOrder($order, $booking, $summary),
-            'payment_methods' => $order && $order->status === 'paid_successfully'
+            'payment_methods' => ($order?->status ?? $booking->status) === 'paid_successfully'
                 ? []
                 : PaymentMethodResource::collection($this->orderService->availablePaymentMethods()),
             'actions' => $order ? array_filter([
@@ -101,18 +101,19 @@ class TravelsController extends Controller
 
     private function buildSimpleTravelOrder(?object $order, TravelBooking $booking, array $summary): ?array
     {
-        if (! $order) {
+        if (! $order && $booking->status !== TravelBooking::STATUS_PAID_SUCCESSFULLY) {
             return null;
         }
 
         $travel = $booking->travel;
+        $isFreeBooking = ! $order && (float) $booking->total_amount <= 0;
 
         return [
-            'id' => $order->id,
-            'status' => $order->status,
-            'currency' => $order->currency,
-            'payment_method' => $order->payment_method,
-            'gateway_status' => $order->gateway_status,
+            'id' => $order?->id,
+            'status' => $order?->status ?? $booking->status,
+            'currency' => $order?->currency ?? (string) config('checkout.currency', 'EGP'),
+            'payment_method' => $order?->payment_method ?? ($isFreeBooking ? 'free' : null),
+            'gateway_status' => $order?->gateway_status ?? ($isFreeBooking ? 'PAID' : null),
             'request' => [
                 'id' => $booking->id,
                 'type' => 'travel_booking',
@@ -144,7 +145,7 @@ class TravelsController extends Controller
                     ->all(),
             ],
             'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
-            'total' => $summary['total'] ?? $order->amount,
+            'total' => $summary['total'] ?? $order?->amount ?? $booking->total_amount,
         ];
     }
 

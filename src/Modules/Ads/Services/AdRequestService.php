@@ -79,6 +79,10 @@ class AdRequestService
             $baseAmount = $pricePerMonth * $durationMonths;
             $subscriptionAmount = (float) ($subscriptionCharge['amount'] ?? 0);
             $totalAmount = $baseAmount + $subscriptionAmount;
+            $isFreeRequest = $this->orderService->isFreeAmount($totalAmount);
+            $requestStatus = $isFreeRequest ? 'paid_successfully' : 'pending_payment';
+            $startsAt = $isFreeRequest ? now() : null;
+            $endsAt = $isFreeRequest ? $startsAt->copy()->addMonthsNoOverflow($durationMonths) : null;
             $file = $data['design_image'] ?? null;
             $pricing = $this->buildPricingSummary($adSpace, $durationMonths, $pricePerMonth, $baseAmount, $subscriptionCharge);
 
@@ -88,9 +92,9 @@ class AdRequestService
                     'price_per_month' => $pricePerMonth,
                     'total_amount' => $totalAmount,
                     'ad_text' => $data['ad_text'] ?? $editableRequest->ad_text,
-                    'status' => 'pending_payment',
-                    'starts_at' => null,
-                    'ends_at' => null,
+                    'status' => $requestStatus,
+                    'starts_at' => $startsAt,
+                    'ends_at' => $endsAt,
                 ]);
 
                 if ($file) {
@@ -107,24 +111,28 @@ class AdRequestService
 
                 $adRequest = $editableRequest;
 
-                $this->orderService->sync($adRequest, [
-                    'user_id' => $userId,
-                    'amount' => $totalAmount,
-                    'status' => 'pending_payment',
-                    'payment_method' => null,
-                    'provider' => null,
-                    'merchant_ref_num' => null,
-                    'gateway_reference' => null,
-                    'gateway_status' => null,
-                    'checkout_url' => null,
-                    'payment_started_at' => null,
-                    'payment_last_synced_at' => null,
-                    'paid_at' => null,
-                    'payload' => $this->orderService->withPricingPayload(
-                        $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
-                        $pricing,
-                    ),
-                ]);
+                if ($isFreeRequest) {
+                    $this->orderService->deleteFor($adRequest);
+                } else {
+                    $this->orderService->sync($adRequest, [
+                        'user_id' => $userId,
+                        'amount' => $totalAmount,
+                        'status' => $requestStatus,
+                        'payment_method' => null,
+                        'provider' => null,
+                        'merchant_ref_num' => null,
+                        'gateway_reference' => null,
+                        'gateway_status' => null,
+                        'checkout_url' => null,
+                        'payment_started_at' => null,
+                        'payment_last_synced_at' => null,
+                        'paid_at' => null,
+                        'payload' => $this->orderService->withPricingPayload(
+                            $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
+                            $pricing,
+                        ),
+                    ]);
+                }
             } else {
                 $adRequest = AdRequest::create([
                     'user_id' => $userId,
@@ -134,7 +142,9 @@ class AdRequestService
                     'total_amount' => $totalAmount,
                     'ad_text' => $data['ad_text'] ?? null,
                     'design_image' => $file?->getClientOriginalName(),
-                    'status' => 'pending_payment',
+                    'status' => $requestStatus,
+                    'starts_at' => $startsAt,
+                    'ends_at' => $endsAt,
                 ]);
 
                 if ($file) {
@@ -143,16 +153,18 @@ class AdRequestService
                         ->toMediaCollection('design_image');
                 }
 
-                $this->orderService->sync($adRequest, [
-                    'user_id' => $userId,
-                    'amount' => $totalAmount,
-                    'status' => 'pending_payment',
-                    'payment_method' => $data['payment_method'] ?? null,
-                    'payload' => $this->orderService->withPricingPayload(
-                        $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
-                        $pricing,
-                    ),
-                ]);
+                if (! $isFreeRequest) {
+                    $this->orderService->sync($adRequest, [
+                        'user_id' => $userId,
+                        'amount' => $totalAmount,
+                        'status' => $requestStatus,
+                        'payment_method' => $data['payment_method'] ?? null,
+                        'payload' => $this->orderService->withPricingPayload(
+                            $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
+                            $pricing,
+                        ),
+                    ]);
+                }
             }
 
             return $adRequest->fresh(['adSpace.service', 'media', 'order']);

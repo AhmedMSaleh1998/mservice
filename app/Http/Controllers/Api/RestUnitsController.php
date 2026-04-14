@@ -109,16 +109,18 @@ class RestUnitsController extends Controller
 
     private function buildSimpleRestUnitOrder(?object $order, RestUnitBooking $booking, array $summary): ?array
     {
-        if (! $order) {
+        if (! $order && $booking->status !== RestUnitBooking::STATUS_PAID_SUCCESSFULLY) {
             return null;
         }
 
+        $isFreeBooking = ! $order && (float) $booking->total_price <= 0;
+
         return [
-            'id' => $order->id,
-            'status' => $order->status,
-            'currency' => $order->currency,
-            'payment_method' => $order->payment_method,
-            'gateway_status' => $order->gateway_status,
+            'id' => $order?->id,
+            'status' => $order?->status ?? $booking->status,
+            'currency' => $order?->currency ?? (string) config('checkout.currency', 'EGP'),
+            'payment_method' => $order?->payment_method ?? ($isFreeBooking ? 'free' : null),
+            'gateway_status' => $order?->gateway_status ?? ($isFreeBooking ? 'PAID' : null),
             'request' => [
                 'id' => $booking->id,
                 'type' => 'rest_unit_booking',
@@ -129,7 +131,7 @@ class RestUnitsController extends Controller
                 'rest_unit' => $booking->restUnit ? RestUnitCheckoutResource::make($booking->restUnit)->resolve() : null,
             ],
             'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
-            'total' => $summary['total'] ?? $order->amount,
+            'total' => $summary['total'] ?? $order?->amount ?? $booking->total_price,
         ];
     }
 

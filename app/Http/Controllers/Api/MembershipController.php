@@ -38,7 +38,7 @@ class MembershipController extends Controller
 
         return [
             'order' => $this->buildSimpleMembershipOrder($order, $membershipRequest, $summary),
-            'payment_methods' => $order && $order->status === 'paid_successfully'
+            'payment_methods' => ($order?->status ?? $membershipRequest->status) === 'paid_successfully'
                 ? []
                 : PaymentMethodResource::collection($this->orderService->availablePaymentMethods()),
         ];
@@ -46,13 +46,13 @@ class MembershipController extends Controller
 
     private function buildSimpleMembershipOrder(?object $order, MembershipRequest $membershipRequest, array $summary): ?array
     {
-        if (! $order) {
+        if (! $order && $membershipRequest->status !== 'paid_successfully') {
             return null;
         }
 
         return [
-            'id' => $order->id,
-            'status' => $order->status,
+            'id' => $order?->id,
+            'status' => $order?->status ?? $membershipRequest->status,
             'request' => [
                 'id' => $membershipRequest->id,
                 'type' => 'membership_request',
@@ -64,7 +64,7 @@ class MembershipController extends Controller
                 'registration_number' => $membershipRequest->registration_number,
             ],
             'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
-            'total' => $summary['total'] ?? $order->amount,
+            'total' => $summary['total'] ?? $order?->amount ?? $membershipRequest->total_amount,
         ];
     }
 

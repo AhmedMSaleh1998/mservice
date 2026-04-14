@@ -69,7 +69,7 @@ class CourseBookingService
             $courseAmount = (float) $lockedCourse->price;
             $subscriptionAmount = (float) ($subscriptionCharge['amount'] ?? 0);
             $amount = $courseAmount + $subscriptionAmount;
-            $isFreeCourse = $amount <= 0;
+            $isFreeCourse = $this->orderService->isFreeAmount($amount);
             $paidAt = $isFreeCourse ? now() : null;
             $bookingStatus = $isFreeCourse ? 'paid_successfully' : 'pending_payment';
             $pricing = $this->buildPricingSummary($lockedCourse, $courseAmount, $subscriptionCharge);
@@ -83,20 +83,18 @@ class CourseBookingService
                 'paid_at' => $paidAt,
             ]);
 
-            $this->orderService->sync($courseBooking, [
-                'user_id' => $user->id,
-                'amount' => $amount,
-                'status' => $bookingStatus,
-                'payment_method' => $isFreeCourse ? 'free' : ($data['payment_method'] ?? null),
-                'provider' => $isFreeCourse ? 'system' : null,
-                'gateway_status' => $isFreeCourse ? 'PAID' : null,
-                'paid_at' => $paidAt,
-                'payment_last_synced_at' => $isFreeCourse ? $paidAt : null,
-                'payload' => $this->orderService->withPricingPayload(
-                    $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
-                    $pricing,
-                ),
-            ]);
+            if (! $isFreeCourse) {
+                $this->orderService->sync($courseBooking, [
+                    'user_id' => $user->id,
+                    'amount' => $amount,
+                    'status' => $bookingStatus,
+                    'payment_method' => $data['payment_method'] ?? null,
+                    'payload' => $this->orderService->withPricingPayload(
+                        $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
+                        $pricing,
+                    ),
+                ]);
+            }
 
             return $courseBooking->fresh(['course', 'order']);
         });

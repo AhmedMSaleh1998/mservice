@@ -109,6 +109,47 @@ class RestUnitBookingFlowTest extends TestCase
         $response->assertJsonMissingPath('data.room_types.0.availability_known');
     }
 
+    public function test_show_uses_peak_concurrent_bookings_for_selected_dates(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $province = $this->seedProvince();
+        $unit = $this->seedRestUnit([
+            'province_id' => $province->id,
+            'single_rooms' => 2,
+            'double_rooms' => 0,
+            'triple_rooms' => 0,
+        ]);
+
+        RestUnitBooking::query()->create([
+            'rest_unit_id' => $unit->id,
+            'user_id' => $user->id,
+            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
+            'start_date' => '2026-08-17',
+            'end_date' => '2026-08-18',
+            'status' => RestUnitBooking::STATUS_PAID_SUCCESSFULLY,
+            'total_price' => 8000,
+            'paid_at' => now(),
+        ]);
+
+        RestUnitBooking::query()->create([
+            'rest_unit_id' => $unit->id,
+            'user_id' => $user->id,
+            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
+            'start_date' => '2026-08-21',
+            'end_date' => '2026-08-23',
+            'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
+            'total_price' => 12000,
+        ]);
+
+        $response = $this->getJson("/api/v1/services/rest-units/{$unit->id}?from_date=2026-08-17&to_date=2026-08-23");
+
+        $response->assertOk();
+        $response->assertJsonPath('data.room_types.0.type', RestUnit::TYPE_SINGLE_ROOM);
+        $response->assertJsonPath('data.room_types.0.available_count', 1);
+        $response->assertJsonPath('data.room_types.0.is_available', true);
+        $response->assertJsonPath('data.available_places', 1);
+    }
+
     public function test_show_hides_room_types_until_dates_are_selected(): void
     {
         $user = $this->seedAuthenticatedUser();
@@ -284,6 +325,115 @@ class RestUnitBookingFlowTest extends TestCase
         $order = Order::query()->findOrFail($orderId);
         $this->assertSame('single_room', data_get($order->payload, 'pricing.items.0.meta.unit_type'));
         $this->assertSame('690.00', data_get($order->payload, 'subscription_charge.amount'));
+    }
+
+    public function test_booking_marks_free_rest_unit_booking_as_paid_without_creating_order(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 8, 10, 10, 0, 0, 'Africa/Cairo'));
+
+        $user = $this->seedAuthenticatedUser();
+        $this->seedPaymentMethods();
+        $province = $this->seedProvince();
+        $unit = $this->seedRestUnit([
+            'province_id' => $province->id,
+            'single_rooms' => 1,
+            'single_room_price' => 0,
+        ]);
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson('/api/v1/services/rest-units/booking', [
+                'rest_unit_id' => $unit->id,
+                'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
+                'start_date' => '2026-08-17',
+                'end_date' => '2026-08-23',
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.id', null);
+        $response->assertJsonPath('data.order.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.payment_method', 'free');
+        $response->assertJsonPath('data.order.gateway_status', 'PAID');
+        $response->assertJsonPath('data.order.request.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.items.0.label', 'Stay fees');
+        $response->assertJsonPath('data.order.items.0.amount', '0.00');
+        $response->assertJsonPath('data.order.total', '0.00');
+
+        $bookingId = (int) $response->json('data.order.request.id');
+
+        $this->assertDatabaseHas('rest_unit_bookings', [
+            'id' => $bookingId,
+            'rest_unit_id' => $unit->id,
+            'user_id' => $user->id,
+            'status' => RestUnitBooking::STATUS_PAID_SUCCESSFULLY,
+            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
+            'total_price' => 0,
+            'paid_at' => '2026-08-10 10:00:00',
+        ]);
+        $this->assertDatabaseMissing('orders', [
+            'orderable_type' => RestUnitBooking::class,
+            'orderable_id' => $bookingId,
+        ]);
+    }
+
+    public function test_booking_allows_period_when_peak_concurrent_bookings_remain_below_capacity(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 8, 10, 10, 0, 0, 'Africa/Cairo'));
+
+        $user = $this->seedAuthenticatedUser();
+        $this->seedPaymentMethods();
+        $this->fakeSubscriptionCharge();
+        $province = $this->seedProvince();
+        $unit = $this->seedRestUnit([
+            'province_id' => $province->id,
+            'single_rooms' => 2,
+            'double_rooms' => 0,
+            'triple_rooms' => 0,
+            'single_room_price' => 4000,
+        ]);
+
+        RestUnitBooking::query()->create([
+            'rest_unit_id' => $unit->id,
+            'user_id' => $user->id,
+            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
+            'start_date' => '2026-08-17',
+            'end_date' => '2026-08-18',
+            'status' => RestUnitBooking::STATUS_PAID_SUCCESSFULLY,
+            'total_price' => 8000,
+            'paid_at' => now(),
+        ]);
+
+        RestUnitBooking::query()->create([
+            'rest_unit_id' => $unit->id,
+            'user_id' => $user->id,
+            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
+            'start_date' => '2026-08-21',
+            'end_date' => '2026-08-23',
+            'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
+            'total_price' => 12000,
+        ]);
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson('/api/v1/services/rest-units/booking', [
+                'rest_unit_id' => $unit->id,
+                'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
+                'start_date' => '2026-08-17',
+                'end_date' => '2026-08-23',
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.request.type', 'rest_unit_booking');
+        $response->assertJsonPath('data.order.request.status', 'pending_payment');
+        $this->assertDatabaseHas('rest_unit_bookings', [
+            'rest_unit_id' => $unit->id,
+            'user_id' => $user->id,
+            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
+            'start_date' => '2026-08-17 00:00:00',
+            'end_date' => '2026-08-23 00:00:00',
+            'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
+            'total_price' => 24690,
+        ]);
     }
 
     public function test_pay_creates_a_new_fawry_link_for_every_retry(): void

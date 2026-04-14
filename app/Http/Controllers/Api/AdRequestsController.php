@@ -89,19 +89,21 @@ class AdRequestsController extends Controller
 
         return [
             'order' => $this->buildSimpleAdOrder($order, $adRequest, $summary),
-            'payment_methods' => PaymentMethodResource::collection($this->orderService->availablePaymentMethods()),
+            'payment_methods' => ($order?->status ?? $adRequest->status) === 'paid_successfully'
+                ? []
+                : PaymentMethodResource::collection($this->orderService->availablePaymentMethods()),
         ];
     }
 
     private function buildSimpleAdOrder(?object $order, AdRequest $adRequest, array $summary): ?array
     {
-        if (! $order) {
+        if (! $order && $adRequest->status !== 'paid_successfully') {
             return null;
         }
 
         return [
-            'id' => $order->id,
-            'status' => $order->status,
+            'id' => $order?->id,
+            'status' => $order?->status ?? $adRequest->status,
             // 'currency' => $order->currency,pay_endpoint
             // 'payment_method' => $order->payment_method,
             // 'gateway_status' => $order->gateway_status,
@@ -111,7 +113,7 @@ class AdRequestsController extends Controller
                 'status' => $adRequest->status,
             ],
             'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
-            'total' => $summary['total'] ?? $order->amount,
+            'total' => $summary['total'] ?? $order?->amount ?? $adRequest->total_amount,
         ];
     }
 

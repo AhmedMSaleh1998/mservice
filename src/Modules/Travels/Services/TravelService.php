@@ -155,8 +155,9 @@ class TravelService
 
             $subscriptionAmount = (float) ($subscriptionCharge['amount'] ?? 0);
             $totalAmount = $subtotal + $subscriptionAmount;
-            $paidAt = $totalAmount <= 0 ? now() : null;
-            $bookingStatus = $totalAmount <= 0
+            $isFreeBooking = $this->orderService->isFreeAmount($totalAmount);
+            $paidAt = $isFreeBooking ? now() : null;
+            $bookingStatus = $isFreeBooking
                 ? TravelBooking::STATUS_PAID_SUCCESSFULLY
                 : TravelBooking::STATUS_PENDING_PAYMENT;
 
@@ -180,20 +181,17 @@ class TravelService
 
             $pricing = $this->buildPricingSummary($lockedTravel, $bookingLines, $subscriptionCharge);
 
-            $this->orderService->sync($booking, [
-                'user_id' => $user->id,
-                'amount' => $totalAmount,
-                'status' => $bookingStatus,
-                'payment_method' => $totalAmount <= 0 ? 'free' : null,
-                'provider' => $totalAmount <= 0 ? 'system' : null,
-                'gateway_status' => $totalAmount <= 0 ? 'PAID' : null,
-                'paid_at' => $paidAt,
-                'payment_last_synced_at' => $paidAt,
-                'payload' => $this->orderService->withPricingPayload(
-                    $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
-                    $pricing,
-                ),
-            ]);
+            if (! $isFreeBooking) {
+                $this->orderService->sync($booking, [
+                    'user_id' => $user->id,
+                    'amount' => $totalAmount,
+                    'status' => $bookingStatus,
+                    'payload' => $this->orderService->withPricingPayload(
+                        $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
+                        $pricing,
+                    ),
+                ]);
+            }
 
             return $booking->fresh(['travel.province', 'travel.categories', 'items.category', 'order']);
         });

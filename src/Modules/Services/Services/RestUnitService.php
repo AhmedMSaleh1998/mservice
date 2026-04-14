@@ -113,8 +113,9 @@ class RestUnitService
             $stayAmount = $pricePerNight * $nights;
             $subscriptionAmount = (float) ($subscriptionCharge['amount'] ?? 0);
             $totalAmount = $stayAmount + $subscriptionAmount;
-            $paidAt = $totalAmount <= 0 ? now() : null;
-            $bookingStatus = $totalAmount <= 0
+            $isFreeBooking = $this->orderService->isFreeAmount($totalAmount);
+            $paidAt = $isFreeBooking ? now() : null;
+            $bookingStatus = $isFreeBooking
                 ? RestUnitBooking::STATUS_PAID_SUCCESSFULLY
                 : RestUnitBooking::STATUS_PENDING_PAYMENT;
             $pricing = $this->buildPricingSummary(
@@ -138,20 +139,17 @@ class RestUnitService
                 'paid_at' => $paidAt,
             ]);
 
-            $this->orderService->sync($booking, [
-                'user_id' => $user->id,
-                'amount' => $totalAmount,
-                'status' => $bookingStatus,
-                'payment_method' => $totalAmount <= 0 ? 'free' : null,
-                'provider' => $totalAmount <= 0 ? 'system' : null,
-                'gateway_status' => $totalAmount <= 0 ? 'PAID' : null,
-                'paid_at' => $paidAt,
-                'payment_last_synced_at' => $paidAt,
-                'payload' => $this->orderService->withPricingPayload(
-                    $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
-                    $pricing,
-                ),
-            ]);
+            if (! $isFreeBooking) {
+                $this->orderService->sync($booking, [
+                    'user_id' => $user->id,
+                    'amount' => $totalAmount,
+                    'status' => $bookingStatus,
+                    'payload' => $this->orderService->withPricingPayload(
+                        $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
+                        $pricing,
+                    ),
+                ]);
+            }
 
             return $booking->fresh(['restUnit.province', 'restUnit.media', 'order']);
         });
@@ -314,11 +312,14 @@ class RestUnitService
 
     private function decorateUnit(RestUnit $unit, array $filters, Collection $overlappingBookings, bool $includeMedia = false): RestUnit
     {
-        $roomOptions = collect(RestUnit::supportedUnitTypes())
-            ->map(fn (string $type): array => $this->buildRoomOption($unit, $type, $filters, $overlappingBookings))
-            ->values();
-
         $datesSelected = filled($filters['from_date']) && filled($filters['to_date']);
+        $peakCounts = $datesSelected
+            ? RestUnitBooking::peakActiveCounts($overlappingBookings, $filters['from_date'], $filters['to_date'])
+            : ['overall' => 0, 'types' => []];
+
+        $roomOptions = collect(RestUnit::supportedUnitTypes())
+            ->map(fn (string $type): array => $this->buildRoomOption($unit, $type, $filters, $peakCounts))
+            ->values();
 
         $unit->setAttribute('room_options', $roomOptions->all());
         $unit->setAttribute('total_places', $roomOptions->sum('total_count'));
@@ -341,7 +342,7 @@ class RestUnitService
         return $unit;
     }
 
-    private function buildRoomOption(RestUnit $unit, string $type, array $filters, Collection $overlappingBookings): array
+    private function buildRoomOption(RestUnit $unit, string $type, array $filters, array $peakCounts): array
     {
         $inventoryColumn = RestUnit::inventoryColumnForType($type);
         $priceColumn = RestUnit::priceColumnForType($type);
@@ -349,11 +350,7 @@ class RestUnitService
         $datesSelected = filled($filters['from_date']) && filled($filters['to_date']);
         $nights = $datesSelected ? $this->calculateNights($filters['from_date'], $filters['to_date']) : 0;
         $pricePerNight = $priceColumn ? (float) data_get($unit, $priceColumn, 0) : 0;
-        $reservedCount = $datesSelected
-            ? $overlappingBookings
-                ->filter(fn (RestUnitBooking $booking): bool => RestUnitBooking::normalizeUnitType($booking->unit_type) === $type)
-                ->count()
-            : 0;
+        $reservedCount = $datesSelected ? (int) ($peakCounts['types'][$type] ?? 0) : 0;
         $availableCount = $datesSelected ? max($totalCount - $reservedCount, 0) : $totalCount;
 
         return [

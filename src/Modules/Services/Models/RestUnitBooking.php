@@ -2,6 +2,8 @@
 
 namespace Modules\Services\Models;
 
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -73,5 +75,57 @@ class RestUnitBooking extends CustomModel
             self::STATUS_CANCELLED,
             self::STATUS_PAYMENT_EXPIRED,
         ], true);
+    }
+
+    public static function peakActiveCounts(Collection $bookings, string $fromDate, string $toDate): array
+    {
+        $typePeaks = collect(RestUnit::supportedUnitTypes())
+            ->mapWithKeys(fn (string $type): array => [$type => 0])
+            ->all();
+
+        if ($bookings->isEmpty()) {
+            return [
+                'overall' => 0,
+                'types' => $typePeaks,
+            ];
+        }
+
+        $rangeStart = Carbon::parse($fromDate)->startOfDay();
+        $rangeEnd = Carbon::parse($toDate)->startOfDay();
+        $overallPeak = 0;
+
+        for ($cursor = $rangeStart->copy(); $cursor->lte($rangeEnd); $cursor->addDay()) {
+            $activeBookings = $bookings->filter(
+                fn (RestUnitBooking $booking): bool => static::bookingTouchesDate($booking, $cursor)
+            );
+
+            $overallPeak = max($overallPeak, $activeBookings->count());
+
+            foreach (RestUnit::supportedUnitTypes() as $type) {
+                $typePeaks[$type] = max(
+                    $typePeaks[$type] ?? 0,
+                    $activeBookings
+                        ->filter(fn (RestUnitBooking $booking): bool => static::normalizeUnitType($booking->unit_type) === $type)
+                        ->count()
+                );
+            }
+        }
+
+        return [
+            'overall' => $overallPeak,
+            'types' => $typePeaks,
+        ];
+    }
+
+    private static function bookingTouchesDate(RestUnitBooking $booking, Carbon $date): bool
+    {
+        $startDate = $booking->start_date instanceof Carbon
+            ? $booking->start_date->copy()->startOfDay()
+            : Carbon::parse((string) $booking->start_date)->startOfDay();
+        $endDate = $booking->end_date instanceof Carbon
+            ? $booking->end_date->copy()->startOfDay()
+            : Carbon::parse((string) $booking->end_date)->startOfDay();
+
+        return $startDate->lte($date) && $endDate->gte($date);
     }
 }

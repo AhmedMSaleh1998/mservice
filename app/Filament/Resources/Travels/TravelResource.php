@@ -5,7 +5,9 @@ namespace App\Filament\Resources\Travels;
 use App\Filament\Resources\Travels\Pages\CreateTravel;
 use App\Filament\Resources\Travels\Pages\EditTravel;
 use App\Filament\Resources\Travels\Pages\ListTravels;
+use App\Filament\Resources\Travels\Pages\ViewTravel;
 use App\Filament\Resources\Travels\Schemas\TravelForm;
+use App\Filament\Resources\Travels\Schemas\TravelInfolist;
 use App\Filament\Resources\Travels\Tables\TravelsTable;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -54,6 +56,11 @@ class TravelResource extends Resource
         return TravelForm::configure($schema);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return TravelInfolist::configure($schema);
+    }
+
     public static function table(Table $table): Table
     {
         return TravelsTable::configure($table);
@@ -69,6 +76,7 @@ class TravelResource extends Resource
         return [
             'index' => ListTravels::route('/'),
             'create' => CreateTravel::route('/create'),
+            'view' => ViewTravel::route('/{record}'),
             'edit' => EditTravel::route('/{record}/edit'),
         ];
     }

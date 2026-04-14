@@ -100,6 +100,10 @@ class CertificateRequestService
             $subscriptionCharge = $this->resolveSubscriptionCharge($user);
             $costs = $this->calculateCosts($certificate, $address, $data['delivery_method'], $subscriptionCharge);
             $pricing = $this->buildPricingSummary($costs);
+            $isFreeRequest = $this->orderService->isFreeAmount($costs['total_amount']);
+            $requestStatus = $isFreeRequest
+                ? CertificateRequest::STATUS_PAID_SUCCESSFULLY
+                : CertificateRequest::STATUS_PENDING_PAYMENT;
 
             $certificateRequest = CertificateRequest::create([
                 'user_id' => $userId,
@@ -112,21 +116,23 @@ class CertificateRequestService
                 'delivery_cost' => $costs['delivery_cost'],
                 'subscription_cost' => $costs['subscription_cost'],
                 'total_amount' => $costs['total_amount'],
-                'status' => CertificateRequest::STATUS_PENDING_PAYMENT,
+                'status' => $requestStatus,
                 'delivery_status' => $data['delivery_method'] === 'delivery'
                     ? CertificateRequest::DELIVERY_STATUS_PENDING
                     : null,
             ]);
 
-            $this->orderService->sync($certificateRequest, [
-                'user_id' => $userId,
-                'amount' => $costs['total_amount'],
-                'status' => CertificateRequest::STATUS_PENDING_PAYMENT,
-                'payload' => $this->orderService->withPricingPayload(
-                    $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
-                    $pricing,
-                ),
-            ]);
+            if (! $isFreeRequest) {
+                $this->orderService->sync($certificateRequest, [
+                    'user_id' => $userId,
+                    'amount' => $costs['total_amount'],
+                    'status' => $requestStatus,
+                    'payload' => $this->orderService->withPricingPayload(
+                        $this->orderService->withSubscriptionChargePayload(null, $subscriptionCharge),
+                        $pricing,
+                    ),
+                ]);
+            }
 
             return $certificateRequest->fresh(['certificate.media', 'userAddress.province', 'order']);
         });

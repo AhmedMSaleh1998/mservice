@@ -61,7 +61,7 @@ class CourseBookingsController extends Controller
 
         return [
             'order' => $this->buildSimpleCourseOrder($order, $courseBooking, $summary),
-            'payment_methods' => $order && $order->status === 'paid_successfully'
+            'payment_methods' => ($order?->status ?? $courseBooking->status) === 'paid_successfully'
                 ? []
                 : PaymentMethodResource::collection($this->orderService->availablePaymentMethods()),
         ];
@@ -69,20 +69,20 @@ class CourseBookingsController extends Controller
 
     private function buildSimpleCourseOrder(?object $order, CourseBooking $courseBooking, array $summary): ?array
     {
-        if (! $order) {
+        if (! $order && $courseBooking->status !== 'paid_successfully') {
             return null;
         }
 
         return [
-            'id' => $order->id,
-            'status' => $order->status,
+            'id' => $order?->id,
+            'status' => $order?->status ?? $courseBooking->status,
             'request' => [
                 'id' => $courseBooking->id,
                 'type' => 'course_booking',
                 'status' => $courseBooking->status,
             ],
             'items' => $this->buildSimpleItems(collect($summary['items'] ?? [])),
-            'total' => $summary['total'] ?? $order->amount,
+            'total' => $summary['total'] ?? $order?->amount ?? $courseBooking->total_amount,
         ];
     }
 

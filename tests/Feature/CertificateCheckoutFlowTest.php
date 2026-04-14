@@ -229,6 +229,47 @@ class CertificateCheckoutFlowTest extends TestCase
         $this->assertSame(3, data_get($order->payload, 'subscription_charge.years'));
     }
 
+    public function test_store_marks_free_certificate_request_as_paid_without_creating_order(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $certificate = $this->seedCertificate(0);
+        $address = $this->seedAddress($user, ['shipping_cost' => 0]);
+        $this->seedPaymentMethods();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson('/api/v1/certificate/request', [
+                'certificate_id' => $certificate->id,
+                'delivery_method' => 'delivery',
+                'address_id' => $address->id,
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.id', null);
+        $response->assertJsonPath('data.order.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.request.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.request.delivery_status', 'pending');
+        $response->assertJsonPath('data.order.items.0.label', 'Certificate printing');
+        $response->assertJsonPath('data.order.items.0.amount', '0.00');
+        $response->assertJsonPath('data.order.total', '0.00');
+        $response->assertJsonCount(0, 'data.payment_methods');
+
+        $certificateRequestId = (int) $response->json('data.order.request.id');
+
+        $this->assertDatabaseHas('certificate_requests', [
+            'id' => $certificateRequestId,
+            'user_id' => $user->id,
+            'certificate_id' => $certificate->id,
+            'total_amount' => 0,
+            'status' => 'paid_successfully',
+            'delivery_status' => 'pending',
+        ]);
+        $this->assertDatabaseMissing('orders', [
+            'orderable_type' => CertificateRequest::class,
+            'orderable_id' => $certificateRequestId,
+        ]);
+    }
+
     public function test_pay_and_confirm_mark_certificate_request_paid_successfully(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 3, 31, 14, 0, 0, 'Africa/Cairo'));
