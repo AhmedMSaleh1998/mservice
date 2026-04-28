@@ -29,8 +29,10 @@ class OtpService
             ->first();
 
         if ($existingOtp && $existingOtp->created_at->addMinute()->isAfter(now())) {
+            $seconds = max(1, now()->diffInSeconds($existingOtp->created_at->addMinute(), false));
+
             throw ValidationException::withMessages([
-                'phone' => [__('auth.otp_throttle')]
+                'phone' => [__('auth.otp_throttle', ['seconds' => $seconds])],
             ]);
         }
 

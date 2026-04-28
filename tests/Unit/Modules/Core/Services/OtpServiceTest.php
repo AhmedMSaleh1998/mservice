@@ -5,6 +5,7 @@ namespace Tests\Unit\Modules\Core\Services;
 use App\Services\Sms\CommunitySmsService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Modules\Core\Models\Otp;
 use Modules\Core\Services\OtpService;
 use RuntimeException;
@@ -86,5 +87,23 @@ class OtpServiceTest extends TestCase
         app(OtpService::class)->generatePhoneOtp('01026513696', 'forget');
 
         $this->assertTrue(app(OtpService::class)->verifyPhoneOtp('+2001026513696', '111111', 'forget'));
+    }
+
+    public function test_generate_phone_otp_returns_clear_throttle_message(): void
+    {
+        config()->set('app.otp_mode', 'test');
+        app()->setLocale('en');
+
+        app(OtpService::class)->generatePhoneOtp('01026513696', 'register');
+
+        try {
+            app(OtpService::class)->generatePhoneOtp('+2001026513696', 'register');
+            $this->fail('Expected OTP throttle validation exception.');
+        } catch (ValidationException $exception) {
+            $message = $exception->errors()['phone'][0] ?? '';
+
+            $this->assertStringStartsWith('A verification code has already been sent.', $message);
+            $this->assertStringContainsString('seconds', $message);
+        }
     }
 }
