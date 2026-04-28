@@ -32,6 +32,16 @@ class CommunitySmsService
         $sender = (string) ($options['sender'] ?? $this->sender());
         $receiver = $this->normalizeReceiver((string) ($options['receiver'] ?? $phone));
 
+        Log::info('Community SMS send started.', [
+            'type' => (string) ($options['type'] ?? 'generic'),
+            'message_id' => $messageId,
+            'sender' => $sender,
+            'receiver' => $receiver,
+            'endpoint' => $this->endpoint(),
+            'sms_enabled' => $this->isEnabled(),
+            'normalize_receivers' => (bool) config('services.community_sms.normalize_receivers', true),
+        ]);
+
         $smsMessage = SmsMessage::query()->create([
             'provider' => 'community_sms',
             'type' => (string) ($options['type'] ?? 'generic'),
@@ -106,6 +116,13 @@ class CommunitySmsService
             'response_body' => $response->body(),
             'sent_at' => now(),
             'last_status_at' => now(),
+        ]);
+
+        Log::info('Community SMS accepted by provider.', [
+            'sms_message_id' => $smsMessage->id,
+            'message_id' => $messageId,
+            'receiver' => $receiver,
+            'provider_status' => $statusCode,
         ]);
 
         return [
