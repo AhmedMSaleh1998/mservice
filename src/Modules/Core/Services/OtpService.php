@@ -3,6 +3,7 @@
 namespace Modules\Core\Services;
 
 use App\Services\Sms\CommunitySmsService;
+use App\Support\PhoneNumberNormalizer;
 use Illuminate\Validation\ValidationException;
 use Modules\Core\Models\Otp;
 
@@ -15,7 +16,17 @@ class OtpService
 
     public function generatePhoneOtp(string $phone, string $action): Otp
     {
-        $existingOtp = Otp::query()->findValidByPhone($phone, $action)->first();
+        $normalizedPhone = PhoneNumberNormalizer::normalize($phone);
+        $phoneVariants = PhoneNumberNormalizer::variants($phone);
+
+        $existingOtp = Otp::query()
+            ->whereIn('phone', $phoneVariants)
+            ->where('action', $action)
+            ->where('expired_at', '>', now())
+            ->where('verified_at', null)
+            ->where('attempts', '<', 5)
+            ->latest()
+            ->first();
 
         if ($existingOtp && $existingOtp->created_at->addMinute()->isAfter(now())) {
             throw ValidationException::withMessages([
@@ -26,7 +37,7 @@ class OtpService
 
         // Invalidate any existing OTPS for this phone
         Otp::query()
-            ->where('phone', $phone)
+            ->whereIn('phone', $phoneVariants)
             ->where('action', $action)
             ->update(['expired_at' => now()]);
 
@@ -34,7 +45,7 @@ class OtpService
         $expiredAt = now()->addMinutes(10);
 
         $otp = Otp::create([
-            'phone' => $phone,
+            'phone' => $normalizedPhone,
             'code' => $code,
             'action' => $action,
             'expired_at' => $expiredAt,
@@ -42,7 +53,7 @@ class OtpService
         ]);
 
         try {
-            $this->sendSmsOtp($phone, $code, $action);
+            $this->sendSmsOtp($normalizedPhone, $code, $action);
         } catch (\Throwable $exception) {
             $otp->update(['expired_at' => now()]);
 
@@ -54,7 +65,9 @@ class OtpService
 
     public function verifyPhoneOtp(string $phone, string $code, string $action): bool
     {
-        $otp = Otp::where('phone', $phone)
+        $phoneVariants = PhoneNumberNormalizer::variants($phone);
+
+        $otp = Otp::whereIn('phone', $phoneVariants)
             ->where('code', $code)
             ->where('action', $action)
             ->where('expired_at', '>', now())
@@ -63,7 +76,7 @@ class OtpService
             ->first();
 
         if (!$otp) {
-            $existingOtp = Otp::where('phone', $phone)
+            $existingOtp = Otp::whereIn('phone', $phoneVariants)
                 ->where('action', $action)
                 ->where('expired_at', '>', now())
                 ->first();

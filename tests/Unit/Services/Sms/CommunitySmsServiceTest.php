@@ -111,6 +111,24 @@ class CommunitySmsServiceTest extends TestCase
         $this->assertSame('otp', $message->type);
     }
 
+    public function test_send_removes_local_trunk_prefix_after_country_code(): void
+    {
+        Http::fake([
+            'https://sms.example.test/api/SMSSender/SendSMSWithDLR' => Http::response('0', 200),
+        ]);
+
+        $result = app(CommunitySmsService::class)->sendOtp('+2001026513696', '123456', [
+            'message_id' => 'otp-country-code-local-prefix',
+        ]);
+
+        $this->assertSame('201026513696', $result['receiver']);
+
+        Http::assertSent(function ($request): bool {
+            return $request['SMSReceiver'] === '201026513696'
+                && $request['SMSID'] === 'otp-country-code-local-prefix';
+        });
+    }
+
     public function test_send_uses_local_dlr_route_when_configured_url_is_missing(): void
     {
         config()->set('services.community_sms.dlr_url', null);

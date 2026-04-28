@@ -6,6 +6,7 @@ use App\Events\PhoneChangedEvent;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\ChangePhoneRequest;
 use App\Http\Requests\Api\VerityOtpRequest;
+use App\Support\PhoneNumberNormalizer;
 use Modules\Core\Enums\OtpEnum;
 use Modules\Core\Services\AuditLogger;
 use Modules\Core\Services\OtpService;
@@ -20,7 +21,7 @@ class ChangePhoneController extends Controller
 
     public function change(ChangePhoneRequest $request)
     {
-        event(new PhoneChangedEvent(auth()->user(), $request->new_phone));
+        event(new PhoneChangedEvent(auth()->user(), PhoneNumberNormalizer::normalize($request->new_phone)));
         return response()->json([
             'message' => __('Verification Code Send Successfully'),
             'status' => 200,
@@ -33,7 +34,7 @@ class ChangePhoneController extends Controller
         $res = $this->otpService->verifyPhoneOtp($request->phone, $request->code, $request->input('action') ?? OtpEnum::CHANGE_PHONE->value);
         if ($res) {
             $oldPhone = $user->phone;
-            $user->phone = $request->phone;
+            $user->phone = PhoneNumberNormalizer::normalize($request->phone);
             $user->save();
 
             AuditLogger::log(

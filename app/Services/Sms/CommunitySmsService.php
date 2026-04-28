@@ -7,6 +7,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Support\PhoneNumberNormalizer;
 use Modules\Core\Models\SmsMessage;
 use RuntimeException;
 
@@ -181,21 +182,7 @@ class CommunitySmsService
             return $digits;
         }
 
-        if (str_starts_with($digits, '00')) {
-            $digits = substr($digits, 2);
-        }
-
-        $countryCode = preg_replace('/\D+/', '', (string) config('services.community_sms.default_country_code', '20')) ?? '';
-
-        if ($countryCode === '' || str_starts_with($digits, $countryCode)) {
-            return $digits;
-        }
-
-        if (str_starts_with($digits, '0')) {
-            return $countryCode . substr($digits, 1);
-        }
-
-        return $digits;
+        return PhoneNumberNormalizer::normalize($digits);
     }
 
     private function extractStatusCode(Response $response): int

@@ -64,4 +64,27 @@ class OtpServiceTest extends TestCase
         $this->assertTrue($otp->expired_at->lte(now()));
         $this->assertNull(Otp::query()->findValidByPhone('01026513696', 'register')->first());
     }
+
+    public function test_generate_phone_otp_stores_normalized_phone(): void
+    {
+        config()->set('app.otp_mode', 'test');
+
+        $otp = app(OtpService::class)->generatePhoneOtp('+2001026513696', 'forget');
+
+        $this->assertSame('201026513696', $otp->phone);
+        $this->assertDatabaseHas('otp', [
+            'phone' => '201026513696',
+            'action' => 'forget',
+            'code' => '111111',
+        ]);
+    }
+
+    public function test_verify_phone_otp_accepts_equivalent_phone_formats(): void
+    {
+        config()->set('app.otp_mode', 'test');
+
+        app(OtpService::class)->generatePhoneOtp('01026513696', 'forget');
+
+        $this->assertTrue(app(OtpService::class)->verifyPhoneOtp('+2001026513696', '111111', 'forget'));
+    }
 }
