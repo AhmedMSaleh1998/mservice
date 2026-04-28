@@ -21,22 +21,23 @@ class OtpSendController extends Controller
     public function send(SendOtpRequest $request)
     {
         $phoneVariants = PhoneNumberNormalizer::variants($request->phone);
+        $action = OtpEnum::normalizeAction($request->input('action'), OtpEnum::REGISTER->value);
 
-        if (User::whereIn('phone', $phoneVariants)->where('active', true)->exists() && $request->action && $request->action == OtpEnum::REGISTER->value) {
+        if (User::whereIn('phone', $phoneVariants)->where('active', true)->exists() && $request->action && $action === OtpEnum::REGISTER->value) {
             return response()->json([
                 'status' => false,
                 'message' => __('Phone number already exists.')
             ], 422);
         }
 
-        if (!User::whereIn('phone', $phoneVariants)->exists() && $request->action && $request->action == OtpEnum::FORGET->value) {
+        if (!User::whereIn('phone', $phoneVariants)->where('active', true)->exists() && $action === OtpEnum::FORGET->value) {
             return response()->json([
                 'status' => false,
                 'message' => __('Phone number not found.')
             ], 422);
         }
 
-        $this->otpService->generatePhoneOtp($request->phone, $request->input('action') ?? OtpEnum::REGISTER->value);
+        $this->otpService->generatePhoneOtp($request->phone, $action);
 
         return response()->json([
             'message' => __('OTP sent to your phone.'),
@@ -46,9 +47,10 @@ class OtpSendController extends Controller
 
     public function verify(VerityOtpRequest $request)
     {
-        $res = $this->otpService->verifyPhoneOtp($request->phone, $request->code, $request->input('action') ?? OtpEnum::REGISTER->value);
+        $action = OtpEnum::normalizeAction($request->input('action'), OtpEnum::REGISTER->value);
+        $res = $this->otpService->verifyPhoneOtp($request->phone, $request->code, $action);
         if ($res) {
-            if ($request->input('action') && $request->input('action') == OtpEnum::REGISTER->value) {
+            if ($request->input('action') && $action === OtpEnum::REGISTER->value) {
                 $phoneVariants = PhoneNumberNormalizer::variants($request->phone);
 
                 // Activate user
@@ -79,15 +81,16 @@ class OtpSendController extends Controller
     public function resend(SendOtpRequest $request)
     {
         $phoneVariants = PhoneNumberNormalizer::variants($request->phone);
+        $action = OtpEnum::normalizeAction($request->input('action'), OtpEnum::REGISTER->value);
 
-        if (!User::whereIn('phone', $phoneVariants)->exists() && $request->action && $request->action == OtpEnum::FORGET->value) {
+        if (!User::whereIn('phone', $phoneVariants)->where('active', true)->exists() && $action === OtpEnum::FORGET->value) {
             return response()->json([
                 'status' => false,
                 'message' => __('Phone number not found.')
             ], 422);
         }
 
-        $this->otpService->generatePhoneOtp($request->phone, $request->input('action') ?? OtpEnum::REGISTER->value);
+        $this->otpService->generatePhoneOtp($request->phone, $action);
 
         return response()->json([
             'message' => __('OTP resent to your phone.'),

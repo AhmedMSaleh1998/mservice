@@ -66,7 +66,7 @@ class AuthService
 
         if (! $doctorExists) {
             throw ValidationException::withMessages([
-                'reg_number' => [__('No doctor record matches the provided registration number and national ID in Oracle.')],
+                'reg_number' => [__('No doctor record matches the provided registration number and national ID in syndicate records.')],
             ]);
         }
 

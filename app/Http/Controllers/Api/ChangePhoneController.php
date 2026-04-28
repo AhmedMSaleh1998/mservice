@@ -31,7 +31,8 @@ class ChangePhoneController extends Controller
     public function verify(VerityOtpRequest $request)
     {
         $user = auth()->user();
-        $res = $this->otpService->verifyPhoneOtp($request->phone, $request->code, $request->input('action') ?? OtpEnum::CHANGE_PHONE->value);
+        $action = OtpEnum::normalizeAction($request->input('action'), OtpEnum::CHANGE_PHONE->value);
+        $res = $this->otpService->verifyPhoneOtp($request->phone, $request->code, $action);
         if ($res) {
             $oldPhone = $user->phone;
             $user->phone = PhoneNumberNormalizer::normalize($request->phone);

@@ -82,10 +82,10 @@ class AuthServiceRegisterOracleTest extends TestCase
 
         try {
             $this->makeAuthService($oracleService)->register($this->makeDto());
-            $this->fail('Registration should fail when the doctor is missing from Oracle.');
+            $this->fail('Registration should fail when the doctor is missing from syndicate records.');
         } catch (ValidationException $exception) {
             $this->assertSame(
-                [__('No doctor record matches the provided registration number and national ID in Oracle.')],
+                [__('No doctor record matches the provided registration number and national ID in syndicate records.')],
                 $exception->errors()['reg_number'] ?? [],
             );
         }
