@@ -81,7 +81,7 @@ class TravelService
                 ->lockForUpdate()
                 ->findOrFail($travel->id);
 
-            if (! $lockedTravel->is_active || $this->hasTravelStarted($lockedTravel)) {
+            if (! $lockedTravel->is_active || $this->hasTravelEnded($lockedTravel)) {
                 throw ValidationException::withMessages([
                     'travel_id' => __('This travel is not available for booking.'),
                 ]);
@@ -335,7 +335,7 @@ class TravelService
         $travel->setAttribute('starting_price', $this->resolveStartingPrice($categories));
         $travel->setAttribute('currency', (string) config('checkout.currency', 'EGP'));
         $travel->setAttribute('category_options', $categoryOptions->all());
-        $travel->setAttribute('booking_open', $travel->is_active && ! $this->hasTravelStarted($travel) && $categoryOptions->sum('remaining_count') > 0);
+        $travel->setAttribute('booking_open', $travel->is_active && ! $this->hasTravelEnded($travel) && $categoryOptions->sum('remaining_count') > 0);
 
         return $travel;
     }
@@ -453,9 +453,9 @@ class TravelService
         return $price === null ? null : $this->formatMoney($price);
     }
 
-    private function hasTravelStarted(Travel $travel): bool
+    private function hasTravelEnded(Travel $travel): bool
     {
-        return optional($travel->start_date)->lt(Carbon::today()) ?? false;
+        return optional($travel->end_date)->lt(Carbon::today()) ?? false;
     }
 
     private function imageUrl(Travel $travel): ?string

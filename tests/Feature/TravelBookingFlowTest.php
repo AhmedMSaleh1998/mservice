@@ -270,6 +270,37 @@ class TravelBookingFlowTest extends TestCase
         $this->assertSame('4000.00', data_get($order->payload, 'subscription_charge.amount'));
     }
 
+    public function test_booking_allows_active_travel_until_end_date(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 5, 2, 10, 0, 0, 'Africa/Cairo'));
+
+        $this->seedAuthenticatedUser();
+        $this->seedPaymentMethods();
+        $this->fakeSubscriptionCharge(0);
+        $travel = $this->seedTravel([
+            'start_date' => '2026-05-01',
+            'end_date' => '2026-05-10',
+        ]);
+        $category = $this->seedCategory($travel, [
+            'code' => 'A',
+            'name' => ['en' => 'Plan A', 'ar' => 'خطة A'],
+            'price' => 6000,
+            'capacity' => 10,
+        ]);
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson("/api/v1/travels/{$travel->id}/booking", [
+                'items' => [
+                    ['travel_category_id' => $category->id, 'quantity' => 1],
+                ],
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.request.travel.id', $travel->id);
+        $response->assertJsonPath('data.order.request.categories.0.quantity', 1);
+    }
+
     public function test_booking_marks_free_travel_booking_as_paid_without_creating_order(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 8, 10, 10, 0, 0, 'Africa/Cairo'));
