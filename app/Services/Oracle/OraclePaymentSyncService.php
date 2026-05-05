@@ -8,6 +8,8 @@ use Modules\Certificates\Models\CertificateRequest;
 use Modules\Core\Models\Order;
 use Modules\Courses\Models\CourseBooking;
 use Modules\Memberships\Models\MembershipRequest;
+use Modules\Services\Models\RestUnitBooking;
+use Modules\Travels\Models\TravelBooking;
 use Modules\Users\Models\User;
 use PDO;
 use RuntimeException;
@@ -163,7 +165,9 @@ class OraclePaymentSyncService
             $orderable instanceof MembershipRequest => 'subscription',
             $orderable instanceof CertificateRequest => 'certificate',
             $orderable instanceof CourseBooking => 'course',
-            $orderable instanceof AdRequest => null,
+            $orderable instanceof AdRequest => 'ad',
+            $orderable instanceof RestUnitBooking => 'rest_unit',
+            $orderable instanceof TravelBooking => 'travel',
             default => null,
         };
     }
