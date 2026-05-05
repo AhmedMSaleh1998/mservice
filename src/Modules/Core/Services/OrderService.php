@@ -5,6 +5,7 @@ namespace Modules\Core\Services;
 use App\Services\Oracle\OraclePaymentSyncService;
 use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 use Modules\Ads\Models\AdRequest;
 use Modules\Certificates\Models\CertificateRequest;
@@ -510,6 +511,17 @@ class OrderService
         $order = $order->fresh(['orderable', 'user']);
 
         if ($wasPaidBeforeSave && $this->hasSuccessfulOraclePaymentSync($order)) {
+            Log::info('Oracle payment sync skipped because order was already exported successfully.', [
+                'order_id' => $order->id,
+                'order_status' => $order->status,
+                'gateway_status' => $order->gateway_status,
+                'merchant_ref_num' => $order->merchant_ref_num,
+                'gateway_reference' => $order->gateway_reference,
+                'orderable_type' => $order->orderable_type,
+                'orderable_id' => $order->orderable_id,
+                'oracle_payment_sync' => data_get($order->payload, 'oracle_payment_sync'),
+            ]);
+
             return $order;
         }
 
@@ -536,6 +548,21 @@ class OrderService
         $order->forceFill([
             'payload' => $payload,
         ])->save();
+
+        Log::log(($syncResult['status'] ?? null) === 'success' ? 'info' : 'warning', 'Oracle payment sync result stored on order.', [
+            'order_id' => $order->id,
+            'order_status' => $order->status,
+            'gateway_status' => $order->gateway_status,
+            'merchant_ref_num' => $order->merchant_ref_num,
+            'gateway_reference' => $order->gateway_reference,
+            'orderable_type' => $order->orderable_type,
+            'orderable_id' => $order->orderable_id,
+            'sync_status' => $syncResult['status'] ?? null,
+            'sync_reason' => $syncResult['reason'] ?? null,
+            'sync_status_code' => $syncResult['status_code'] ?? null,
+            'sync_message' => $syncResult['message'] ?? null,
+            'synced_at' => $syncResult['synced_at'] ?? null,
+        ]);
 
         return $order->fresh(['orderable', 'user']);
     }
