@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\CourseBookingsController;
 use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\ContactUsController;
 use App\Http\Controllers\Api\GradesController;
+use App\Http\Controllers\Api\DoctorMedicalGuideController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\LanguagesController;
 use App\Http\Controllers\Api\LoginController;
@@ -154,6 +155,14 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
 
         Route::get('certificates', [CertificatesController::class, 'index']);
         Route::post('certificate/request', [CertificateRequestController::class, 'store']);
+
+        Route::prefix('medical-guides/me')->group(function () {
+            Route::get('/', [DoctorMedicalGuideController::class, 'show']);
+            Route::post('activate', [DoctorMedicalGuideController::class, 'activate']);
+            Route::post('deactivate', [DoctorMedicalGuideController::class, 'deactivate']);
+            Route::post('clinics/{clinic}/activate', [DoctorMedicalGuideController::class, 'activateClinic']);
+            Route::post('clinics/{clinic}/deactivate', [DoctorMedicalGuideController::class, 'deactivateClinic']);
+        });
 
         Route::prefix('ads')->group(function () {
             Route::get('/', [AdRequestsController::class, 'approved']);

@@ -12,3 +12,4 @@ Schedule::command('ads:release-expired-reservations')->everyMinute();
 Schedule::command('courses:release-expired-bookings')->everyMinute();
 Schedule::command('rest-units:release-expired-bookings')->everyMinute();
 Schedule::command('travels:release-expired-bookings')->everyMinute();
+Schedule::command('medical-guides:sync-oracle')->dailyAt('03:00')->withoutOverlapping();
