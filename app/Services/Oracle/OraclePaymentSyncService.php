@@ -40,13 +40,15 @@ class OraclePaymentSyncService
     {
         $order->loadMissing('orderable', 'user');
 
-        $paymentData = $this->buildPaymentData($order);
+        $paymentParts = $this->buildPaymentDataParts($order);
+        $paymentData = $this->summarizePaymentParts($paymentParts);
         $attemptedAt = now()->format('Y-m-d H:i:s');
 
         $this->logPaymentSyncEvent('Oracle payment sync requested.', $order, $paymentData, [
             'attempted_at' => $attemptedAt,
             'enabled' => (bool) config('services.oracle.payment_sync_enabled', true),
             'configured' => $this->isConfigured(),
+            'parts_count' => count($paymentParts),
         ]);
 
         if (! config('services.oracle.payment_sync_enabled', true)) {
@@ -57,7 +59,7 @@ class OraclePaymentSyncService
             return $this->logAndReturnResult($order, $paymentData, $this->buildSkippedResult($paymentData, $attemptedAt, 'not_configured', 'Oracle payment sync is not configured.'));
         }
 
-        if ($paymentData['payment_type'] === null) {
+        if ($paymentParts === [] || collect($paymentParts)->contains(fn (array $part): bool => $part['payment_type'] === null)) {
             return $this->logAndReturnResult($order, $paymentData, $this->buildSkippedResult($paymentData, $attemptedAt, 'unsupported_payment_type', 'This paid order type is not supported by Oracle PAYMENT_SERVICE.'));
         }
 
@@ -65,104 +67,187 @@ class OraclePaymentSyncService
             return $this->logAndReturnResult($order, $paymentData, $this->buildSkippedResult($paymentData, $attemptedAt, 'zero_amount', 'Zero-amount payments are not synced to Oracle.'));
         }
 
-        $missingField = $this->resolveMissingField($paymentData);
-        if ($missingField !== null) {
-            return $this->logAndReturnResult($order, $paymentData, [
-                'status' => 'failed',
-                'reason' => 'missing_required_data',
-                'attempted_at' => $attemptedAt,
-                'synced_at' => null,
-                'payment_type' => $paymentData['payment_type'],
-                'status_code' => null,
-                'message' => sprintf('Oracle payment sync is missing required field: %s.', $missingField),
-                'request' => $paymentData,
-            ]);
+        foreach ($paymentParts as $part) {
+            $missingField = $this->resolveMissingField($part);
+            if ($missingField !== null) {
+                return $this->logAndReturnResult($order, $paymentData, [
+                    'status' => 'failed',
+                    'reason' => 'missing_required_data',
+                    'attempted_at' => $attemptedAt,
+                    'synced_at' => null,
+                    'payment_type' => $part['payment_type'],
+                    'status_code' => null,
+                    'message' => sprintf('Oracle payment sync is missing required field: %s.', $missingField),
+                    'request' => $paymentData,
+                    'parts' => [
+                        [
+                            'status' => 'failed',
+                            'reason' => 'missing_required_data',
+                            'payment_type' => $part['payment_type'],
+                            'status_code' => null,
+                            'message' => sprintf('Oracle payment sync is missing required field: %s.', $missingField),
+                            'request' => $part,
+                        ],
+                    ],
+                ]);
+            }
         }
 
         $connection = $this->oracleConnectionService->make();
         $driver = $connection instanceof PDO ? 'pdo_oci' : 'oci8';
 
-        Log::info('Oracle payment sync started.', [
-            'driver' => $driver,
-            'order_id' => $order->id,
-            'payment_type' => $paymentData['payment_type'],
-        ]);
+        $partResults = [];
 
-        try {
-            [$statusCode, $message] = $connection instanceof PDO
-                ? $this->syncWithPdo($connection, $paymentData)
-                : $this->syncWithOci8($connection, $paymentData);
-        } catch (RuntimeException $exception) {
-            Log::error('Oracle payment sync failed.', [
+        foreach ($paymentParts as $part) {
+            Log::info('Oracle payment sync started.', [
                 'driver' => $driver,
                 'order_id' => $order->id,
-                'payment_type' => $paymentData['payment_type'],
-                'error' => $exception->getMessage(),
+                'payment_type' => $part['payment_type'],
+                'amount' => $part['amount'],
+                'part' => $part['part'] ?? null,
             ]);
 
-            return $this->logAndReturnResult($order, $paymentData, [
-                'status' => 'failed',
-                'reason' => 'oracle_error',
-                'attempted_at' => $attemptedAt,
-                'synced_at' => null,
-                'payment_type' => $paymentData['payment_type'],
-                'status_code' => null,
-                'message' => $exception->getMessage(),
-                'request' => $paymentData,
+            try {
+                [$statusCode, $message] = $connection instanceof PDO
+                    ? $this->syncWithPdo($connection, $part)
+                    : $this->syncWithOci8($connection, $part);
+            } catch (RuntimeException $exception) {
+                Log::error('Oracle payment sync failed.', [
+                    'driver' => $driver,
+                    'order_id' => $order->id,
+                    'payment_type' => $part['payment_type'],
+                    'amount' => $part['amount'],
+                    'part' => $part['part'] ?? null,
+                    'error' => $exception->getMessage(),
+                ]);
+
+                $partResults[] = [
+                    'status' => 'failed',
+                    'reason' => 'oracle_error',
+                    'payment_type' => $part['payment_type'],
+                    'status_code' => null,
+                    'message' => $exception->getMessage(),
+                    'request' => $part,
+                ];
+
+                return $this->logAndReturnResult($order, $paymentData, [
+                    'status' => 'failed',
+                    'reason' => 'oracle_error',
+                    'attempted_at' => $attemptedAt,
+                    'synced_at' => null,
+                    'payment_type' => $part['payment_type'],
+                    'status_code' => null,
+                    'message' => $exception->getMessage(),
+                    'request' => $paymentData,
+                    'parts' => $partResults,
+                ]);
+            }
+
+            $normalizedStatusCode = $this->normalizeStatusCode($statusCode);
+            $normalizedMessage = trim($message);
+            $success = $normalizedStatusCode === 200;
+
+            Log::info('Oracle PAYMENT_SERVICE response received.', [
+                ...$this->paymentSyncLogContext($order, $part),
+                'part' => $part['part'] ?? null,
+                'raw_status_code' => $statusCode,
+                'raw_message' => $message,
+                'normalized_status_code' => $normalizedStatusCode,
+                'normalized_message' => $normalizedMessage,
             ]);
+
+            Log::log($success ? 'info' : 'warning', 'Oracle payment sync completed.', [
+                'driver' => $driver,
+                'order_id' => $order->id,
+                'payment_type' => $part['payment_type'],
+                'amount' => $part['amount'],
+                'part' => $part['part'] ?? null,
+                'status_code' => $normalizedStatusCode,
+                'message' => $normalizedMessage,
+            ]);
+
+            $partResult = [
+                'status' => $success ? 'success' : 'failed',
+                'reason' => $success ? null : 'oracle_rejected',
+                'payment_type' => $part['payment_type'],
+                'status_code' => $normalizedStatusCode,
+                'message' => $normalizedMessage !== '' ? $normalizedMessage : null,
+                'request' => $part,
+            ];
+
+            $partResults[] = $partResult;
+
+            if (! $success) {
+                return $this->logAndReturnResult($order, $paymentData, [
+                    'status' => 'failed',
+                    'reason' => 'oracle_rejected',
+                    'attempted_at' => $attemptedAt,
+                    'synced_at' => null,
+                    'payment_type' => $part['payment_type'],
+                    'status_code' => $normalizedStatusCode,
+                    'message' => $normalizedMessage !== '' ? $normalizedMessage : null,
+                    'request' => $paymentData,
+                    'parts' => $partResults,
+                ]);
+            }
         }
 
-        $normalizedStatusCode = $this->normalizeStatusCode($statusCode);
-        $normalizedMessage = trim($message);
-        $success = $normalizedStatusCode === 200;
-
-        Log::info('Oracle PAYMENT_SERVICE response received.', [
-            ...$this->paymentSyncLogContext($order, $paymentData),
-            'raw_status_code' => $statusCode,
-            'raw_message' => $message,
-            'normalized_status_code' => $normalizedStatusCode,
-            'normalized_message' => $normalizedMessage,
-        ]);
-
-        Log::log($success ? 'info' : 'warning', 'Oracle payment sync completed.', [
-            'driver' => $driver,
-            'order_id' => $order->id,
-            'payment_type' => $paymentData['payment_type'],
-            'status_code' => $normalizedStatusCode,
-            'message' => $normalizedMessage,
-        ]);
-
         return $this->logAndReturnResult($order, $paymentData, [
-            'status' => $success ? 'success' : 'failed',
-            'reason' => $success ? null : 'oracle_rejected',
+            'status' => 'success',
+            'reason' => null,
             'attempted_at' => $attemptedAt,
-            'synced_at' => $success ? now()->format('Y-m-d H:i:s') : null,
+            'synced_at' => now()->format('Y-m-d H:i:s'),
             'payment_type' => $paymentData['payment_type'],
-            'status_code' => $normalizedStatusCode,
-            'message' => $normalizedMessage !== '' ? $normalizedMessage : null,
+            'status_code' => 200,
+            'message' => null,
             'request' => $paymentData,
+            'parts' => $partResults,
         ]);
     }
 
-    private function buildPaymentData(Order $order): array
+    private function buildPaymentDataParts(Order $order): array
     {
         $orderable = $order->orderable;
         $user = $order->user;
+        $subscriptionAmount = $this->resolveSubscriptionAmount($order);
+        $totalAmount = (float) $order->amount;
+        $serviceAmount = max($totalAmount - $subscriptionAmount, 0);
 
-        return [
+        $basePaymentData = [
             'registration_no' => $this->resolveRegistrationNo($orderable, $user),
-            'amount' => $this->formatAmount($order->amount),
-            'payment_type' => $this->resolvePaymentType($orderable),
             'bank_transaction_id' => $this->resolveBankTransactionId($order),
-            'course_id' => $orderable instanceof CourseBooking ? (int) $orderable->course_id : null,
             'phone_number' => $this->resolvePhoneNumber($orderable, $user),
         ];
+
+        $parts = [];
+
+        if ($subscriptionAmount > 0) {
+            $parts[] = [
+                ...$basePaymentData,
+                'amount' => $this->formatAmount($subscriptionAmount),
+                'payment_type' => 'subscription',
+                'course_id' => null,
+                'part' => 'subscription',
+            ];
+        }
+
+        if ($serviceAmount > 0) {
+            $parts[] = [
+                ...$basePaymentData,
+                'amount' => $this->formatAmount($serviceAmount),
+                'payment_type' => $this->resolvePaymentType($orderable),
+                'course_id' => $orderable instanceof CourseBooking ? (int) $orderable->course_id : null,
+                'part' => 'service',
+            ];
+        }
+
+        return $parts;
     }
 
     private function resolvePaymentType(mixed $orderable): ?string
     {
         return match (true) {
-            $orderable instanceof MembershipRequest => 'subscription',
+            $orderable instanceof MembershipRequest => 'membership',
             $orderable instanceof CertificateRequest => 'certificate',
             $orderable instanceof CourseBooking => 'course',
             $orderable instanceof AdRequest => 'ad',
@@ -197,6 +282,60 @@ class OraclePaymentSyncService
         $value = trim((string) ($order->gateway_reference ?: $order->merchant_ref_num ?: ('ORDER-' . $order->id)));
 
         return $value;
+    }
+
+    private function resolveSubscriptionAmount(Order $order): float
+    {
+        $payloadAmount = data_get($order->payload, 'subscription_charge.amount');
+        if (is_numeric($payloadAmount) && (float) $payloadAmount > 0) {
+            return min((float) $payloadAmount, (float) $order->amount);
+        }
+
+        $pricingItems = collect(data_get($order->payload, 'pricing.items', []))
+            ->filter(static fn (mixed $item): bool => is_array($item));
+
+        $pricingAmount = $pricingItems
+            ->filter(fn (array $item): bool => $this->isSubscriptionPricingItem((string) ($item['code'] ?? '')))
+            ->sum(fn (array $item): float => (float) ($item['amount'] ?? 0));
+
+        if ($pricingAmount > 0) {
+            return min((float) $pricingAmount, (float) $order->amount);
+        }
+
+        $orderableAmount = data_get($order->orderable, 'subscription_cost');
+        if (is_numeric($orderableAmount) && (float) $orderableAmount > 0) {
+            return min((float) $orderableAmount, (float) $order->amount);
+        }
+
+        return 0.0;
+    }
+
+    private function isSubscriptionPricingItem(string $code): bool
+    {
+        return in_array($code, [
+            'subscription_fees',
+            'membership_subscription',
+            'certificate_subscription',
+            'course_subscription',
+            'ad_subscription',
+        ], true);
+    }
+
+    private function summarizePaymentParts(array $paymentParts): array
+    {
+        if (count($paymentParts) === 1) {
+            return $paymentParts[0];
+        }
+
+        return [
+            'registration_no' => (string) data_get($paymentParts, '0.registration_no', ''),
+            'amount' => $this->formatAmount(collect($paymentParts)->sum(fn (array $part): float => (float) $part['amount'])),
+            'payment_type' => 'split',
+            'bank_transaction_id' => (string) data_get($paymentParts, '0.bank_transaction_id', ''),
+            'course_id' => collect($paymentParts)->firstWhere('part', 'service')['course_id'] ?? null,
+            'phone_number' => (string) data_get($paymentParts, '0.phone_number', ''),
+            'parts' => $paymentParts,
+        ];
     }
 
     private function resolveMissingField(array $paymentData): ?string
