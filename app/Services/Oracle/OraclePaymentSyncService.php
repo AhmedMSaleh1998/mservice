@@ -145,7 +145,7 @@ class OraclePaymentSyncService
 
             $normalizedStatusCode = $this->normalizeStatusCode($statusCode);
             $normalizedMessage = trim($message);
-            $success = $normalizedStatusCode === 200;
+            $success = $this->isSuccessfulPaymentResponse($part, $normalizedStatusCode);
 
             Log::info('Oracle PAYMENT_SERVICE response received.', [
                 ...$this->paymentSyncLogContext($order, $part),
@@ -537,6 +537,16 @@ class OraclePaymentSyncService
         $statusCode = trim((string) $statusCode);
 
         return $statusCode !== '' ? $statusCode : null;
+    }
+
+    private function isSuccessfulPaymentResponse(array $paymentData, int|string|null $statusCode): bool
+    {
+        if ($statusCode === 200) {
+            return true;
+        }
+
+        return ($paymentData['payment_type'] ?? null) === 'subscription'
+            && $statusCode === 1;
     }
 
     private function normalizeDigits(string $value): string
