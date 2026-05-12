@@ -388,6 +388,10 @@ class OracleMedicalGuideSyncService
             ? $payload['specialization']
             : [];
 
+        if (array_is_list($specialization)) {
+            $specialization = Arr::first($specialization, fn (mixed $item): bool => is_array($item), []);
+        }
+
         return $this->normalizeNullableString(
             $specialization['detail']
                 ?? $specialization['main_sub']
