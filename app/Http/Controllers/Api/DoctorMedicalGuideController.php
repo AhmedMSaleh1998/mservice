@@ -26,29 +26,22 @@ class DoctorMedicalGuideController extends Controller
         ]);
     }
 
-    public function activate(Request $request)
-    {
-        return $this->setMedicalGuideActive($request, true);
-    }
-
-    public function deactivate(Request $request)
-    {
-        return $this->setMedicalGuideActive($request, false);
-    }
-
-    public function activateClinic(Request $request, MedicalGuidePlace $clinic)
-    {
-        return $this->setClinicActive($request, $clinic, true);
-    }
-
-    public function deactivateClinic(Request $request, MedicalGuidePlace $clinic)
-    {
-        return $this->setClinicActive($request, $clinic, false);
-    }
-
-    private function setMedicalGuideActive(Request $request, bool $active)
+    public function toggle(Request $request)
     {
         $medicalGuide = $this->currentDoctorMedicalGuide($request);
+
+        return $this->setMedicalGuideActive($medicalGuide, ! $medicalGuide->is_active);
+    }
+
+    public function toggleClinic(Request $request, MedicalGuidePlace $clinic)
+    {
+        $medicalGuide = $this->currentDoctorMedicalGuide($request);
+
+        return $this->setClinicActive($medicalGuide, $clinic, ! $clinic->is_active);
+    }
+
+    private function setMedicalGuideActive(MedicalGuide $medicalGuide, bool $active)
+    {
         $medicalGuide->forceFill([
             'is_active' => $active,
         ])->save();
@@ -64,10 +57,8 @@ class DoctorMedicalGuideController extends Controller
         ]);
     }
 
-    private function setClinicActive(Request $request, MedicalGuidePlace $clinic, bool $active)
+    private function setClinicActive(MedicalGuide $medicalGuide, MedicalGuidePlace $clinic, bool $active)
     {
-        $medicalGuide = $this->currentDoctorMedicalGuide($request);
-
         if ((int) $clinic->medical_guide_id !== (int) $medicalGuide->id) {
             throw new NotFoundHttpException('Clinic not found.');
         }

@@ -158,10 +158,8 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
 
         Route::prefix('medical-guides/me')->group(function () {
             Route::get('/', [DoctorMedicalGuideController::class, 'show']);
-            Route::post('activate', [DoctorMedicalGuideController::class, 'activate']);
-            Route::post('deactivate', [DoctorMedicalGuideController::class, 'deactivate']);
-            Route::post('clinics/{clinic}/activate', [DoctorMedicalGuideController::class, 'activateClinic']);
-            Route::post('clinics/{clinic}/deactivate', [DoctorMedicalGuideController::class, 'deactivateClinic']);
+            Route::post('toggle', [DoctorMedicalGuideController::class, 'toggle']);
+            Route::post('clinics/{clinic}/toggle', [DoctorMedicalGuideController::class, 'toggleClinic']);
         });
 
         Route::prefix('ads')->group(function () {
