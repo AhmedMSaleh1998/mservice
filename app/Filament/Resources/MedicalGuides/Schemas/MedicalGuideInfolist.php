@@ -47,11 +47,6 @@ class MedicalGuideInfolist
                             ->boolean()
                             ->trueColor('success')
                             ->falseColor('danger'),
-                        IconEntry::make('is_featured')
-                            ->label(__('Is Featured'))
-                            ->boolean()
-                            ->trueColor('success')
-                            ->falseColor('danger'),
                         TextEntry::make('created_at')
                             ->label(__('Created At'))
                             ->dateTime(),

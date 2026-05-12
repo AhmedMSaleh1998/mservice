@@ -6,13 +6,9 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Actions\ForceDeleteBulkAction;
-use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 
 class MedicalGuidesTable
@@ -41,17 +37,8 @@ class MedicalGuidesTable
                         return $record->province?->getTranslation('name', app()->getLocale());
                     })
                     ->sortable(),
-                IconColumn::make('is_active')
+                ToggleColumn::make('is_active')
                     ->label(__('Is Active'))
-                    ->boolean()
-                    ->trueColor('success')
-                    ->falseColor('danger')
-                    ->sortable(),
-                IconColumn::make('is_featured')
-                    ->label(__('Is Featured'))
-                    ->boolean()
-                    ->trueColor('success')
-                    ->falseColor('danger')
                     ->sortable(),
             ])
             ->filters([

@@ -33,6 +33,7 @@ class ManagePanelProvider extends PanelProvider
             ->authGuard('admin')
             ->authPasswordBroker('admins')
             ->brandLogo(asset('assets/medical-syndicate-logo.png'))
+            ->favicon(asset('assets/ems-logo.png'))
             ->brandLogoHeight('3.5rem')
             ->viteTheme('resources/css/filament/manage/theme.css')
             ->renderHook(
