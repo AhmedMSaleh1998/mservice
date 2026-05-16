@@ -40,7 +40,7 @@ class FawryHostedCheckoutService
         // Fawry requires a fresh merchant reference for every new charge request.
         $merchantRefNum = $this->buildMerchantRefNum($order);
         $returnUrl = $this->returnUrl();
-        $chargeItems = $this->buildChargeItems($order);
+        $chargeItems = $this->sortChargeItems($this->buildChargeItems($order));
         $totalAmount = $this->formatAmount($order->amount);
 
         $signature = $this->buildChargeSignature($merchantRefNum, (string) $user->id, $returnUrl, $chargeItems);
@@ -366,13 +366,24 @@ class FawryHostedCheckoutService
         throw new RuntimeException('Fawry checkout is not supported for this order.');
     }
 
+    private function sortChargeItems(array $chargeItems): array
+    {
+        return collect($chargeItems)
+            ->sortBy(function (array $item): string {
+                $itemId = (string) ($item['itemId'] ?? '');
+                $priority = str_contains($itemId, 'SUBSCRIPTION') ? '0' : '1';
+
+                return $priority . $itemId;
+            })
+            ->values()
+            ->all();
+    }
+
     private function buildChargeSignature(string $merchantRefNum, string $customerProfileId, string $returnUrl, array $chargeItems): string
     {
-        $sortedItems = collect($chargeItems)
-            ->sortBy(static fn (array $item) => (string) ($item['itemId'] ?? ''))
-            ->values();
+        $sortedItems = $this->sortChargeItems($chargeItems);
 
-        $itemsSignature = $sortedItems->reduce(function (string $carry, array $item): string {
+        $itemsSignature = collect($sortedItems)->reduce(function (string $carry, array $item): string {
             return $carry
                 . (string) ($item['itemId'] ?? '')
                 . (string) ((int) ($item['quantity'] ?? 0))
@@ -391,17 +402,15 @@ class FawryHostedCheckoutService
 
     private function buildChargeSignatureDebug(string $merchantRefNum, string $customerProfileId, string $returnUrl, array $chargeItems): array
     {
-        $sortedItems = collect($chargeItems)
-            ->sortBy(static fn (array $item) => (string) ($item['itemId'] ?? ''))
-            ->values();
+        $sortedItems = $this->sortChargeItems($chargeItems);
 
-        $itemParts = $sortedItems->map(fn (array $item): array => [
+        $itemParts = collect($sortedItems)->map(fn (array $item): array => [
             'itemId' => (string) ($item['itemId'] ?? ''),
             'quantity' => (string) ((int) ($item['quantity'] ?? 0)),
             'price' => $this->formatAmount($item['price'] ?? 0),
         ])->all();
 
-        $itemsSignature = $sortedItems->reduce(function (string $carry, array $item): string {
+        $itemsSignature = collect($sortedItems)->reduce(function (string $carry, array $item): string {
             return $carry
                 . (string) ($item['itemId'] ?? '')
                 . (string) ((int) ($item['quantity'] ?? 0))
@@ -412,7 +421,7 @@ class FawryHostedCheckoutService
 
         return [
             'algorithm' => 'sha256',
-            'order' => 'merchantCode + merchantRefNum + customerProfileId + returnUrl + (itemId+quantity+price per sorted item) + secureKey',
+            'order' => 'merchantCode + merchantRefNum + customerProfileId + returnUrl + (itemId+quantity+price per item; subscription items first, then alphabetical) + secureKey',
             'parts' => [
                 'merchantCode' => $this->merchantCode(),
                 'merchantRefNum' => $merchantRefNum,
