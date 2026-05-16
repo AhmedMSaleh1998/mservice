@@ -43,6 +43,9 @@ class FawryHostedCheckoutService
         $chargeItems = $this->buildChargeItems($order);
         $totalAmount = $this->formatAmount($order->amount);
 
+        $signature = $this->buildChargeSignature($merchantRefNum, (string) $user->id, $returnUrl, $chargeItems);
+        $signatureDebug = $this->buildChargeSignatureDebug($merchantRefNum, (string) $user->id, $returnUrl, $chargeItems);
+
         $payload = [
             'merchantCode' => $this->merchantCode(),
             'merchantRefNum' => $merchantRefNum,
@@ -56,8 +59,20 @@ class FawryHostedCheckoutService
             'paymentExpiry' => $this->paymentExpiry($order),
             'chargeItems' => $chargeItems,
             'returnUrl' => $returnUrl,
-            'signature' => $this->buildChargeSignature($merchantRefNum, (string) $user->id, $returnUrl, $chargeItems),
+            'signature' => $signature,
         ];
+
+        Log::info('Fawry init request prepared', [
+            'order_id' => $order->id,
+            'user_id' => $user->id,
+            'merchant_ref_num' => $merchantRefNum,
+            'init_url' => $this->initUrl(),
+            'return_url' => $returnUrl,
+            'amount' => $totalAmount,
+            'request' => $payload,
+            'signature_input' => $signatureDebug,
+            'signature' => $signature,
+        ]);
 
         $response = Http::asJson()
             ->timeout(20)
@@ -69,7 +84,8 @@ class FawryHostedCheckoutService
                 'order_id' => $order->id,
                 'merchant_ref_num' => $merchantRefNum,
                 'http_status' => $response->status(),
-                'request' => Arr::except($payload, ['signature']),
+                'request' => $payload,
+                'signature_input' => $signatureDebug,
                 'response_body' => $response->body(),
                 'response_json' => $response->json(),
             ]);
@@ -88,7 +104,8 @@ class FawryHostedCheckoutService
                     'merchant_ref_num' => $merchantRefNum,
                     'status_code' => $statusCode,
                     'status_description' => data_get($responseData, 'statusDescription'),
-                    'request' => Arr::except($payload, ['signature']),
+                    'request' => $payload,
+                    'signature_input' => $signatureDebug,
                     'response' => $responseData,
                 ]);
 
@@ -96,6 +113,15 @@ class FawryHostedCheckoutService
             }
 
             $paymentUrl = $this->extractPaymentUrl($responseData);
+
+            Log::info('Fawry init request succeeded', [
+                'order_id' => $order->id,
+                'merchant_ref_num' => $merchantRefNum,
+                'http_status' => $response->status(),
+                'reference_number' => data_get($responseData, 'referenceNumber'),
+                'payment_url' => $paymentUrl,
+                'response' => $responseData,
+            ]);
         } else {
             $paymentUrl = $this->extractPaymentUrlFromSuccessfulResponse($response->headers(), $response->body());
 
@@ -361,6 +387,50 @@ class FawryHostedCheckoutService
             . $itemsSignature
             . $this->secureKey()
         );
+    }
+
+    private function buildChargeSignatureDebug(string $merchantRefNum, string $customerProfileId, string $returnUrl, array $chargeItems): array
+    {
+        $sortedItems = collect($chargeItems)
+            ->sortBy(static fn (array $item) => (string) ($item['itemId'] ?? ''))
+            ->values();
+
+        $itemParts = $sortedItems->map(fn (array $item): array => [
+            'itemId' => (string) ($item['itemId'] ?? ''),
+            'quantity' => (string) ((int) ($item['quantity'] ?? 0)),
+            'price' => $this->formatAmount($item['price'] ?? 0),
+        ])->all();
+
+        $itemsSignature = $sortedItems->reduce(function (string $carry, array $item): string {
+            return $carry
+                . (string) ($item['itemId'] ?? '')
+                . (string) ((int) ($item['quantity'] ?? 0))
+                . $this->formatAmount($item['price'] ?? 0);
+        }, '');
+
+        $secureKey = $this->secureKey();
+
+        return [
+            'algorithm' => 'sha256',
+            'order' => 'merchantCode + merchantRefNum + customerProfileId + returnUrl + (itemId+quantity+price per sorted item) + secureKey',
+            'parts' => [
+                'merchantCode' => $this->merchantCode(),
+                'merchantRefNum' => $merchantRefNum,
+                'customerProfileId' => $customerProfileId,
+                'returnUrl' => $returnUrl,
+                'items' => $itemParts,
+                'itemsConcatenated' => $itemsSignature,
+                'secureKey_length' => strlen($secureKey),
+                'secureKey_first4' => substr($secureKey, 0, 4),
+                'secureKey_last4' => substr($secureKey, -4),
+            ],
+            'concatenated' => $this->merchantCode()
+                . $merchantRefNum
+                . $customerProfileId
+                . $returnUrl
+                . $itemsSignature
+                . '[secureKey hidden]',
+        ];
     }
 
     private function extractPaymentUrl(array $responseData): ?string

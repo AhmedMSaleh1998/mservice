@@ -170,6 +170,18 @@ class OrdersController extends Controller
     {
         $payload = $request->all();
         $merchantRefNum = (string) data_get($payload, 'merchantRefNumber');
+
+        Log::info('Fawry return callback received', [
+            'merchant_ref_num' => $merchantRefNum,
+            'status_code' => data_get($payload, 'statusCode'),
+            'status_description' => data_get($payload, 'statusDescription'),
+            'order_status' => data_get($payload, 'orderStatus'),
+            'method' => $request->method(),
+            'query' => $request->query(),
+            'payload' => Arr::except($payload, ['signature']),
+            'has_signature' => filled(data_get($payload, 'signature')),
+        ]);
+
         $order = $merchantRefNum !== '' ? $this->orderService->findByMerchantReference($merchantRefNum) : null;
         $statusCode = (int) data_get($payload, 'statusCode', 200);
         $signatureValid = $order !== null
