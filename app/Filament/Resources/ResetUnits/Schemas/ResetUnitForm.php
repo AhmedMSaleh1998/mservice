@@ -33,12 +33,16 @@ class ResetUnitForm
                     ->label(__('Image'))
                     ->collection('cover_image')
                     ->directory('rest-units')
+                    ->downloadable()
+                    ->previewable()
                     ->columnSpanFull(),
 
                 SpatieMediaLibraryFileUpload::make('gallery')
                     ->label(__('Gallery'))
                     ->collection('gallery')
                     ->multiple()
+                    ->downloadable()
+                    ->previewable()
                     ->directory('rest-units')
                     ->columnSpanFull(),
 
