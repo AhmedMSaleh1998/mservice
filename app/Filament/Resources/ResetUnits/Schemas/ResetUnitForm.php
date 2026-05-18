@@ -37,14 +37,14 @@ class ResetUnitForm
                     ->previewable()
                     ->columnSpanFull(),
 
-                SpatieMediaLibraryFileUpload::make('gallery')
-                    ->label(__('Gallery'))
-                    ->collection('gallery')
-                    ->multiple()
-                    ->downloadable()
-                    ->previewable()
-                    ->directory('rest-units')
-                    ->columnSpanFull(),
+                //SpatieMediaLibraryFileUpload::make('gallery')
+                //    ->label(__('Gallery'))
+                //    ->collection('gallery')
+                //    ->multiple()
+                //    ->downloadable()
+                //    ->previewable()
+                //    ->directory('rest-units')
+                //    ->columnSpanFull(),
 
                 Select::make('province_id')
                     ->relationship('province', 'name')
