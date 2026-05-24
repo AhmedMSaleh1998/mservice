@@ -13,7 +13,14 @@ class DoctorMedicalGuideController extends Controller
 {
     public function show(Request $request)
     {
-        $medicalGuide = $this->currentDoctorMedicalGuide($request);
+        $medicalGuide = $this->findCurrentDoctorMedicalGuide($request);
+
+        if (! $medicalGuide instanceof MedicalGuide) {
+            return response()->json([
+                'message' => 'لا يوجد دليل طبي',
+                'medical_guide' => null,
+            ]);
+        }
 
         $medicalGuide->load([
             'specialty',
@@ -80,21 +87,28 @@ class DoctorMedicalGuideController extends Controller
 
     private function currentDoctorMedicalGuide(Request $request): MedicalGuide
     {
+        $medicalGuide = $this->findCurrentDoctorMedicalGuide($request);
+
+        if (! $medicalGuide instanceof MedicalGuide) {
+            throw new NotFoundHttpException('No medical guide profile was found for your registration number.');
+        }
+
+        return $medicalGuide;
+    }
+
+    private function findCurrentDoctorMedicalGuide(Request $request): ?MedicalGuide
+    {
         $regNumber = $this->normalizeRegisterNumber($request->user()?->reg_number);
 
         if ($regNumber === '') {
-            throw new NotFoundHttpException('Medical guide not found.');
+            throw new NotFoundHttpException('Your account does not have a registration number, so we cannot find your medical guide.');
         }
 
         $medicalGuide = MedicalGuide::query()
             ->where('reg_number', $regNumber)
             ->first();
 
-        if (! $medicalGuide instanceof MedicalGuide) {
-            throw new NotFoundHttpException('Medical guide not found.');
-        }
-
-        return $medicalGuide;
+        return $medicalGuide instanceof MedicalGuide ? $medicalGuide : null;
     }
 
     private function normalizeRegisterNumber(mixed $value): string
