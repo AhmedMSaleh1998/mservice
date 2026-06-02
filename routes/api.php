@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\NationalitiesController;
 use App\Http\Controllers\Api\NewRegisterController;
 use App\Http\Controllers\Api\OrdersController;
 use App\Http\Controllers\Api\OtpSendController;
+use App\Http\Controllers\Api\PagesController;
 use App\Http\Controllers\Api\PaymentsController;
 use App\Http\Controllers\Api\PaymentMethodsController;
 use App\Http\Controllers\Api\ProfileController;
@@ -199,4 +200,8 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
 
     Route::get('contact-us', [ContactUsController::class, 'show']);
     Route::get('home', [HomeController::class, 'index']);
+
+    Route::prefix('pages')->group(function () {
+        Route::get('/{slug}', [PagesController::class, 'show']);
+    });
 });

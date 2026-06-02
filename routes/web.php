@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\MissingRegistrationDocumentsExportController;
 use App\Http\Controllers\Portal\RegistrationRequestPortalController;
+use App\Http\Controllers\Web\PageController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/register', 'portal.register');
@@ -14,6 +15,8 @@ Route::get('/register/edit/{reg_code}', [RegistrationRequestPortalController::cl
 
 Route::get('/manage/registration-requests/missing-documents/export', MissingRegistrationDocumentsExportController::class)
     ->name('manage.registration-requests.missing-documents.export');
+
+Route::get('/{slug}', [PageController::class, 'show'])->name('pages.show');
 
 Route::get('/', function () {
     return view('welcome');

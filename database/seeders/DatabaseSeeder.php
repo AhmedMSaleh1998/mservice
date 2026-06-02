@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
             PaymentMethodsSeeder::class,
             RolesSeeder::class,
             ServicesSeeder::class,
+            PagesSeeder::class,
         ]);
     }
 }

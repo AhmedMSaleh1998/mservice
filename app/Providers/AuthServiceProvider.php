@@ -19,6 +19,7 @@ use App\Policies\LanguagePolicy;
 use App\Policies\MedicalGuidePolicy;
 use App\Policies\MedicalUniversityPolicy;
 use App\Policies\NationalityPolicy;
+use App\Policies\PagePolicy;
 use App\Policies\PaymentMethodPolicy;
 use App\Policies\ProcedurePolicy;
 use App\Policies\ProvincePolicy;
@@ -48,6 +49,7 @@ use Modules\Core\Models\Religion;
 use Modules\Core\Models\SmsMessage;
 use Modules\Courses\Models\Course;
 use Modules\MedicalGuide\Models\MedicalGuide;
+use Modules\Pages\Models\Page;
 use Modules\Procedures\Models\Procedure;
 use Modules\Services\Models\RestUnit;
 use Modules\Services\Models\RestUnitBooking;
@@ -75,6 +77,7 @@ class AuthServiceProvider extends ServiceProvider
         MedicalGuide::class => MedicalGuidePolicy::class,
         MedicalUniversity::class => MedicalUniversityPolicy::class,
         Nationality::class => NationalityPolicy::class,
+        Page::class => PagePolicy::class,
         PaymentMethod::class => PaymentMethodPolicy::class,
         Procedure::class => ProcedurePolicy::class,
         Province::class => ProvincePolicy::class,
