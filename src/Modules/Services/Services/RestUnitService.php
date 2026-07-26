@@ -10,7 +10,9 @@ use Illuminate\Validation\ValidationException;
 use Modules\Core\Services\OrderService;
 use Modules\Core\Services\SubscriptionChargeService;
 use Modules\Services\Models\RestUnit;
+use Modules\Services\Models\RestUnitBed;
 use Modules\Services\Models\RestUnitBooking;
+use Modules\Services\Models\RestUnitRoom;
 use Modules\Users\Models\User;
 use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
@@ -26,13 +28,15 @@ class RestUnitService
         $this->subscriptionChargeService = $subscriptionChargeService ?? app(SubscriptionChargeService::class);
     }
 
+    private const EAGER = ['province', 'rooms.roomType', 'beds'];
+
     public function getList(int $limit = 100, array $filters = []): LengthAwarePaginator
     {
         $normalizedFilters = $this->normalizeFilters($filters);
         $page = max(1, (int) ($normalizedFilters['page'] ?? 1));
 
         $units = RestUnit::query()
-            ->with('province')
+            ->with(self::EAGER)
             ->where('is_active', true)
             ->when(
                 $normalizedFilters['province_ids'] !== [],
@@ -41,7 +45,7 @@ class RestUnitService
             ->orderBy('id')
             ->get();
 
-        $preparedUnits = $this->prepareUnits($units, $normalizedFilters, false)
+        $preparedUnits = $this->prepareUnits($units, $normalizedFilters)
             ->filter(fn (RestUnit $unit): bool => $this->matchesListFilters($unit, $normalizedFilters))
             ->values();
 
@@ -62,7 +66,7 @@ class RestUnitService
         $normalizedFilters = $this->normalizeFilters($filters);
 
         $unit = RestUnit::query()
-            ->with('province', 'media')
+            ->with([...self::EAGER, 'media'])
             ->where('is_active', true)
             ->findOrFail($id);
 
@@ -76,19 +80,12 @@ class RestUnitService
 
     public function createBooking(array $data): RestUnitBooking
     {
-        $normalizedUnitType = RestUnit::normalizeUnitType($data['unit_type'] ?? null);
-        if (! $normalizedUnitType) {
-            throw ValidationException::withMessages([
-                'unit_type' => __('The selected room type is invalid.'),
-            ]);
-        }
-
         $user = User::query()->findOrFail((int) $data['user_id']);
         $subscriptionCharge = $this->resolveSubscriptionCharge($user);
 
-        return DB::transaction(function () use ($data, $user, $subscriptionCharge, $normalizedUnitType): RestUnitBooking {
+        return DB::transaction(function () use ($data, $user, $subscriptionCharge): RestUnitBooking {
             $unit = RestUnit::query()
-                ->with('province', 'media')
+                ->with([...self::EAGER, 'media'])
                 ->lockForUpdate()
                 ->findOrFail((int) $data['rest_unit_id']);
 
@@ -101,15 +98,12 @@ class RestUnitService
             $startDate = Carbon::parse((string) $data['start_date'])->startOfDay();
             $endDate = Carbon::parse((string) $data['end_date'])->startOfDay();
             $nights = max($startDate->diffInDays($endDate), 1);
+            $from = $startDate->toDateString();
+            $to = $endDate->toDateString();
 
-            if (! $this->roomTypeAvailable($unit, $normalizedUnitType, $startDate->toDateString(), $endDate->toDateString())) {
-                throw ValidationException::withMessages([
-                    'unit_type' => __('This room type is not available for the selected dates.'),
-                ]);
-            }
+            $target = $this->resolveBookingTarget($unit, $data, $from, $to);
 
-            $priceColumn = RestUnit::priceColumnForType($normalizedUnitType);
-            $pricePerNight = $priceColumn ? (float) data_get($unit, $priceColumn, 0) : 0;
+            $pricePerNight = $target['price'];
             $stayAmount = $pricePerNight * $nights;
             $subscriptionAmount = (float) ($subscriptionCharge['amount'] ?? 0);
             $totalAmount = $stayAmount + $subscriptionAmount;
@@ -120,7 +114,7 @@ class RestUnitService
                 : RestUnitBooking::STATUS_PENDING_PAYMENT;
             $pricing = $this->buildPricingSummary(
                 $unit,
-                $normalizedUnitType,
+                $target['label'],
                 $startDate,
                 $endDate,
                 $nights,
@@ -131,9 +125,12 @@ class RestUnitService
 
             $booking = $unit->bookings()->create([
                 'user_id' => $user->id,
-                'start_date' => $startDate->toDateString(),
-                'end_date' => $endDate->toDateString(),
-                'unit_type' => $normalizedUnitType,
+                'beneficiary_type' => RestUnitBooking::BENEFICIARY_MEMBER,
+                'rest_unit_room_id' => $target['room_id'],
+                'rest_unit_bed_id' => $target['bed_id'],
+                'start_date' => $from,
+                'end_date' => $to,
+                'unit_type' => $target['label'],
                 'total_price' => $totalAmount,
                 'status' => $bookingStatus,
                 'paid_at' => $paidAt,
@@ -220,7 +217,7 @@ class RestUnitService
 
     public function buildSummary(RestUnitBooking $booking): array
     {
-        $booking->loadMissing('restUnit.province');
+        $booking->loadMissing('restUnit.province', 'room.roomType', 'bed');
         $order = $booking->relationLoaded('order')
             ? $booking->getRelation('order')
             : null;
@@ -247,7 +244,7 @@ class RestUnitService
                 [
                     'code' => 'rest_unit_stay',
                     'label' => __('Stay fees'),
-                    'description' => $this->stayDescription($booking->restUnit, $booking->unit_type, $nights),
+                    'description' => $this->stayDescription($booking->restUnit, $booking->targetLabel(), $nights),
                     'unit_price' => $this->formatMoney($pricePerNight),
                     'quantity' => $nights,
                     'amount' => $this->formatMoney($stayAmount),
@@ -273,27 +270,27 @@ class RestUnitService
             ->values()
             ->all();
 
-        $roomTypes = collect($filters['room_types'] ?? [])
+        $roomTypeIds = collect($filters['room_type_ids'] ?? [])
             ->when(
-                isset($filters['room_type']) && $filters['room_type'] !== null,
-                fn (Collection $collection) => $collection->push($filters['room_type'])
+                isset($filters['room_type_id']) && $filters['room_type_id'] !== null,
+                fn (Collection $collection) => $collection->push($filters['room_type_id'])
             )
-            ->map(fn (mixed $value): ?string => RestUnit::normalizeUnitType((string) $value))
-            ->filter()
+            ->filter(fn (mixed $value): bool => is_numeric($value))
+            ->map(fn (mixed $value): int => (int) $value)
             ->unique()
             ->values()
             ->all();
 
         return [
             'province_ids' => $provinceIds,
-            'room_types' => $roomTypes,
+            'room_type_ids' => $roomTypeIds,
             'from_date' => filled($filters['from_date'] ?? null) ? (string) $filters['from_date'] : null,
             'to_date' => filled($filters['to_date'] ?? null) ? (string) $filters['to_date'] : null,
             'page' => max(1, (int) ($filters['page'] ?? 1)),
         ];
     }
 
-    private function prepareUnits(Collection $units, array $filters, bool $includeMedia = false): Collection
+    private function prepareUnits(Collection $units, array $filters): Collection
     {
         if ($units->isEmpty()) {
             return collect();
@@ -305,30 +302,26 @@ class RestUnitService
             $filters['to_date']
         );
 
-        return $units->map(function (RestUnit $unit) use ($filters, $bookingsByUnit, $includeMedia): RestUnit {
-            return $this->decorateUnit($unit, $filters, $bookingsByUnit->get($unit->id, collect()), $includeMedia);
+        return $units->map(function (RestUnit $unit) use ($filters, $bookingsByUnit): RestUnit {
+            return $this->decorateUnit($unit, $filters, $bookingsByUnit->get($unit->id, collect()), false);
         });
     }
 
     private function decorateUnit(RestUnit $unit, array $filters, Collection $overlappingBookings, bool $includeMedia = false): RestUnit
     {
         $datesSelected = filled($filters['from_date']) && filled($filters['to_date']);
-        $peakCounts = $datesSelected
-            ? RestUnitBooking::peakActiveCounts($overlappingBookings, $filters['from_date'], $filters['to_date'])
-            : ['overall' => 0, 'types' => []];
+        $nights = $datesSelected ? $this->calculateNights($filters['from_date'], $filters['to_date']) : 0;
 
-        $roomOptions = collect(RestUnit::supportedUnitTypes())
-            ->map(fn (string $type): array => $this->buildRoomOption($unit, $type, $filters, $peakCounts))
-            ->values();
+        $roomOptions = $this->buildOptions($unit, $overlappingBookings, $datesSelected, $nights);
 
         $unit->setAttribute('room_options', $roomOptions->all());
         $unit->setAttribute('total_places', $roomOptions->sum('total_count'));
-        $unit->setAttribute('available_places', $roomOptions->sum('available_count'));
+        $unit->setAttribute('available_places', $datesSelected ? $roomOptions->sum('available_count') : $roomOptions->sum('total_count'));
         $unit->setAttribute('dates', $datesSelected
             ? [
                 'from_date' => $filters['from_date'],
                 'to_date' => $filters['to_date'],
-                'nights' => $this->calculateNights($filters['from_date'], $filters['to_date']),
+                'nights' => $nights,
             ]
             : null
         );
@@ -342,30 +335,96 @@ class RestUnitService
         return $unit;
     }
 
-    private function buildRoomOption(RestUnit $unit, string $type, array $filters, array $peakCounts): array
+    private function buildOptions(RestUnit $unit, Collection $overlappingBookings, bool $datesSelected, int $nights): Collection
     {
-        $inventoryColumn = RestUnit::inventoryColumnForType($type);
-        $priceColumn = RestUnit::priceColumnForType($type);
-        $totalCount = $inventoryColumn ? max((int) data_get($unit, $inventoryColumn, 0), 0) : 0;
-        $datesSelected = filled($filters['from_date']) && filled($filters['to_date']);
-        $nights = $datesSelected ? $this->calculateNights($filters['from_date'], $filters['to_date']) : 0;
-        $pricePerNight = $priceColumn ? (float) data_get($unit, $priceColumn, 0) : 0;
-        $reservedCount = $datesSelected ? (int) ($peakCounts['types'][$type] ?? 0) : 0;
-        $availableCount = $datesSelected ? max($totalCount - $reservedCount, 0) : $totalCount;
+        $currency = (string) config('checkout.currency', 'EGP');
 
-        return [
-            'type' => $type,
-            'legacy_type' => $this->legacyUnitType($type),
-            'label' => $this->unitTypeLabel($type),
-            'total_count' => $totalCount,
-            'reserved_count' => $reservedCount,
-            'available_count' => $availableCount,
-            'price_per_night' => $this->formatMoney($pricePerNight),
-            'total_price' => $datesSelected ? $this->formatMoney($pricePerNight * $nights) : null,
-            'currency' => (string) config('checkout.currency', 'EGP'),
-            'is_available' => $availableCount > 0,
+        if ($unit->isRooms()) {
+            $occupiedRoomIds = $overlappingBookings->pluck('rest_unit_room_id')->filter()->all();
+
+            return $unit->rooms
+                ->where('status', RestUnitRoom::STATUS_IN_SERVICE)
+                ->groupBy('room_type_id')
+                ->map(function (Collection $rooms) use ($occupiedRoomIds, $datesSelected, $nights, $currency): array {
+                    $total = $rooms->count();
+                    $available = $datesSelected
+                        ? $rooms->reject(fn (RestUnitRoom $room): bool => in_array($room->id, $occupiedRoomIds, true))->count()
+                        : $total;
+                    $reserved = $datesSelected ? max($total - $available, 0) : 0;
+                    $price = (float) ($rooms->min('price') ?? 0);
+                    $first = $rooms->first();
+
+                    return $this->optionRow(
+                        key: 'room_type_'.$first->room_type_id,
+                        label: $first->typeName() ?? __('Room'),
+                        total: $total,
+                        reserved: $reserved,
+                        available: $available,
+                        price: $price,
+                        datesSelected: $datesSelected,
+                        nights: $nights,
+                        currency: $currency,
+                        extra: ['room_type_id' => $first->room_type_id],
+                    );
+                })
+                ->values();
+        }
+
+        if ($unit->isBeds()) {
+            $occupiedBedIds = $overlappingBookings->pluck('rest_unit_bed_id')->filter()->all();
+            $beds = $unit->beds->where('status', RestUnitBed::STATUS_IN_SERVICE);
+            $total = $beds->count();
+            $available = $datesSelected
+                ? $beds->reject(fn (RestUnitBed $bed): bool => in_array($bed->id, $occupiedBedIds, true))->count()
+                : $total;
+            $reserved = $datesSelected ? max($total - $available, 0) : 0;
+
+            return collect([$this->optionRow(
+                key: 'beds',
+                label: __('Beds'),
+                total: $total,
+                reserved: $reserved,
+                available: $available,
+                price: (float) $unit->price,
+                datesSelected: $datesSelected,
+                nights: $nights,
+                currency: $currency,
+            )]);
+        }
+
+        // whole unit
+        $total = $unit->isUnderMaintenance() ? 0 : 1;
+        $reserved = $datesSelected && $overlappingBookings->isNotEmpty() ? 1 : 0;
+        $available = $datesSelected ? max($total - $reserved, 0) : $total;
+
+        return collect([$this->optionRow(
+            key: 'whole_unit',
+            label: __('Whole unit'),
+            total: $total,
+            reserved: $reserved,
+            available: $available,
+            price: (float) $unit->price,
+            datesSelected: $datesSelected,
+            nights: $nights,
+            currency: $currency,
+        )]);
+    }
+
+    private function optionRow(string $key, string $label, int $total, int $reserved, int $available, float $price, bool $datesSelected, int $nights, string $currency, array $extra = []): array
+    {
+        return array_merge([
+            'key' => $key,
+            'type' => $key,
+            'label' => $label,
+            'total_count' => $total,
+            'reserved_count' => $reserved,
+            'available_count' => $available,
+            'price_per_night' => $this->formatMoney($price),
+            'total_price' => $datesSelected ? $this->formatMoney($price * $nights) : null,
+            'currency' => $currency,
+            'is_available' => $available > 0,
             'availability_known' => $datesSelected,
-        ];
+        ], $extra);
     }
 
     private function matchesListFilters(RestUnit $unit, array $filters): bool
@@ -373,9 +432,9 @@ class RestUnitService
         $roomOptions = collect($unit->getAttribute('room_options') ?? []);
         $datesSelected = filled($filters['from_date']) && filled($filters['to_date']);
 
-        if ($filters['room_types'] !== []) {
+        if ($filters['room_type_ids'] !== []) {
             return $roomOptions
-                ->whereIn('type', $filters['room_types'])
+                ->whereIn('room_type_id', $filters['room_type_ids'])
                 ->contains(fn (array $option): bool => (bool) ($option['is_available'] ?? false));
         }
 
@@ -409,28 +468,62 @@ class RestUnitService
         return $this->overlappingBookingsForUnits([$unit->id], $fromDate, $toDate)->get($unit->id, collect());
     }
 
-    private function roomTypeAvailable(RestUnit $unit, string $unitType, string $fromDate, string $toDate): bool
+    /**
+     * Auto-assign the first available concrete unit for a booking.
+     *
+     * @return array{room_id: ?int, bed_id: ?int, price: float, label: string}
+     */
+    private function resolveBookingTarget(RestUnit $unit, array $data, string $from, string $to): array
     {
-        $preparedUnit = $this->decorateUnit(
-            $unit->fresh(),
-            [
-                'from_date' => $fromDate,
-                'to_date' => $toDate,
-                'room_types' => [$unitType],
-                'province_ids' => [],
-                'page' => 1,
-            ],
-            $this->overlappingBookingsForUnit($unit, $fromDate, $toDate)
-        );
+        $blocking = $this->overlappingBookingsForUnit($unit, $from, $to);
 
-        return collect($preparedUnit->getAttribute('room_options') ?? [])
-            ->where('type', $unitType)
-            ->contains(fn (array $option): bool => (bool) ($option['is_available'] ?? false));
+        if ($unit->isRooms()) {
+            $occupied = $blocking->pluck('rest_unit_room_id')->filter()->all();
+            $rooms = $unit->rooms->where('status', RestUnitRoom::STATUS_IN_SERVICE);
+
+            if (filled($data['room_type_id'] ?? null)) {
+                $rooms = $rooms->where('room_type_id', (int) $data['room_type_id']);
+            }
+
+            $room = $rooms->first(fn (RestUnitRoom $room): bool => ! in_array($room->id, $occupied, true));
+
+            if (! $room) {
+                throw ValidationException::withMessages([
+                    'rest_unit_id' => __('This room type is not available for the selected dates.'),
+                ]);
+            }
+
+            return ['room_id' => $room->id, 'bed_id' => null, 'price' => (float) $room->price, 'label' => $room->label()];
+        }
+
+        if ($unit->isBeds()) {
+            $occupied = $blocking->pluck('rest_unit_bed_id')->filter()->all();
+            $bed = $unit->beds
+                ->where('status', RestUnitBed::STATUS_IN_SERVICE)
+                ->first(fn (RestUnitBed $bed): bool => ! in_array($bed->id, $occupied, true));
+
+            if (! $bed) {
+                throw ValidationException::withMessages([
+                    'rest_unit_id' => __('No beds are available for the selected dates.'),
+                ]);
+            }
+
+            return ['room_id' => null, 'bed_id' => $bed->id, 'price' => (float) $unit->price, 'label' => $bed->label];
+        }
+
+        // whole unit
+        if ($unit->isUnderMaintenance() || $blocking->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'rest_unit_id' => __('This unit is not available for the selected dates.'),
+            ]);
+        }
+
+        return ['room_id' => null, 'bed_id' => null, 'price' => (float) $unit->price, 'label' => __('Whole unit')];
     }
 
     private function buildPricingSummary(
         RestUnit $unit,
-        string $unitType,
+        string $label,
         Carbon $startDate,
         Carbon $endDate,
         int $nights,
@@ -444,12 +537,12 @@ class RestUnitService
             [
                 'code' => 'rest_unit_stay',
                 'label' => __('Stay fees'),
-                'description' => $this->stayDescription($unit, $unitType, $nights),
+                'description' => $this->stayDescription($unit, $label, $nights),
                 'unit_price' => $this->formatMoney($pricePerNight),
                 'quantity' => $nights,
                 'amount' => $this->formatMoney($stayAmount),
                 'meta' => [
-                    'unit_type' => $unitType,
+                    'unit_type' => $label,
                     'from_date' => $startDate->toDateString(),
                     'to_date' => $endDate->toDateString(),
                     'nights' => $nights,
@@ -479,44 +572,20 @@ class RestUnitService
         ];
     }
 
-    private function stayDescription(?RestUnit $unit, ?string $unitType, int $nights): string
+    private function stayDescription(?RestUnit $unit, ?string $label, int $nights): string
     {
         $unitName = trim((string) data_get($unit, 'name', __('Rest Unit')));
-        $roomLabel = $this->unitTypeLabel((string) $unitType);
 
-        return sprintf('%s - %s (%d %s)', $unitName, $roomLabel, $nights, __('Nights'));
-    }
-
-    private function unitTypeLabel(string $type): string
-    {
-        return match (RestUnit::normalizeUnitType($type)) {
-            RestUnit::TYPE_SINGLE_ROOM => __('Single room'),
-            RestUnit::TYPE_DOUBLE_ROOM => __('Double room'),
-            RestUnit::TYPE_TRIPLE_ROOM => __('Triple room'),
-            default => __('Room'),
-        };
-    }
-
-    private function legacyUnitType(string $type): string
-    {
-        return match (RestUnit::normalizeUnitType($type)) {
-            RestUnit::TYPE_SINGLE_ROOM => 'single_rooms',
-            RestUnit::TYPE_DOUBLE_ROOM => 'double_rooms',
-            RestUnit::TYPE_TRIPLE_ROOM => 'single_bed',
-            default => $type,
-        };
+        return sprintf('%s - %s (%d %s)', $unitName, (string) $label, $nights, __('Nights'));
     }
 
     private function pricePerNightForBooking(RestUnitBooking $booking): float
     {
-        $restUnit = $booking->restUnit;
-        if (! $restUnit) {
-            return 0;
+        if ($booking->rest_unit_room_id) {
+            return (float) ($booking->room?->price ?? 0);
         }
 
-        $priceColumn = RestUnit::priceColumnForType((string) $booking->unit_type);
-
-        return $priceColumn ? (float) data_get($restUnit, $priceColumn, 0) : 0;
+        return (float) ($booking->restUnit?->price ?? 0);
     }
 
     private function calculateNights(?string $fromDate, ?string $toDate): int

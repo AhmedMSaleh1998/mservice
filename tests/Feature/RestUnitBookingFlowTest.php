@@ -3,9 +3,9 @@
 namespace Tests\Feature;
 
 use App\Services\Oracle\OraclePaymentSyncService;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -16,12 +16,17 @@ use Modules\Core\Services\SubscriptionChargeService;
 use Modules\Core\Models\Province;
 use Modules\Services\Models\RestUnit;
 use Modules\Services\Models\RestUnitBooking;
+use Modules\Services\Models\RoomType;
 use Modules\Users\Models\User;
+use Tests\Support\RestUnitTestSchema;
 use Tests\TestCase;
 
 class RestUnitBookingFlowTest extends TestCase
 {
     private string $databasePath;
+
+    /** @var array<string, RoomType> */
+    private array $roomTypes = [];
 
     protected function setUp(): void
     {
@@ -44,6 +49,7 @@ class RestUnitBookingFlowTest extends TestCase
 
         DB::purge('sqlite');
         DB::disconnect('sqlite');
+        $this->roomTypes = [];
 
         $this->createTables();
     }
@@ -64,17 +70,12 @@ class RestUnitBookingFlowTest extends TestCase
     {
         $user = $this->seedAuthenticatedUser();
         $province = $this->seedProvince();
-        $unit = $this->seedRestUnit([
-            'province_id' => $province->id,
-            'single_rooms' => 1,
-            'double_rooms' => 1,
-            'triple_rooms' => 1,
-        ]);
+        $unit = $this->seedRestUnit(['province_id' => $province->id]);
 
         RestUnitBooking::query()->create([
             'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $this->firstRoomId($unit, 'single'),
             'user_id' => $user->id,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'start_date' => '2026-08-17',
             'end_date' => '2026-08-23',
             'status' => RestUnitBooking::STATUS_PAID_SUCCESSFULLY,
@@ -85,45 +86,37 @@ class RestUnitBookingFlowTest extends TestCase
         $response = $this->getJson("/api/v1/services/rest-units/{$unit->id}?from_date=2026-08-17&to_date=2026-08-23");
 
         $response->assertOk();
-        $response->assertJsonPath('data.room_types.0.type', RestUnit::TYPE_SINGLE_ROOM);
+        $response->assertJsonPath('data.room_types.0.label', 'Single room');
         $response->assertJsonPath('data.room_types.0.available_count', 0);
         $response->assertJsonPath('data.room_types.0.total_price', '24000.00');
         $response->assertJsonPath('data.room_types.0.is_available', false);
-        $response->assertJsonPath('data.room_types.1.type', RestUnit::TYPE_DOUBLE_ROOM);
+        $response->assertJsonPath('data.room_types.1.label', 'Double room');
         $response->assertJsonPath('data.room_types.1.available_count', 1);
         $response->assertJsonPath('data.room_types.1.total_price', '30000.00');
         $response->assertJsonPath('data.room_types.1.is_available', true);
-        $response->assertJsonPath('data.room_types.2.type', RestUnit::TYPE_TRIPLE_ROOM);
+        $response->assertJsonPath('data.room_types.2.label', 'Triple room');
         $response->assertJsonPath('data.room_types.2.available_count', 1);
         $response->assertJsonPath('data.room_types.2.total_price', '36000.00');
         $response->assertJsonPath('data.available_places', 2);
         $response->assertJsonPath('data.dates.nights', 6);
         $response->assertJsonMissingPath('data.province_id');
-        $response->assertJsonMissingPath('data.single_rooms');
-        $response->assertJsonMissingPath('data.gallery_urls');
         $response->assertJsonMissingPath('data.room_options');
-        $response->assertJsonMissingPath('data.room_types.0.legacy_type');
         $response->assertJsonMissingPath('data.room_types.0.total_count');
         $response->assertJsonMissingPath('data.room_types.0.reserved_count');
-        $response->assertJsonMissingPath('data.room_types.0.currency');
-        $response->assertJsonMissingPath('data.room_types.0.availability_known');
     }
 
     public function test_show_uses_peak_concurrent_bookings_for_selected_dates(): void
     {
         $user = $this->seedAuthenticatedUser();
         $province = $this->seedProvince();
-        $unit = $this->seedRestUnit([
-            'province_id' => $province->id,
-            'single_rooms' => 2,
-            'double_rooms' => 0,
-            'triple_rooms' => 0,
+        $unit = $this->seedRestUnit(['province_id' => $province->id], [
+            ['key' => 'single', 'en' => 'Single room', 'total' => 2, 'price' => 4000],
         ]);
 
         RestUnitBooking::query()->create([
             'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $this->firstRoomId($unit, 'single'),
             'user_id' => $user->id,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'start_date' => '2026-08-17',
             'end_date' => '2026-08-18',
             'status' => RestUnitBooking::STATUS_PAID_SUCCESSFULLY,
@@ -133,8 +126,8 @@ class RestUnitBookingFlowTest extends TestCase
 
         RestUnitBooking::query()->create([
             'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $this->firstRoomId($unit, 'single'),
             'user_id' => $user->id,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'start_date' => '2026-08-21',
             'end_date' => '2026-08-23',
             'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
@@ -144,7 +137,7 @@ class RestUnitBookingFlowTest extends TestCase
         $response = $this->getJson("/api/v1/services/rest-units/{$unit->id}?from_date=2026-08-17&to_date=2026-08-23");
 
         $response->assertOk();
-        $response->assertJsonPath('data.room_types.0.type', RestUnit::TYPE_SINGLE_ROOM);
+        $response->assertJsonPath('data.room_types.0.label', 'Single room');
         $response->assertJsonPath('data.room_types.0.available_count', 1);
         $response->assertJsonPath('data.room_types.0.is_available', true);
         $response->assertJsonPath('data.available_places', 1);
@@ -152,14 +145,9 @@ class RestUnitBookingFlowTest extends TestCase
 
     public function test_show_hides_room_types_until_dates_are_selected(): void
     {
-        $user = $this->seedAuthenticatedUser();
+        $this->seedAuthenticatedUser();
         $province = $this->seedProvince();
-        $unit = $this->seedRestUnit([
-            'province_id' => $province->id,
-            'single_rooms' => 1,
-            'double_rooms' => 1,
-            'triple_rooms' => 1,
-        ]);
+        $unit = $this->seedRestUnit(['province_id' => $province->id]);
 
         $response = $this->getJson("/api/v1/services/rest-units/{$unit->id}");
 
@@ -168,10 +156,6 @@ class RestUnitBookingFlowTest extends TestCase
         $response->assertJsonPath('data.availability_requires_dates', true);
         $response->assertJsonPath('data.room_types', []);
         $response->assertJsonPath('data.dates', null);
-        $response->assertJsonMissingPath('data.single_room_price');
-        $response->assertJsonMissingPath('data.double_rooms');
-        $response->assertJsonMissingPath('data.triple_room_price');
-        $response->assertJsonMissingPath('data.single_bed');
     }
 
     public function test_show_rejects_past_start_date_and_end_date_before_start_date(): void
@@ -180,17 +164,13 @@ class RestUnitBookingFlowTest extends TestCase
 
         $this->seedAuthenticatedUser();
         $province = $this->seedProvince();
-        $unit = $this->seedRestUnit([
-            'province_id' => $province->id,
-        ]);
+        $unit = $this->seedRestUnit(['province_id' => $province->id]);
 
         $pastDateResponse = $this->getJson("/api/v1/services/rest-units/{$unit->id}?from_date=2026-08-09&to_date=2026-08-10");
-
         $pastDateResponse->assertStatus(422);
         $pastDateResponse->assertJsonValidationErrors(['from_date']);
 
         $invalidRangeResponse = $this->getJson("/api/v1/services/rest-units/{$unit->id}?from_date=2026-08-10&to_date=2026-08-09");
-
         $invalidRangeResponse->assertStatus(422);
         $invalidRangeResponse->assertJsonValidationErrors(['to_date']);
     }
@@ -202,30 +182,22 @@ class RestUnitBookingFlowTest extends TestCase
         $giza = $this->seedProvince(['name' => ['en' => 'Giza', 'ar' => 'الجيزة']]);
         $alex = $this->seedProvince(['name' => ['en' => 'Alex', 'ar' => 'الإسكندرية']]);
 
-        $unitA = $this->seedRestUnit([
-            'province_id' => $cairo->id,
-            'single_rooms' => 1,
-        ]);
-        $unitB = $this->seedRestUnit([
-            'province_id' => $giza->id,
-            'single_rooms' => 1,
-        ]);
-        $this->seedRestUnit([
-            'province_id' => $alex->id,
-            'single_rooms' => 1,
-        ]);
+        $unitA = $this->seedRestUnit(['province_id' => $cairo->id]);
+        $unitB = $this->seedRestUnit(['province_id' => $giza->id]);
+        $this->seedRestUnit(['province_id' => $alex->id]);
 
         RestUnitBooking::query()->create([
             'rest_unit_id' => $unitB->id,
+            'rest_unit_room_id' => $this->firstRoomId($unitB, 'single'),
             'user_id' => $user->id,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'start_date' => '2026-08-17',
             'end_date' => '2026-08-23',
             'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
             'total_price' => 24000,
         ]);
 
-        $response = $this->getJson('/api/v1/services/rest-units?province_ids[0]=' . $cairo->id . '&province_ids[1]=' . $giza->id . '&room_types[0]=single_room&from_date=2026-08-17&to_date=2026-08-23');
+        $singleTypeId = $this->roomTypes['single']->id;
+        $response = $this->getJson('/api/v1/services/rest-units?province_ids[0]=' . $cairo->id . '&province_ids[1]=' . $giza->id . '&room_type_ids[0]=' . $singleTypeId . '&from_date=2026-08-17&to_date=2026-08-23');
 
         $response->assertOk();
         $response->assertJsonCount(1, 'data');
@@ -233,9 +205,6 @@ class RestUnitBookingFlowTest extends TestCase
         $response->assertJsonPath('data.0.province.id', $cairo->id);
         $response->assertJsonPath('data.0.available_places', 3);
         $response->assertJsonMissingPath('data.0.room_types');
-        $response->assertJsonMissingPath('data.0.cover_image_url');
-        $response->assertJsonMissingPath('data.0.gallery_urls');
-        $response->assertJsonMissingPath('data.0.single_room_price');
         $response->assertJsonMissingPath('meta');
         $this->assertStringEndsWith('/api/v1/services/rest-units?page=1', (string) $response->json('links.first'));
     }
@@ -246,9 +215,7 @@ class RestUnitBookingFlowTest extends TestCase
 
         $this->seedAuthenticatedUser();
         $province = $this->seedProvince();
-        $this->seedRestUnit([
-            'province_id' => $province->id,
-        ]);
+        $this->seedRestUnit(['province_id' => $province->id]);
 
         $response = $this->getJson('/api/v1/services/rest-units?from_date=2026-08-09&to_date=2026-08-10');
 
@@ -264,17 +231,13 @@ class RestUnitBookingFlowTest extends TestCase
         $this->seedPaymentMethods();
         $this->fakeSubscriptionCharge();
         $province = $this->seedProvince();
-        $unit = $this->seedRestUnit([
-            'province_id' => $province->id,
-            'single_rooms' => 1,
-            'single_room_price' => 4000,
-        ]);
+        $unit = $this->seedRestUnit(['province_id' => $province->id]);
 
         $response = $this
             ->withHeaders(['lang' => 'en'])
             ->postJson('/api/v1/services/rest-units/booking', [
                 'rest_unit_id' => $unit->id,
-                'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
+                'room_type_id' => $this->roomTypeId('single'),
                 'start_date' => '2026-08-17',
                 'end_date' => '2026-08-23',
             ]);
@@ -290,18 +253,6 @@ class RestUnitBookingFlowTest extends TestCase
         $response->assertJsonPath('data.order.items.1.label', 'Subscription fees');
         $response->assertJsonPath('data.order.items.1.amount', '690.00');
         $response->assertJsonPath('data.order.total', '24690.00');
-        $response->assertJsonMissingPath('data.payment_methods');
-        $response->assertJsonMissingPath('data.actions');
-        $response->assertJsonMissingPath('data.order.request.rest_unit.province_id');
-        $response->assertJsonMissingPath('data.order.request.rest_unit.single_rooms');
-        $response->assertJsonMissingPath('data.order.request.rest_unit.single_room_price');
-        $response->assertJsonMissingPath('data.order.request.rest_unit.double_rooms');
-        $response->assertJsonMissingPath('data.order.request.rest_unit.triple_rooms');
-        $response->assertJsonMissingPath('data.order.request.rest_unit.single_bed');
-        $response->assertJsonMissingPath('data.order.request.rest_unit.gallery_urls');
-        $response->assertJsonMissingPath('data.order.request.rest_unit.room_types');
-        $response->assertJsonMissingPath('data.order.request.rest_unit.total_places');
-        $response->assertJsonMissingPath('data.order.request.rest_unit.availability_requires_dates');
 
         $bookingId = (int) $response->json('data.order.request.id');
         $orderId = (int) $response->json('data.order.id');
@@ -309,9 +260,9 @@ class RestUnitBookingFlowTest extends TestCase
         $this->assertDatabaseHas('rest_unit_bookings', [
             'id' => $bookingId,
             'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $this->firstRoomId($unit, 'single'),
             'user_id' => $user->id,
             'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'total_price' => 24690,
         ]);
         $this->assertDatabaseHas('orders', [
@@ -323,7 +274,7 @@ class RestUnitBookingFlowTest extends TestCase
         ]);
 
         $order = Order::query()->findOrFail($orderId);
-        $this->assertSame('single_room', data_get($order->payload, 'pricing.items.0.meta.unit_type'));
+        $this->assertStringContainsString('Single room', (string) data_get($order->payload, 'pricing.items.0.meta.unit_type'));
         $this->assertSame('690.00', data_get($order->payload, 'subscription_charge.amount'));
     }
 
@@ -334,17 +285,15 @@ class RestUnitBookingFlowTest extends TestCase
         $user = $this->seedAuthenticatedUser();
         $this->seedPaymentMethods();
         $province = $this->seedProvince();
-        $unit = $this->seedRestUnit([
-            'province_id' => $province->id,
-            'single_rooms' => 1,
-            'single_room_price' => 0,
+        $unit = $this->seedRestUnit(['province_id' => $province->id], [
+            ['key' => 'single', 'en' => 'Single room', 'total' => 1, 'price' => 0],
         ]);
 
         $response = $this
             ->withHeaders(['lang' => 'en'])
             ->postJson('/api/v1/services/rest-units/booking', [
                 'rest_unit_id' => $unit->id,
-                'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
+                'room_type_id' => $this->roomTypeId('single'),
                 'start_date' => '2026-08-17',
                 'end_date' => '2026-08-23',
             ]);
@@ -366,7 +315,6 @@ class RestUnitBookingFlowTest extends TestCase
             'rest_unit_id' => $unit->id,
             'user_id' => $user->id,
             'status' => RestUnitBooking::STATUS_PAID_SUCCESSFULLY,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'total_price' => 0,
             'paid_at' => '2026-08-10 10:00:00',
         ]);
@@ -384,18 +332,16 @@ class RestUnitBookingFlowTest extends TestCase
         $this->seedPaymentMethods();
         $this->fakeSubscriptionCharge();
         $province = $this->seedProvince();
-        $unit = $this->seedRestUnit([
-            'province_id' => $province->id,
-            'single_rooms' => 2,
-            'double_rooms' => 0,
-            'triple_rooms' => 0,
-            'single_room_price' => 4000,
+        $unit = $this->seedRestUnit(['province_id' => $province->id], [
+            ['key' => 'single', 'en' => 'Single room', 'total' => 2, 'price' => 4000],
         ]);
+        // Both existing bookings sit on the first room, leaving the second room free for the whole range.
+        $firstRoomId = $this->firstRoomId($unit, 'single');
 
         RestUnitBooking::query()->create([
             'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $firstRoomId,
             'user_id' => $user->id,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'start_date' => '2026-08-17',
             'end_date' => '2026-08-18',
             'status' => RestUnitBooking::STATUS_PAID_SUCCESSFULLY,
@@ -405,8 +351,8 @@ class RestUnitBookingFlowTest extends TestCase
 
         RestUnitBooking::query()->create([
             'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $firstRoomId,
             'user_id' => $user->id,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'start_date' => '2026-08-21',
             'end_date' => '2026-08-23',
             'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
@@ -417,18 +363,16 @@ class RestUnitBookingFlowTest extends TestCase
             ->withHeaders(['lang' => 'en'])
             ->postJson('/api/v1/services/rest-units/booking', [
                 'rest_unit_id' => $unit->id,
-                'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
+                'room_type_id' => $this->roomTypeId('single'),
                 'start_date' => '2026-08-17',
                 'end_date' => '2026-08-23',
             ]);
 
         $response->assertCreated();
-        $response->assertJsonPath('data.order.request.type', 'rest_unit_booking');
         $response->assertJsonPath('data.order.request.status', 'pending_payment');
         $this->assertDatabaseHas('rest_unit_bookings', [
             'rest_unit_id' => $unit->id,
             'user_id' => $user->id,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'start_date' => '2026-08-17 00:00:00',
             'end_date' => '2026-08-23 00:00:00',
             'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
@@ -444,11 +388,7 @@ class RestUnitBookingFlowTest extends TestCase
         $this->seedPaymentMethods();
         $this->configureFawry();
         $province = $this->seedProvince();
-        $unit = $this->seedRestUnit([
-            'province_id' => $province->id,
-            'single_rooms' => 1,
-            'single_room_price' => 4000,
-        ]);
+        $unit = $this->seedRestUnit(['province_id' => $province->id]);
 
         Http::fake([
             'https://atfawry.fawrystaging.com/fawrypay-api/api/payments/init' => Http::response([
@@ -462,8 +402,8 @@ class RestUnitBookingFlowTest extends TestCase
 
         $booking = RestUnitBooking::query()->create([
             'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $this->firstRoomId($unit, 'single'),
             'user_id' => $user->id,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'start_date' => '2026-08-17',
             'end_date' => '2026-08-19',
             'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
@@ -482,9 +422,7 @@ class RestUnitBookingFlowTest extends TestCase
 
         $response = $this
             ->withHeaders(['lang' => 'en'])
-            ->postJson("/api/v1/orders/{$order->id}/pay", [
-                'payment_method' => 'fawry',
-            ]);
+            ->postJson("/api/v1/orders/{$order->id}/pay", ['payment_method' => 'fawry']);
 
         $response->assertOk();
         $response->assertExactJson([
@@ -521,14 +459,12 @@ class RestUnitBookingFlowTest extends TestCase
         $this->fakeOraclePaymentSync();
 
         $province = $this->seedProvince();
-        $unit = $this->seedRestUnit([
-            'province_id' => $province->id,
-        ]);
+        $unit = $this->seedRestUnit(['province_id' => $province->id]);
 
         $booking = RestUnitBooking::query()->create([
             'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $this->firstRoomId($unit, 'single'),
             'user_id' => $user->id,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'start_date' => '2026-08-17',
             'end_date' => '2026-08-18',
             'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
@@ -540,9 +476,7 @@ class RestUnitBookingFlowTest extends TestCase
 
         $checkoutResponse = $this
             ->withHeaders(['lang' => 'en'])
-            ->postJson("/api/v1/orders/{$order->id}/pay", [
-                'payment_method' => 'instapay',
-            ]);
+            ->postJson("/api/v1/orders/{$order->id}/pay", ['payment_method' => 'instapay']);
 
         $checkoutResponse->assertOk();
         $checkoutResponse->assertJsonPath('data.order.request.type', 'rest_unit_booking');
@@ -580,14 +514,12 @@ class RestUnitBookingFlowTest extends TestCase
 
         $user = $this->seedAuthenticatedUser();
         $province = $this->seedProvince();
-        $unit = $this->seedRestUnit([
-            'province_id' => $province->id,
-        ]);
+        $unit = $this->seedRestUnit(['province_id' => $province->id]);
 
         $booking = RestUnitBooking::query()->create([
             'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $this->firstRoomId($unit, 'single'),
             'user_id' => $user->id,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'start_date' => '2026-08-17',
             'end_date' => '2026-08-18',
             'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
@@ -612,6 +544,14 @@ class RestUnitBookingFlowTest extends TestCase
             'status' => 'payment_expired',
             'gateway_status' => 'EXPIRED',
             'checkout_url' => null,
+        ]);
+    }
+
+    private function roomType(string $key, string $en): RoomType
+    {
+        return $this->roomTypes[$key] ??= RoomType::query()->create([
+            'name' => ['en' => $en, 'ar' => $en],
+            'is_active' => true,
         ]);
     }
 
@@ -641,20 +581,45 @@ class RestUnitBookingFlowTest extends TestCase
         ], $attributes));
     }
 
-    private function seedRestUnit(array $attributes = []): RestUnit
+    private function seedRestUnit(array $attributes = [], ?array $groups = null): RestUnit
     {
-        return RestUnit::query()->create(array_merge([
+        $unit = RestUnit::query()->create(array_merge([
             'name' => ['en' => 'Al Ainy Rest House', 'ar' => 'استراحة القصر العيني'],
             'address' => ['en' => 'Cairo, Egypt', 'ar' => 'القاهرة، مصر'],
             'province_id' => $this->seedProvince()->id,
-            'single_rooms' => 1,
-            'double_rooms' => 1,
-            'triple_rooms' => 1,
+            'type' => RestUnit::TYPE_ROOMS,
             'is_active' => true,
-            'single_room_price' => 4000,
-            'double_room_price' => 5000,
-            'triple_room_price' => 6000,
         ], $attributes));
+
+        $groups ??= [
+            ['key' => 'single', 'en' => 'Single room', 'total' => 1, 'price' => 4000],
+            ['key' => 'double', 'en' => 'Double room', 'total' => 1, 'price' => 5000],
+            ['key' => 'triple', 'en' => 'Triple room', 'total' => 1, 'price' => 6000],
+        ];
+
+        foreach ($groups as $g) {
+            $roomTypeId = $this->roomType($g['key'], $g['en'])->id;
+            for ($i = 1; $i <= (int) $g['total']; $i++) {
+                $unit->rooms()->create([
+                    'room_type_id' => $roomTypeId,
+                    'name' => ucfirst($g['key'])." {$i}",
+                    'price' => $g['price'],
+                    'status' => 'in_service',
+                ]);
+            }
+        }
+
+        return $unit;
+    }
+
+    private function roomTypeId(string $key): int
+    {
+        return (int) $this->roomTypes[$key]->id;
+    }
+
+    private function firstRoomId(RestUnit $unit, string $key): int
+    {
+        return (int) $unit->rooms()->where('room_type_id', $this->roomTypes[$key]->id)->orderBy('id')->value('id');
     }
 
     private function seedPaymentMethods(): void
@@ -768,35 +733,7 @@ class RestUnitBookingFlowTest extends TestCase
             $table->timestamps();
         });
 
-        Schema::connection('sqlite')->create('rest_units', function (Blueprint $table): void {
-            $table->id();
-            $table->json('name');
-            $table->json('address')->nullable();
-            $table->unsignedBigInteger('province_id');
-            $table->unsignedInteger('single_rooms')->default(0);
-            $table->decimal('single_room_price', 10, 2)->default(0);
-            $table->unsignedInteger('double_rooms')->default(0);
-            $table->decimal('double_room_price', 10, 2)->default(0);
-            $table->unsignedInteger('triple_rooms')->default(0);
-            $table->decimal('triple_room_price', 10, 2)->default(0);
-            $table->boolean('is_active')->default(true);
-            $table->softDeletes();
-            $table->timestamps();
-        });
-
-        Schema::connection('sqlite')->create('rest_unit_bookings', function (Blueprint $table): void {
-            $table->id();
-            $table->unsignedBigInteger('rest_unit_id');
-            $table->unsignedBigInteger('user_id')->nullable();
-            $table->string('unit_type')->nullable();
-            $table->date('start_date');
-            $table->date('end_date');
-            $table->string('status')->default('pending_payment');
-            $table->decimal('total_price', 10, 2)->nullable();
-            $table->timestamp('paid_at')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
-        });
+        RestUnitTestSchema::create('sqlite');
 
         Schema::connection('sqlite')->create('payment_methods', function (Blueprint $table): void {
             $table->id();

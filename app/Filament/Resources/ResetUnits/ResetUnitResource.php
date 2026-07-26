@@ -6,6 +6,8 @@ use App\Filament\Resources\ResetUnits\Pages\CreateResetUnit;
 use App\Filament\Resources\ResetUnits\Pages\EditResetUnit;
 use App\Filament\Resources\ResetUnits\Pages\ListResetUnits;
 use App\Filament\Resources\ResetUnits\Pages\ViewResetUnit;
+use App\Filament\Resources\ResetUnits\RelationManagers\BedsRelationManager;
+use App\Filament\Resources\ResetUnits\RelationManagers\RoomsRelationManager;
 use App\Filament\Resources\ResetUnits\Schemas\ResetUnitForm;
 use App\Filament\Resources\ResetUnits\Schemas\ResetUnitInfolist;
 use App\Filament\Resources\ResetUnits\Tables\ResetUnitsTable;
@@ -68,7 +70,8 @@ class ResetUnitResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RoomsRelationManager::class,
+            BedsRelationManager::class,
         ];
     }
 

@@ -3,7 +3,6 @@
 namespace Modules\Services\Builders;
 
 use Illuminate\Database\Eloquent\Builder;
-use Modules\Services\Models\RestUnit;
 use Modules\Services\Models\RestUnitBooking;
 
 class RestUnitQueryBuilder extends Builder
@@ -25,26 +24,24 @@ class RestUnitQueryBuilder extends Builder
             : $this->whereIn('province_id', $provinceIds->all());
     }
 
-    public function whereHasRoomType(string|array|null $roomTypes)
+    public function whereHasRoomType(int|array|null $roomTypeIds)
     {
-        if (blank($roomTypes)) {
+        if (blank($roomTypeIds)) {
             return $this;
         }
 
-        $roomTypes = collect(is_array($roomTypes) ? $roomTypes : [$roomTypes])
-            ->map(fn (mixed $value): ?string => RestUnit::normalizeUnitType((string) $value))
-            ->filter()
+        $ids = collect(is_array($roomTypeIds) ? $roomTypeIds : [$roomTypeIds])
+            ->filter(fn (mixed $value): bool => is_numeric($value))
+            ->map(fn (mixed $value): int => (int) $value)
             ->unique()
             ->values();
 
-        return $this->where(function (Builder $query) use ($roomTypes): void {
-            foreach ($roomTypes as $type) {
-                $column = RestUnit::inventoryColumnForType($type);
+        if ($ids->isEmpty()) {
+            return $this;
+        }
 
-                if ($column) {
-                    $query->orWhere($column, '>', 0);
-                }
-            }
+        return $this->whereHas('rooms', function (Builder $query) use ($ids): void {
+            $query->whereIn('room_type_id', $ids->all());
         });
     }
 

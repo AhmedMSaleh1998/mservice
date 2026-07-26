@@ -17,9 +17,12 @@ use Modules\Core\Models\PaymentMethod;
 use Modules\Core\Models\Province;
 use Modules\Services\Models\RestUnit;
 use Modules\Services\Models\RestUnitBooking;
+use Modules\Services\Models\RestUnitRoom;
+use Modules\Services\Models\RoomType;
 use Modules\Users\Models\User;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
+use Tests\Support\RestUnitTestSchema;
 use Tests\TestCase;
 
 class RestUnitBookingResourceTest extends TestCase
@@ -65,16 +68,11 @@ class RestUnitBookingResourceTest extends TestCase
             'active' => true,
         ]);
 
-        $permissions = [
-            'ViewAny:RestUnitBooking',
-            'View:RestUnitBooking',
-        ];
-
-        foreach ($permissions as $permission) {
+        foreach (['ViewAny:RestUnitBooking', 'View:RestUnitBooking'] as $permission) {
             Permission::findOrCreate($permission, 'admin');
         }
 
-        $admin->givePermissionTo($permissions);
+        $admin->givePermissionTo(['ViewAny:RestUnitBooking', 'View:RestUnitBooking']);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
@@ -104,6 +102,182 @@ class RestUnitBookingResourceTest extends TestCase
             ->assertSuccessful()
             ->assertCanSeeTableRecords([$booking])
             ->assertTableActionExists('view', null, $booking);
+    }
+
+    public function test_cash_martyr_booking_is_marked_paid_and_member_cleared(): void
+    {
+        $data = RestUnitBookingResource::applyBookingDefaults([
+            'beneficiary_type' => RestUnitBooking::BENEFICIARY_MARTYR_FAMILY,
+            'user_id' => 5,
+            'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
+            'payment_method' => RestUnitBooking::PAYMENT_CASH,
+            'beneficiary_card_number' => '29901011234567',
+            'payment_reference' => 'TRX-999',
+            'total_price' => 1500,
+        ]);
+
+        $this->assertNull($data['user_id']);
+        $this->assertSame(RestUnitBooking::STATUS_PAID_SUCCESSFULLY, $data['status']);
+        $this->assertNotNull($data['paid_at']);
+        $this->assertSame('29901011234567', $data['beneficiary_card_number']);
+    }
+
+    public function test_amount_is_calculated_from_nightly_price_times_nights_times_units(): void
+    {
+        $room = $this->createRoomsUnitRoom(); // price 4000
+        $unit = $room->restUnit;
+        $room2 = $unit->rooms()->create(['room_type_id' => $room->room_type_id, 'name' => 'Room 2', 'price' => 5000, 'status' => 'in_service']);
+
+        // Rooms: sum of selected room prices × nights. 3 nights, 4000 + 5000 = 9000 → 27000.
+        $rooms = RestUnitBookingResource::calculateAmount('2026-08-01', '2026-08-04', $unit->id, [$room->id, $room2->id], []);
+        $this->assertSame(27000.0, $rooms);
+
+        // Beds: unit price × nights × bed count.
+        $bedsUnit = RestUnit::query()->create([
+            'name' => ['en' => 'Beds', 'ar' => 'أسرّة'],
+            'address' => ['en' => 'x', 'ar' => 'x'],
+            'province_id' => $unit->province_id,
+            'type' => RestUnit::TYPE_BEDS,
+            'price' => 100,
+            'is_active' => true,
+        ]);
+        $b1 = $bedsUnit->beds()->create(['label' => 'Bed 1', 'status' => 'in_service']);
+        $b2 = $bedsUnit->beds()->create(['label' => 'Bed 2', 'status' => 'in_service']);
+
+        // 2 nights × 100 × 2 beds = 400.
+        $beds = RestUnitBookingResource::calculateAmount('2026-08-01', '2026-08-03', $bedsUnit->id, [], [$b1->id, $b2->id]);
+        $this->assertSame(400.0, $beds);
+
+        // No dates → 0.
+        $this->assertSame(0.0, RestUnitBookingResource::calculateAmount(null, null, $unit->id, [$room->id], []));
+    }
+
+    public function test_fawry_booking_stays_pending(): void
+    {
+        $data = RestUnitBookingResource::applyBookingDefaults([
+            'beneficiary_type' => RestUnitBooking::BENEFICIARY_MEMBER,
+            'user_id' => 5,
+            'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
+            'payment_method' => RestUnitBooking::PAYMENT_FAWRY,
+        ]);
+
+        $this->assertSame(5, $data['user_id']);
+        $this->assertSame(RestUnitBooking::STATUS_PENDING_PAYMENT, $data['status']);
+        $this->assertNull($data['paid_at']);
+    }
+
+    public function test_replicate_for_extra_units_creates_one_booking_per_unit(): void
+    {
+        $room = $this->createRoomsUnitRoom();
+        $unit = $room->restUnit;
+        $room2 = $unit->rooms()->create(['room_type_id' => $room->room_type_id, 'name' => 'Room 2', 'price' => 4000, 'status' => 'in_service']);
+        $room3 = $unit->rooms()->create(['room_type_id' => $room->room_type_id, 'name' => 'Room 3', 'price' => 4000, 'status' => 'in_service']);
+        $user = $this->createUser();
+
+        $main = RestUnitBooking::query()->create([
+            'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $room->id,
+            'user_id' => $user->id,
+            'start_date' => '2026-04-08',
+            'end_date' => '2026-04-10',
+            'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
+            'total_price' => 8000,
+        ]);
+
+        RestUnitBookingResource::replicateForExtraUnits($main, 'rest_unit_room_id', [$room2->id, $room3->id]);
+
+        $this->assertSame(3, RestUnitBooking::query()->where('rest_unit_id', $unit->id)->count());
+        $this->assertDatabaseHas('rest_unit_bookings', ['rest_unit_room_id' => $room2->id, 'total_price' => 0, 'user_id' => $user->id]);
+        $this->assertDatabaseHas('rest_unit_bookings', ['rest_unit_room_id' => $room3->id, 'total_price' => 0, 'user_id' => $user->id]);
+    }
+
+    public function test_occupied_units_and_availability_guard_prevent_double_booking(): void
+    {
+        $room = $this->createRoomsUnitRoom();
+        $unit = $room->restUnit;
+        $room2 = $unit->rooms()->create(['room_type_id' => $room->room_type_id, 'name' => 'Room 2', 'price' => 4000, 'status' => 'in_service']);
+        $user = $this->createUser();
+
+        RestUnitBooking::query()->create([
+            'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $room->id,
+            'user_id' => $user->id,
+            'start_date' => '2026-08-01',
+            'end_date' => '2026-08-10',
+            'status' => RestUnitBooking::STATUS_PAID_SUCCESSFULLY,
+            'total_price' => 4000,
+        ]);
+
+        // Room 1 is occupied for an overlapping window; room 2 is free.
+        $occupied = RestUnitBookingResource::occupiedUnitIds($unit->id, 'rest_unit_room_id', '2026-08-05', '2026-08-08');
+        $this->assertContains($room->id, $occupied);
+        $this->assertNotContains($room2->id, $occupied);
+
+        // Guard rejects re-booking the occupied room in the same period.
+        try {
+            RestUnitBookingResource::assertUnitsAvailable([
+                'rest_unit_id' => $unit->id,
+                'start_date' => '2026-08-05',
+                'end_date' => '2026-08-08',
+                'rest_unit_room_ids' => [$room->id],
+            ]);
+            $this->fail('Expected a validation exception for the double booking.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->assertArrayHasKey('rest_unit_room_ids', $e->errors());
+        }
+
+        // A non-overlapping period is allowed.
+        RestUnitBookingResource::assertUnitsAvailable([
+            'rest_unit_id' => $unit->id,
+            'start_date' => '2026-08-11',
+            'end_date' => '2026-08-12',
+            'rest_unit_room_ids' => [$room->id],
+        ]);
+        $this->assertTrue(true);
+    }
+
+    public function test_cancel_records_reason_and_flags_online_refund(): void
+    {
+        $onlineBooking = $this->createBooking();
+        $this->createOrder($onlineBooking, [
+            'status' => 'paid_successfully',
+            'payment_method' => 'fawry',
+            'gateway_status' => 'PAID',
+            'paid_at' => now(),
+        ]);
+        $onlineBooking->load('order');
+
+        $this->assertTrue($onlineBooking->requiresOnlineRefund());
+
+        $onlineBooking->cancel('Guest changed plans');
+        $this->assertSame(RestUnitBooking::STATUS_CANCELLED, $onlineBooking->fresh()->status);
+        $this->assertSame('Guest changed plans', $onlineBooking->fresh()->cancellation_reason);
+        $this->assertNotNull($onlineBooking->fresh()->cancelled_at);
+
+        // Offline (martyr-family, no online order) needs no online refund.
+        $offlineBooking = $this->createBooking(['beneficiary_type' => RestUnitBooking::BENEFICIARY_MARTYR_FAMILY]);
+        $this->assertFalse($offlineBooking->requiresOnlineRefund());
+    }
+
+    public function test_resolve_selected_units_prefers_rooms_then_beds(): void
+    {
+        $this->assertSame(['col' => 'rest_unit_room_id', 'ids' => [3, 5]], RestUnitBookingResource::resolveSelectedUnits(['rest_unit_room_ids' => [3, 5]]));
+        $this->assertSame(['col' => 'rest_unit_bed_id', 'ids' => [7]], RestUnitBookingResource::resolveSelectedUnits(['rest_unit_bed_ids' => [7]]));
+        $this->assertSame(['col' => null, 'ids' => []], RestUnitBookingResource::resolveSelectedUnits([]));
+    }
+
+    public function test_bank_transfer_member_booking_is_marked_paid(): void
+    {
+        $data = RestUnitBookingResource::applyBookingDefaults([
+            'beneficiary_type' => RestUnitBooking::BENEFICIARY_MEMBER,
+            'user_id' => 5,
+            'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
+            'payment_method' => RestUnitBooking::PAYMENT_BANK_TRANSFER,
+        ]);
+
+        $this->assertSame(5, $data['user_id']);
+        $this->assertSame(RestUnitBooking::STATUS_PAID_SUCCESSFULLY, $data['status']);
+        $this->assertNotNull($data['paid_at']);
     }
 
     public function test_resource_is_nested_under_rest_units_inside_services_navigation(): void
@@ -154,9 +328,7 @@ class RestUnitBookingResourceTest extends TestCase
                             'unit_price' => '690.00',
                             'quantity' => 1,
                             'amount' => '690.00',
-                            'meta' => [
-                                'subscription_years' => 3,
-                            ],
+                            'meta' => ['subscription_years' => 3],
                         ],
                     ],
                     'subtotal' => '24690.00',
@@ -170,14 +342,8 @@ class RestUnitBookingResourceTest extends TestCase
                     'years' => 3,
                     'status' => 0,
                 ],
-                'charge_request' => [
-                    'merchantRefNum' => 'RUB-REF-1',
-                    'amount' => '24690.00',
-                ],
-                'charge_response' => [
-                    'referenceNumber' => '778899',
-                    'statusCode' => 200,
-                ],
+                'charge_request' => ['merchantRefNum' => 'RUB-REF-1', 'amount' => '24690.00'],
+                'charge_response' => ['referenceNumber' => '778899', 'statusCode' => 200],
             ],
         ]);
 
@@ -214,9 +380,7 @@ class RestUnitBookingResourceTest extends TestCase
     {
         $booking = $this->createBooking();
 
-        $this->createOrder($booking, [
-            'payload' => null,
-        ]);
+        $this->createOrder($booking, ['payload' => null]);
 
         Livewire::test(ViewRestUnitBooking::class, ['record' => $booking->getKey()])
             ->assertSuccessful()
@@ -228,15 +392,15 @@ class RestUnitBookingResourceTest extends TestCase
     private function createBooking(array $attributes = []): RestUnitBooking
     {
         $user = $this->createUser();
-        $restUnit = $this->createRestUnit();
+        $room = $this->createRoomsUnitRoom();
 
         return RestUnitBooking::query()->create(array_merge([
-            'rest_unit_id' => $restUnit->id,
+            'rest_unit_id' => $room->rest_unit_id,
+            'rest_unit_room_id' => $room->id,
             'user_id' => $user->id,
             'start_date' => '2026-04-08',
             'end_date' => '2026-04-10',
             'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'total_price' => 8000,
         ], $attributes));
     }
@@ -275,25 +439,29 @@ class RestUnitBookingResourceTest extends TestCase
         ], $attributes));
     }
 
-    private function createRestUnit(array $attributes = []): RestUnit
+    private function createRoomsUnitRoom(): RestUnitRoom
     {
         $province = Province::query()->create([
             'name' => ['en' => 'Cairo', 'ar' => 'القاهرة'],
             'shipping_cost' => 0,
         ]);
 
-        return RestUnit::query()->create(array_merge([
+        $unit = RestUnit::query()->create([
             'name' => ['en' => 'Al Ainy Rest House', 'ar' => 'استراحة القصر العيني'],
             'address' => ['en' => 'Cairo, Egypt', 'ar' => 'القاهرة، مصر'],
             'province_id' => $province->id,
-            'single_rooms' => 2,
-            'double_rooms' => 1,
-            'triple_rooms' => 1,
+            'type' => RestUnit::TYPE_ROOMS,
             'is_active' => true,
-            'single_room_price' => 4000,
-            'double_room_price' => 5000,
-            'triple_room_price' => 6000,
-        ], $attributes));
+        ]);
+
+        $roomType = RoomType::query()->create(['name' => ['en' => 'Single room', 'ar' => 'غرفة فردية']]);
+
+        return $unit->rooms()->create([
+            'room_type_id' => $roomType->id,
+            'name' => 'Room 1',
+            'price' => 4000,
+            'status' => 'in_service',
+        ]);
     }
 
     private function createTables(): void
@@ -367,35 +535,7 @@ class RestUnitBookingResourceTest extends TestCase
             $table->timestamps();
         });
 
-        Schema::connection('sqlite')->create('rest_units', function (Blueprint $table): void {
-            $table->id();
-            $table->json('name');
-            $table->json('address')->nullable();
-            $table->unsignedBigInteger('province_id');
-            $table->unsignedInteger('single_rooms')->default(0);
-            $table->decimal('single_room_price', 10, 2)->default(0);
-            $table->unsignedInteger('double_rooms')->default(0);
-            $table->decimal('double_room_price', 10, 2)->default(0);
-            $table->unsignedInteger('triple_rooms')->default(0);
-            $table->decimal('triple_room_price', 10, 2)->default(0);
-            $table->boolean('is_active')->default(true);
-            $table->softDeletes();
-            $table->timestamps();
-        });
-
-        Schema::connection('sqlite')->create('rest_unit_bookings', function (Blueprint $table): void {
-            $table->id();
-            $table->unsignedBigInteger('rest_unit_id');
-            $table->unsignedBigInteger('user_id')->nullable();
-            $table->string('unit_type')->nullable();
-            $table->date('start_date');
-            $table->date('end_date');
-            $table->string('status')->default('pending_payment');
-            $table->decimal('total_price', 10, 2)->nullable();
-            $table->timestamp('paid_at')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
-        });
+        RestUnitTestSchema::create('sqlite');
 
         Schema::connection('sqlite')->create('payment_methods', function (Blueprint $table): void {
             $table->id();
@@ -424,6 +564,26 @@ class RestUnitBookingResourceTest extends TestCase
             $table->timestamp('payment_last_synced_at')->nullable();
             $table->timestamp('paid_at')->nullable();
             $table->timestamps();
+        });
+
+        Schema::connection('sqlite')->create('media', function (Blueprint $table): void {
+            $table->id();
+            $table->string('model_type');
+            $table->unsignedBigInteger('model_id');
+            $table->uuid('uuid')->nullable()->unique();
+            $table->string('collection_name');
+            $table->string('name');
+            $table->string('file_name');
+            $table->string('mime_type')->nullable();
+            $table->string('disk');
+            $table->string('conversions_disk')->nullable();
+            $table->unsignedBigInteger('size');
+            $table->text('manipulations');
+            $table->text('custom_properties');
+            $table->text('generated_conversions');
+            $table->text('responsive_images');
+            $table->unsignedInteger('order_column')->nullable();
+            $table->nullableTimestamps();
         });
     }
 }

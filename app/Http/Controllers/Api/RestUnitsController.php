@@ -26,9 +26,9 @@ class RestUnitsController extends Controller
             'province_id' => 'nullable|integer|exists:provinces,id',
             'province_ids' => 'nullable|array',
             'province_ids.*' => 'integer|exists:provinces,id',
-            'room_type' => 'nullable|string|in:single_room,single_rooms,double_room,double_rooms,triple_room,triple_rooms,single_bed',
-            'room_types' => 'nullable|array',
-            'room_types.*' => 'string|in:single_room,single_rooms,double_room,double_rooms,triple_room,triple_rooms,single_bed',
+            'room_type_id' => 'nullable|integer|exists:room_types,id',
+            'room_type_ids' => 'nullable|array',
+            'room_type_ids.*' => 'integer|exists:room_types,id',
             'from_date' => 'nullable|date|required_with:to_date|after_or_equal:today',
             'to_date' => 'nullable|date|required_with:from_date|after_or_equal:from_date',
             'page' => 'nullable|integer|min:1',
@@ -44,9 +44,9 @@ class RestUnitsController extends Controller
         $validated = $request->validate([
             'from_date' => 'nullable|date|required_with:to_date|after_or_equal:today',
             'to_date' => 'nullable|date|required_with:from_date|after_or_equal:from_date',
-            'room_type' => 'nullable|string|in:single_room,single_rooms,double_room,double_rooms,triple_room,triple_rooms,single_bed',
-            'room_types' => 'nullable|array',
-            'room_types.*' => 'string|in:single_room,single_rooms,double_room,double_rooms,triple_room,triple_rooms,single_bed',
+            'room_type_id' => 'nullable|integer|exists:room_types,id',
+            'room_type_ids' => 'nullable|array',
+            'room_type_ids.*' => 'integer|exists:room_types,id',
         ]);
 
         $restUnit = $this->restUnitService->getDetail((int) $id, $validated);
@@ -58,7 +58,7 @@ class RestUnitsController extends Controller
     {
         $validated = $request->validate([
             'rest_unit_id' => 'required|exists:rest_units,id',
-            'unit_type' => 'required|string|in:single_room,single_rooms,double_room,double_rooms,triple_room,triple_rooms,single_bed',
+            'room_type_id' => 'nullable|integer|exists:room_types,id',
             'start_date' => 'required|date|after_or_equal:today',
             'end_date' => 'required|date|after:start_date',
         ]);

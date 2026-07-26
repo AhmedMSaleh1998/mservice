@@ -16,6 +16,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Modules\Services\Models\RestUnit;
 
 class ResetUnitsTable
 {
@@ -26,9 +27,14 @@ class ResetUnitsTable
                 TextColumn::make('name')->label(__('Name')),
                 TextColumn::make('address')->label(__('Address')),
                 TextColumn::make('province.name')->label(__('Province')),
-                TextColumn::make('single_rooms')->label(__('Single Rooms')),
-                TextColumn::make('double_rooms')->label(__('Double Rooms')),
-                TextColumn::make('triple_rooms')->label(__('Triple Rooms')),
+                TextColumn::make('type')
+                    ->label(__('Type'))
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => RestUnit::typeLabel($state))
+                    ->color('info'),
+                TextColumn::make('total_places')
+                    ->label(__('Total Places'))
+                    ->state(fn (RestUnit $record): int => $record->loadMissing(['rooms', 'beds'])->totalPlaces()),
                 ToggleColumn::make('is_active')
                     ->label(__('Is Active'))
                     ->sortable(),
@@ -39,6 +45,9 @@ class ResetUnitsTable
                     ->searchable()
                     ->multiple()
                     ->preload(),
+                SelectFilter::make('type')
+                    ->label(__('Type'))
+                    ->options(RestUnit::typeOptions()),
                 TernaryFilter::make('is_active')->label(__('Active')),
                 TrashedFilter::make(),
             ])

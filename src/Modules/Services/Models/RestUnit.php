@@ -3,6 +3,7 @@
 namespace Modules\Services\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Core\Models\CustomModel;
@@ -17,33 +18,16 @@ class RestUnit extends CustomModel implements HasMedia
 {
     use HasTranslations, SoftDeletes, InteractsWithMedia;
 
-    public const TYPE_SINGLE_ROOM = 'single_room';
+    /** Kind of the rest unit (value stored in the `type` column). */
+    public const TYPE_BEDS = 'beds';
 
-    public const TYPE_DOUBLE_ROOM = 'double_room';
+    public const TYPE_ROOMS = 'rooms';
 
-    public const TYPE_TRIPLE_ROOM = 'triple_room';
+    public const TYPE_WHOLE_UNIT = 'whole_unit';
 
-    private const TYPE_ALIASES = [
-        self::TYPE_SINGLE_ROOM => self::TYPE_SINGLE_ROOM,
-        'single_rooms' => self::TYPE_SINGLE_ROOM,
-        self::TYPE_DOUBLE_ROOM => self::TYPE_DOUBLE_ROOM,
-        'double_rooms' => self::TYPE_DOUBLE_ROOM,
-        self::TYPE_TRIPLE_ROOM => self::TYPE_TRIPLE_ROOM,
-        'triple_rooms' => self::TYPE_TRIPLE_ROOM,
-        'single_bed' => self::TYPE_TRIPLE_ROOM,
-    ];
+    public const STATUS_IN_SERVICE = 'in_service';
 
-    private const INVENTORY_COLUMNS = [
-        self::TYPE_SINGLE_ROOM => 'single_rooms',
-        self::TYPE_DOUBLE_ROOM => 'double_rooms',
-        self::TYPE_TRIPLE_ROOM => 'triple_rooms',
-    ];
-
-    private const PRICE_COLUMNS = [
-        self::TYPE_SINGLE_ROOM => 'single_room_price',
-        self::TYPE_DOUBLE_ROOM => 'double_room_price',
-        self::TYPE_TRIPLE_ROOM => 'triple_room_price',
-    ];
+    public const STATUS_MAINTENANCE = 'maintenance';
 
     protected $table = 'rest_units';
 
@@ -51,22 +35,23 @@ class RestUnit extends CustomModel implements HasMedia
         'name',
         'address',
         'province_id',
-        'single_rooms',
-        'double_rooms',
-        'triple_rooms',
+        'type',
+        'price',
+        'status',
+        'maintenance_note',
         'is_active',
-        'single_room_price',
-        'double_room_price',
-        'triple_room_price',
     ];
 
     public $translatable = ['name', 'address'];
 
     protected $casts = [
-        'single_room_price' => 'float',
-        'double_room_price' => 'float',
-        'triple_room_price' => 'float',
+        'price' => 'float',
         'is_active' => 'boolean',
+    ];
+
+    protected $attributes = [
+        'type' => self::TYPE_BEDS,
+        'status' => self::STATUS_IN_SERVICE,
     ];
 
     public function newEloquentBuilder($query): RestUnitQueryBuilder
@@ -79,7 +64,17 @@ class RestUnit extends CustomModel implements HasMedia
         return $this->belongsTo(Province::class);
     }
 
-    public function bookings()
+    public function rooms(): HasMany
+    {
+        return $this->hasMany(RestUnitRoom::class);
+    }
+
+    public function beds(): HasMany
+    {
+        return $this->hasMany(RestUnitBed::class);
+    }
+
+    public function bookings(): HasMany
     {
         return $this->hasMany(RestUnitBooking::class);
     }
@@ -94,33 +89,48 @@ class RestUnit extends CustomModel implements HasMedia
         return $this->where('is_active', true);
     }
 
-    public static function supportedUnitTypes(): array
+    public function isBeds(): bool
+    {
+        return $this->type === self::TYPE_BEDS;
+    }
+
+    public function isRooms(): bool
+    {
+        return $this->type === self::TYPE_ROOMS;
+    }
+
+    public function isWholeUnit(): bool
+    {
+        return $this->type === self::TYPE_WHOLE_UNIT;
+    }
+
+    public function isUnderMaintenance(): bool
+    {
+        return $this->status === self::STATUS_MAINTENANCE;
+    }
+
+    /** Total in-service bookable places, regardless of any period. */
+    public function totalPlaces(): int
+    {
+        return match ($this->type) {
+            self::TYPE_BEDS => $this->beds->where('status', RestUnitBed::STATUS_IN_SERVICE)->count(),
+            self::TYPE_ROOMS => $this->rooms->where('status', RestUnitRoom::STATUS_IN_SERVICE)->count(),
+            self::TYPE_WHOLE_UNIT => $this->isUnderMaintenance() ? 0 : 1,
+            default => 0,
+        };
+    }
+
+    public static function typeOptions(): array
     {
         return [
-            self::TYPE_SINGLE_ROOM,
-            self::TYPE_DOUBLE_ROOM,
-            self::TYPE_TRIPLE_ROOM,
+            self::TYPE_BEDS => __('Beds'),
+            self::TYPE_ROOMS => __('Rooms'),
+            self::TYPE_WHOLE_UNIT => __('Whole unit'),
         ];
     }
 
-    public static function normalizeUnitType(?string $value): ?string
+    public static function typeLabel(?string $type): string
     {
-        $normalized = trim((string) $value);
-
-        return self::TYPE_ALIASES[$normalized] ?? null;
-    }
-
-    public static function inventoryColumnForType(string $type): ?string
-    {
-        $normalizedType = self::normalizeUnitType($type);
-
-        return $normalizedType ? (self::INVENTORY_COLUMNS[$normalizedType] ?? null) : null;
-    }
-
-    public static function priceColumnForType(string $type): ?string
-    {
-        $normalizedType = self::normalizeUnitType($type);
-
-        return $normalizedType ? (self::PRICE_COLUMNS[$normalizedType] ?? null) : null;
+        return self::typeOptions()[(string) $type] ?? (string) $type;
     }
 }

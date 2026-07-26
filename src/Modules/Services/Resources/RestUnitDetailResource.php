@@ -38,8 +38,8 @@ class RestUnitDetailResource extends CustomResource
                 'name' => data_get($this->resource, 'province.name'),
             ],
             'cover_image_url' => $coverImageUrl,
-            'total_places' => $this->resource->getAttribute('total_places')
-                ?? ($this->resource->single_rooms + $this->resource->double_rooms + $this->resource->triple_rooms),
+            'type' => $this->resource->type,
+            'total_places' => $this->resource->getAttribute('total_places') ?? 0,
             'available_places' => $this->resource->getAttribute('available_places'),
             'dates' => $this->resource->getAttribute('dates'),
             'availability_requires_dates' => $availabilityRequiresDates,

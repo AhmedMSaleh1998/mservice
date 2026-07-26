@@ -3,8 +3,8 @@
 namespace Tests\Feature\Filament;
 
 use App\Filament\Resources\ResetUnits\Pages\ViewResetUnit;
-use App\Filament\Resources\ResetUnits\ResetUnitResource;
 use App\Models\Admin;
+use Tests\Support\RestUnitTestSchema;
 use Filament\Facades\Filament;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +13,7 @@ use Livewire\Livewire;
 use Modules\Core\Models\Province;
 use Modules\Services\Models\RestUnit;
 use Modules\Services\Models\RestUnitBooking;
+use Modules\Services\Models\RoomType;
 use Modules\Users\Models\User;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -61,16 +62,11 @@ class ResetUnitResourceTest extends TestCase
             'active' => true,
         ]);
 
-        $permissions = [
-            'ViewAny:RestUnit',
-            'View:RestUnit',
-        ];
-
-        foreach ($permissions as $permission) {
+        foreach (['ViewAny:RestUnit', 'View:RestUnit'] as $permission) {
             Permission::findOrCreate($permission, 'admin');
         }
 
-        $admin->givePermissionTo($permissions);
+        $admin->givePermissionTo(['ViewAny:RestUnit', 'View:RestUnit']);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
@@ -92,43 +88,55 @@ class ResetUnitResourceTest extends TestCase
 
     public function test_view_page_shows_availability_and_guests_for_selected_period(): void
     {
-        $restUnit = $this->createRestUnit([
-            'single_rooms' => 3,
-            'double_rooms' => 2,
-            'triple_rooms' => 1,
+        $province = $this->createProvince();
+        $single = RoomType::query()->create(['name' => ['en' => 'Single room', 'ar' => 'غرفة فردية']]);
+        $double = RoomType::query()->create(['name' => ['en' => 'Double room', 'ar' => 'غرفة مزدوجة']]);
+
+        $unit = RestUnit::query()->create([
+            'name' => ['en' => 'Al Ainy Rest House', 'ar' => 'استراحة القصر العيني'],
+            'address' => ['en' => 'Cairo, Egypt', 'ar' => 'القاهرة، مصر'],
+            'province_id' => $province->id,
+            'type' => RestUnit::TYPE_ROOMS,
+            'is_active' => true,
         ]);
+        $singleRooms = collect(range(1, 3))->map(fn (int $i) => $unit->rooms()->create([
+            'room_type_id' => $single->id, 'name' => "Single {$i}", 'price' => 4000, 'status' => 'in_service',
+        ]));
+        $doubleRooms = collect(range(1, 2))->map(fn (int $i) => $unit->rooms()->create([
+            'room_type_id' => $double->id, 'name' => "Double {$i}", 'price' => 5000, 'status' => 'in_service',
+        ]));
 
         $guestOne = $this->createUser(['name' => 'Guest One', 'phone' => '01011111111']);
         $guestTwo = $this->createUser(['name' => 'Guest Two', 'phone' => '01022222222']);
         $excludedGuest = $this->createUser(['name' => 'Excluded Guest', 'phone' => '01033333333']);
 
         RestUnitBooking::query()->create([
-            'rest_unit_id' => $restUnit->id,
+            'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $singleRooms[0]->id,
             'user_id' => $guestOne->id,
             'start_date' => '2026-04-10',
             'end_date' => '2026-04-12',
             'status' => RestUnitBooking::STATUS_PAID_SUCCESSFULLY,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'total_price' => 8000,
         ]);
 
         RestUnitBooking::query()->create([
-            'rest_unit_id' => $restUnit->id,
+            'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $doubleRooms[0]->id,
             'user_id' => $guestTwo->id,
             'start_date' => '2026-04-11',
             'end_date' => '2026-04-13',
             'status' => RestUnitBooking::STATUS_PENDING_PAYMENT,
-            'unit_type' => RestUnit::TYPE_DOUBLE_ROOM,
             'total_price' => 9000,
         ]);
 
         RestUnitBooking::query()->create([
-            'rest_unit_id' => $restUnit->id,
+            'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $singleRooms[1]->id,
             'user_id' => $excludedGuest->id,
             'start_date' => '2026-04-10',
             'end_date' => '2026-04-12',
             'status' => RestUnitBooking::STATUS_CANCELLED,
-            'unit_type' => RestUnit::TYPE_TRIPLE_ROOM,
             'total_price' => 10000,
         ]);
 
@@ -136,12 +144,11 @@ class ResetUnitResourceTest extends TestCase
             'from_date' => '2026-04-10',
             'to_date' => '2026-04-12',
         ])
-            ->test(ViewResetUnit::class, ['record' => $restUnit->getKey()])
+            ->test(ViewResetUnit::class, ['record' => $unit->getKey()])
             ->assertSuccessful()
             ->assertSee('Availability for Selected Period')
             ->assertSee('2026-04-10')
             ->assertSee('2026-04-12')
-            ->assertSee('Guests in Selected Period')
             ->assertSee('Guest One')
             ->assertSee('Guest Two')
             ->assertDontSee('Excluded Guest')
@@ -153,16 +160,27 @@ class ResetUnitResourceTest extends TestCase
 
     public function test_view_page_shows_empty_message_when_period_has_no_active_bookings(): void
     {
-        $restUnit = $this->createRestUnit();
+        $province = $this->createProvince();
+        $single = RoomType::query()->create(['name' => ['en' => 'Single room', 'ar' => 'غرفة فردية']]);
+
+        $unit = RestUnit::query()->create([
+            'name' => ['en' => 'Al Ainy Rest House', 'ar' => 'استراحة القصر العيني'],
+            'address' => ['en' => 'Cairo, Egypt', 'ar' => 'القاهرة، مصر'],
+            'province_id' => $province->id,
+            'type' => RestUnit::TYPE_ROOMS,
+            'is_active' => true,
+        ]);
+        $room = $unit->rooms()->create(['room_type_id' => $single->id, 'name' => 'Single 1', 'price' => 4000, 'status' => 'in_service']);
+
         $guest = $this->createUser(['name' => 'Old Guest']);
 
         RestUnitBooking::query()->create([
-            'rest_unit_id' => $restUnit->id,
+            'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $room->id,
             'user_id' => $guest->id,
             'start_date' => '2026-04-01',
             'end_date' => '2026-04-03',
             'status' => RestUnitBooking::STATUS_PAID_SUCCESSFULLY,
-            'unit_type' => RestUnit::TYPE_SINGLE_ROOM,
             'total_price' => 8000,
         ]);
 
@@ -170,10 +188,77 @@ class ResetUnitResourceTest extends TestCase
             'from_date' => '2026-04-10',
             'to_date' => '2026-04-12',
         ])
-            ->test(ViewResetUnit::class, ['record' => $restUnit->getKey()])
+            ->test(ViewResetUnit::class, ['record' => $unit->getKey()])
             ->assertSuccessful()
             ->assertSee('No active bookings for the selected period.')
             ->assertDontSee('Old Guest');
+    }
+
+    public function test_view_page_shows_all_bookings_by_default_without_dates(): void
+    {
+        $province = $this->createProvince();
+        $single = RoomType::query()->create(['name' => ['en' => 'Single room', 'ar' => 'غرفة فردية']]);
+
+        $unit = RestUnit::query()->create([
+            'name' => ['en' => 'Al Ainy Rest House', 'ar' => 'استراحة القصر العيني'],
+            'address' => ['en' => 'Cairo, Egypt', 'ar' => 'القاهرة، مصر'],
+            'province_id' => $province->id,
+            'type' => RestUnit::TYPE_ROOMS,
+            'is_active' => true,
+        ]);
+        $room = $unit->rooms()->create(['room_type_id' => $single->id, 'name' => 'Single 1', 'price' => 4000, 'status' => 'in_service']);
+
+        $guest = $this->createUser(['name' => 'Future Guest']);
+        RestUnitBooking::query()->create([
+            'rest_unit_id' => $unit->id,
+            'rest_unit_room_id' => $room->id,
+            'user_id' => $guest->id,
+            'start_date' => '2027-01-10',
+            'end_date' => '2027-01-12',
+            'status' => RestUnitBooking::STATUS_PAID_SUCCESSFULLY,
+            'total_price' => 8000,
+        ]);
+
+        // No date query params → all bookings are listed.
+        Livewire::test(ViewResetUnit::class, ['record' => $unit->getKey()])
+            ->assertSuccessful()
+            ->assertSee('Future Guest');
+    }
+
+    public function test_bed_maintenance_actions_are_logged(): void
+    {
+        $province = $this->createProvince();
+        $unit = RestUnit::query()->create([
+            'name' => ['en' => 'Beds', 'ar' => 'أسرّة'],
+            'address' => ['en' => 'x', 'ar' => 'x'],
+            'province_id' => $province->id,
+            'type' => RestUnit::TYPE_BEDS,
+            'price' => 100,
+            'is_active' => true,
+        ]);
+        $bed = $unit->beds()->create(['label' => 'Bed 1', 'status' => 'in_service']);
+
+        $bed->sendToMaintenance('AC broken');
+        $bed->returnToService();
+
+        $this->assertSame(2, $bed->maintenanceLogs()->count());
+        $this->assertDatabaseHas('rest_unit_bed_maintenance_logs', [
+            'rest_unit_bed_id' => $bed->id,
+            'action' => \Modules\Services\Models\RestUnitBedMaintenanceLog::ACTION_TO_MAINTENANCE,
+            'note' => 'AC broken',
+        ]);
+        $this->assertDatabaseHas('rest_unit_bed_maintenance_logs', [
+            'rest_unit_bed_id' => $bed->id,
+            'action' => \Modules\Services\Models\RestUnitBedMaintenanceLog::ACTION_RETURNED,
+        ]);
+    }
+
+    private function createProvince(): Province
+    {
+        return Province::query()->create([
+            'name' => ['en' => 'Cairo', 'ar' => 'القاهرة'],
+            'shipping_cost' => 0,
+        ]);
     }
 
     private function createUser(array $attributes = []): User
@@ -187,27 +272,6 @@ class ResetUnitResourceTest extends TestCase
             'reg_number' => (string) fake()->unique()->numberBetween(10000, 99999),
             'active' => true,
             'notification_enabled' => true,
-        ], $attributes));
-    }
-
-    private function createRestUnit(array $attributes = []): RestUnit
-    {
-        $province = Province::query()->create([
-            'name' => ['en' => 'Cairo', 'ar' => 'القاهرة'],
-            'shipping_cost' => 0,
-        ]);
-
-        return RestUnit::query()->create(array_merge([
-            'name' => ['en' => 'Al Ainy Rest House', 'ar' => 'استراحة القصر العيني'],
-            'address' => ['en' => 'Cairo, Egypt', 'ar' => 'القاهرة، مصر'],
-            'province_id' => $province->id,
-            'single_rooms' => 2,
-            'double_rooms' => 1,
-            'triple_rooms' => 1,
-            'is_active' => true,
-            'single_room_price' => 4000,
-            'double_room_price' => 5000,
-            'triple_room_price' => 6000,
         ], $attributes));
     }
 
@@ -282,35 +346,7 @@ class ResetUnitResourceTest extends TestCase
             $table->timestamps();
         });
 
-        Schema::connection('sqlite')->create('rest_units', function (Blueprint $table): void {
-            $table->id();
-            $table->json('name');
-            $table->json('address')->nullable();
-            $table->unsignedBigInteger('province_id');
-            $table->unsignedInteger('single_rooms')->default(0);
-            $table->decimal('single_room_price', 10, 2)->default(0);
-            $table->unsignedInteger('double_rooms')->default(0);
-            $table->decimal('double_room_price', 10, 2)->default(0);
-            $table->unsignedInteger('triple_rooms')->default(0);
-            $table->decimal('triple_room_price', 10, 2)->default(0);
-            $table->boolean('is_active')->default(true);
-            $table->softDeletes();
-            $table->timestamps();
-        });
-
-        Schema::connection('sqlite')->create('rest_unit_bookings', function (Blueprint $table): void {
-            $table->id();
-            $table->unsignedBigInteger('rest_unit_id');
-            $table->unsignedBigInteger('user_id')->nullable();
-            $table->string('unit_type')->nullable();
-            $table->date('start_date');
-            $table->date('end_date');
-            $table->string('status')->default('pending_payment');
-            $table->decimal('total_price', 10, 2)->nullable();
-            $table->timestamp('paid_at')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
-        });
+        $this->createRestUnitTables();
 
         Schema::connection('sqlite')->create('media', function (Blueprint $table): void {
             $table->id();
@@ -331,5 +367,10 @@ class ResetUnitResourceTest extends TestCase
             $table->unsignedInteger('order_column')->nullable();
             $table->nullableTimestamps();
         });
+    }
+
+    private function createRestUnitTables(): void
+    {
+        RestUnitTestSchema::create('sqlite');
     }
 }

@@ -6,6 +6,7 @@ use App\Filament\Resources\RestUnitBookings\RestUnitBookingResource;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\RepeatableEntry\TableColumn;
+use Filament\Infolists\Components\SpatieMediaLibraryImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -38,10 +39,10 @@ class RestUnitBookingInfolist
                             ->badge()
                             ->formatStateUsing(fn (?string $state): string => RestUnitBookingResource::getStatusLabel($state))
                             ->color(fn (?string $state): string => RestUnitBookingResource::getStatusColor($state)),
-                        TextEntry::make('unit_type')
+                        TextEntry::make('target')
                             ->label(__('Type'))
                             ->badge()
-                            ->formatStateUsing(fn (?string $state): string => RestUnitBookingResource::getRoomTypeLabel($state))
+                            ->getStateUsing(fn (RestUnitBooking $record): string => $record->targetLabel())
                             ->color('info'),
                         TextEntry::make('start_date')
                             ->label(__('Start Date'))
@@ -65,11 +66,38 @@ class RestUnitBookingInfolist
                         TextEntry::make('updated_at')
                             ->label(__('Updated At'))
                             ->dateTime(),
+                        TextEntry::make('cancellation_reason')
+                            ->label(__('Cancellation reason'))
+                            ->visible(fn (RestUnitBooking $record): bool => $record->isCancelled())
+                            ->color('danger')
+                            ->columnSpanFull(),
                     ])
                     ->columns(3)
                     ->columnSpanFull(),
 
+                Section::make(__('Martyr Family Beneficiary'))
+                    ->visible(fn (RestUnitBooking $record): bool => $record->isForMartyrFamily())
+                    ->schema([
+                        TextEntry::make('beneficiary_card_number')
+                            ->label(__('National ID'))
+                            ->placeholder('-'),
+                        TextEntry::make('beneficiary_name')
+                            ->label(__('Beneficiary name'))
+                            ->placeholder('-'),
+                        TextEntry::make('payment_reference')
+                            ->label(__('Transaction number'))
+                            ->placeholder('-'),
+                        SpatieMediaLibraryImageEntry::make('payment_receipt')
+                            ->label(__('Transfer image'))
+                            ->collection(RestUnitBooking::RECEIPT_COLLECTION)
+                            ->placeholder(__('No image uploaded.'))
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull(),
+
                 Section::make(__('User Details'))
+                    ->visible(fn (RestUnitBooking $record): bool => ! $record->isForMartyrFamily())
                     ->schema([
                         TextEntry::make('user.name')
                             ->label(__('Name'))
@@ -113,7 +141,7 @@ class RestUnitBookingInfolist
                             ->columnSpanFull(),
                         TextEntry::make('rest_unit_type')
                             ->label(__('Type'))
-                            ->getStateUsing(fn (RestUnitBooking $record): string => RestUnitBookingResource::getRoomTypeLabel($record->unit_type)),
+                            ->getStateUsing(fn (RestUnitBooking $record): string => RestUnit::typeLabel($record->restUnit?->type)),
                     ])
                     ->columns(3)
                     ->columnSpanFull(),

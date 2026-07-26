@@ -500,10 +500,11 @@ class OrderAdminSupport
 
     private static function roomTypeLabel(?string $type): string
     {
+        // `unit_type` now stores a human-readable target label (room group / bed / whole unit).
         return match ($type) {
-            RestUnit::TYPE_SINGLE_ROOM, 'single_rooms' => __('Single room'),
-            RestUnit::TYPE_DOUBLE_ROOM, 'double_rooms' => __('Double room'),
-            RestUnit::TYPE_TRIPLE_ROOM, 'single_bed' => __('Triple room'),
+            'single_rooms' => __('Single room'),
+            'double_rooms' => __('Double room'),
+            'single_bed' => __('Triple room'),
             null, '' => '-',
             default => (string) $type,
         };
