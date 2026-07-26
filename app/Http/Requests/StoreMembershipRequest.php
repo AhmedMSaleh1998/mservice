@@ -12,11 +12,22 @@ class StoreMembershipRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'print_card' => $this->boolean('print_card'),
+        ]);
+    }
+
     public function rules(): array
     {
         return [
+            'print_card' => ['sometimes', 'boolean'],
+            'delivery_method' => ['nullable', 'in:delivery,digital'],
             'address_id' => [
-                'required',
+                'nullable',
+                // Only a physical delivery needs an address; a digital card does not.
+                'required_if:delivery_method,delivery',
                 Rule::exists('user_addresses', 'id')->where(
                     fn ($query) => $query->where('user_id', $this->user()?->id)
                 ),
@@ -27,7 +38,7 @@ class StoreMembershipRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'address_id.required' => __('Please select a delivery address.'),
+            'address_id.required_if' => __('Please select a delivery address.'),
             'address_id.exists' => __('The selected address is invalid.'),
         ];
     }

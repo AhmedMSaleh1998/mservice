@@ -35,13 +35,14 @@ class MembershipService
         $this->subscriptionChargeService = $subscriptionChargeService ?? app(SubscriptionChargeService::class);
     }
 
-    public function calculateCosts(UserAddress $address, array $subscriptionCharge = []): array
+    public function calculateCosts(?UserAddress $address, array $subscriptionCharge = [], bool $printCard = true, bool $withDelivery = true): array
     {
-        $printingCost = $this->resolvePrintingCost();
-        $deliveryCost = (float) ($address->province?->shipping_cost ?? 0);
+        $printingCost = $printCard ? $this->resolvePrintingCost() : 0.0;
+        $deliveryCost = ($printCard && $withDelivery && $address) ? (float) ($address->province?->shipping_cost ?? 0) : 0.0;
         $subscriptionCost = (float) ($subscriptionCharge['amount'] ?? 0);
 
         return [
+            'print_card' => $printCard,
             'printing_cost' => $this->formatMoney($printingCost),
             'delivery_cost' => $this->formatMoney($deliveryCost),
             'subscription_cost' => $this->formatMoney($subscriptionCost),
@@ -61,13 +62,15 @@ class MembershipService
             return $summary;
         }
 
-        $items = [
-            [
+        $items = [];
+
+        if ($membershipRequest->print_card) {
+            $items[] = [
                 'code' => 'membership_printing',
                 'label' => __('Membership printing'),
                 'amount' => $this->formatMoney($membershipRequest->printing_cost),
-            ],
-        ];
+            ];
+        }
 
         if ((float) $membershipRequest->delivery_cost > 0) {
             $items[] = [
@@ -99,8 +102,19 @@ class MembershipService
     public function createRequest(array $data, User $user): MembershipRequest
     {
         return DB::transaction(function () use ($data, $user): MembershipRequest {
-            $address = $this->resolveAddress($user, $data['address_id'] ?? null);
+            $printCard = (bool) ($data['print_card'] ?? false);
+            $deliveryMethod = (string) ($data['delivery_method'] ?? '');
+            $withDelivery = $printCard && $deliveryMethod === 'delivery';
+            // An address is only required for a physical delivery; a digital card needs none.
+            $address = $withDelivery ? $this->resolveAddress($user, $data['address_id'] ?? null) : null;
             $subscriptionCharge = $this->resolveSubscriptionCharge($user);
+
+            // Nothing to charge for: no due subscription and no card requested.
+            if (! $printCard && (float) ($subscriptionCharge['amount'] ?? 0) <= 0) {
+                throw ValidationException::withMessages([
+                    'print_card' => __('There is no due subscription. If you want to print a membership card, please choose it.'),
+                ]);
+            }
 
             $snapshot = $this->buildProfileSnapshot($user);
 
@@ -110,11 +124,12 @@ class MembershipService
                 ]);
             }
 
-            $costs = $this->calculateCosts($address, $subscriptionCharge);
+            $costs = $this->calculateCosts($address, $subscriptionCharge, $printCard, $withDelivery);
             $pricing = $this->buildPricingSummary($costs);
             $isFreeRequest = $this->orderService->isFreeAmount($costs['total_amount']);
             $requestStatus = $isFreeRequest ? 'paid_successfully' : 'pending_payment';
             $paymentMethod = $isFreeRequest ? 'free' : null;
+            $storedDeliveryMethod = ! $printCard ? 'none' : ($withDelivery ? 'delivery' : 'digital');
 
             $membershipRequest = MembershipRequest::create([
                 'user_id' => $user->id,
@@ -122,15 +137,17 @@ class MembershipService
                 'specialty' => $snapshot['specialty'],
                 'degree' => $snapshot['degree'],
                 'registration_number' => $snapshot['registration_number'],
-                'delivery_method' => 'delivery',
+                'print_card' => $printCard,
+                'delivery_method' => $storedDeliveryMethod,
                 'payment_method' => $paymentMethod,
-                'user_address_id' => $address->id,
+                'user_address_id' => $address?->id,
                 'printing_cost' => $costs['printing_cost'],
                 'delivery_cost' => $costs['delivery_cost'],
                 'subscription_cost' => $costs['subscription_cost'],
                 'total_amount' => $costs['total_amount'],
                 'status' => $requestStatus,
-                'delivery_status' => MembershipRequest::DELIVERY_STATUS_PENDING,
+                // Delivery tracking only applies to a physical shipment.
+                'delivery_status' => $withDelivery ? MembershipRequest::DELIVERY_STATUS_PENDING : null,
             ]);
 
             if (! $isFreeRequest) {
@@ -259,14 +276,16 @@ class MembershipService
 
     private function buildPricingSummary(array $costs): array
     {
-        $items = [
-            [
+        $items = [];
+
+        if (! empty($costs['print_card'])) {
+            $items[] = [
                 'code' => 'membership_printing',
                 'unit_price' => $costs['printing_cost'],
                 'quantity' => 1,
                 'amount' => $costs['printing_cost'],
-            ],
-        ];
+            ];
+        }
 
         if ((float) $costs['delivery_cost'] > 0) {
             $items[] = [

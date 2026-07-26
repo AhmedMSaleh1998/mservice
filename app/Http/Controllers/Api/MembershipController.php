@@ -57,6 +57,8 @@ class MembershipController extends Controller
                 'id' => $membershipRequest->id,
                 'type' => 'membership_request',
                 'status' => $membershipRequest->status,
+                'print_card' => (bool) $membershipRequest->print_card,
+                'delivery_method' => $membershipRequest->delivery_method,
                 'delivery_status' => $membershipRequest->delivery_status,
                 'full_name' => $membershipRequest->full_name,
                 'specialty' => $membershipRequest->specialty,

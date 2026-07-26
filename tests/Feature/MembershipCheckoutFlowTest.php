@@ -70,6 +70,8 @@ class MembershipCheckoutFlowTest extends TestCase
         $response = $this
             ->withHeaders(['lang' => 'en'])
             ->postJson('/api/v1/membership/request', [
+                'print_card' => true,
+                'delivery_method' => 'delivery',
                 'address_id' => $address->id,
             ]);
 
@@ -114,7 +116,7 @@ class MembershipCheckoutFlowTest extends TestCase
         ]);
     }
 
-    public function test_store_requires_address_and_enforces_ownership(): void
+    public function test_store_requires_address_only_for_physical_delivery_and_enforces_ownership(): void
     {
         $user = $this->seedAuthenticatedUser();
         $this->seedMembershipService(3500);
@@ -132,21 +134,116 @@ class MembershipCheckoutFlowTest extends TestCase
         ]);
         $otherAddress = $this->seedAddress($otherUser);
 
-        $missingAddressResponse = $this
+        // Physical delivery without an address → validation error.
+        $deliveryNoAddress = $this
             ->withHeaders(['lang' => 'en'])
-            ->postJson('/api/v1/membership/request', []);
+            ->postJson('/api/v1/membership/request', [
+                'print_card' => true,
+                'delivery_method' => 'delivery',
+            ]);
 
-        $missingAddressResponse->assertStatus(422);
-        $missingAddressResponse->assertJsonValidationErrors(['address_id']);
+        $deliveryNoAddress->assertStatus(422);
+        $deliveryNoAddress->assertJsonValidationErrors(['address_id']);
 
+        // Physical delivery with someone else's address → validation error.
         $foreignAddressResponse = $this
             ->withHeaders(['lang' => 'en'])
             ->postJson('/api/v1/membership/request', [
+                'print_card' => true,
+                'delivery_method' => 'delivery',
                 'address_id' => $otherAddress->id,
             ]);
 
         $foreignAddressResponse->assertStatus(422);
         $foreignAddressResponse->assertJsonValidationErrors(['address_id']);
+    }
+
+    public function test_store_digital_card_needs_no_address_and_has_no_shipping(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $this->seedMembershipService(4500);
+        $this->seedPaymentMethods();
+
+        // A printed card delivered digitally needs no address and no shipping fee.
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson('/api/v1/membership/request', [
+                'print_card' => true,
+                'delivery_method' => 'digital',
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.order.request.print_card', true);
+        $response->assertJsonPath('data.order.request.delivery_method', 'digital');
+        $response->assertJsonPath('data.order.items.0.label', 'Membership printing');
+        $response->assertJsonPath('data.order.items.0.amount', '4500.00');
+        $response->assertJsonPath('data.order.total', '4500.00');
+        $response->assertJsonMissingPath('data.order.items.1');
+
+        $membershipRequestId = (int) $response->json('data.order.request.id');
+        $this->assertDatabaseHas('membership_requests', [
+            'id' => $membershipRequestId,
+            'user_id' => $user->id,
+            'print_card' => true,
+            'delivery_method' => 'digital',
+            'printing_cost' => 4500,
+            'delivery_cost' => 0,
+            'user_address_id' => null,
+            'delivery_status' => null,
+        ]);
+    }
+
+    public function test_store_rejects_when_no_card_and_no_due_subscription(): void
+    {
+        $this->seedAuthenticatedUser();
+        $this->seedMembershipService(4500);
+        $this->seedPaymentMethods();
+        // No fakeSubscriptionCharge() → Oracle returns nothing due (amount 0).
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson('/api/v1/membership/request', [
+                'print_card' => false,
+            ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['print_card']);
+    }
+
+    public function test_store_subscription_only_without_card_needs_no_address(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $this->seedMembershipService(4500);
+        $this->seedPaymentMethods();
+        $this->fakeSubscriptionCharge();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson('/api/v1/membership/request', [
+                'print_card' => false,
+            ]);
+
+        $response->assertCreated();
+        // Only the subscription fee is charged — no printing or shipping.
+        $response->assertJsonPath('data.order.request.print_card', false);
+        $response->assertJsonPath('data.order.request.delivery_method', 'none');
+        $response->assertJsonPath('data.order.items.0.label', 'Subscription fees');
+        $response->assertJsonPath('data.order.items.0.amount', '690.00');
+        $response->assertJsonPath('data.order.total', '690.00');
+        $response->assertJsonMissingPath('data.order.items.1');
+
+        $membershipRequestId = (int) $response->json('data.order.request.id');
+        $this->assertDatabaseHas('membership_requests', [
+            'id' => $membershipRequestId,
+            'user_id' => $user->id,
+            'print_card' => false,
+            'delivery_method' => 'none',
+            'printing_cost' => 0,
+            'delivery_cost' => 0,
+            'subscription_cost' => 690,
+            'total_amount' => 690,
+            'user_address_id' => null,
+        ]);
     }
 
     public function test_store_adds_subscription_item_when_oracle_returns_due_subscription(): void
@@ -162,6 +259,8 @@ class MembershipCheckoutFlowTest extends TestCase
         $response = $this
             ->withHeaders(['lang' => 'en'])
             ->postJson('/api/v1/membership/request', [
+                'print_card' => true,
+                'delivery_method' => 'delivery',
                 'address_id' => $address->id,
             ]);
 
@@ -204,6 +303,8 @@ class MembershipCheckoutFlowTest extends TestCase
         $response = $this
             ->withHeaders(['lang' => 'en'])
             ->postJson('/api/v1/membership/request', [
+                'print_card' => true,
+                'delivery_method' => 'delivery',
                 'address_id' => $address->id,
             ]);
 
@@ -544,6 +645,7 @@ class MembershipCheckoutFlowTest extends TestCase
             $table->string('specialty');
             $table->string('degree');
             $table->string('registration_number');
+            $table->boolean('print_card')->default(true);
             $table->string('delivery_method')->default('pickup');
             $table->text('address')->nullable();
             $table->string('status')->default('pending_payment');

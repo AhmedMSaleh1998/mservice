@@ -27,6 +27,7 @@ class MembershipRequest extends CustomModel
         'specialty',
         'degree',
         'registration_number',
+        'print_card',
         'delivery_method',
         'address',
         'status',
@@ -41,6 +42,7 @@ class MembershipRequest extends CustomModel
 
     protected $casts = [
         'address' => 'array',
+        'print_card' => 'boolean',
         'printing_cost' => 'decimal:2',
         'delivery_cost' => 'decimal:2',
         'subscription_cost' => 'decimal:2',

@@ -659,5 +659,6 @@
     "Action": "الإجراء",
     "Date": "التاريخ",
     "Sent to maintenance": "تم التحويل للصيانة",
-    "Returned to service": "تمت الإعادة للخدمة"
+    "Returned to service": "تمت الإعادة للخدمة",
+    "There is no due subscription. If you want to print a membership card, please choose it.": "لا يوجد اشتراك مستحق. إذا كنت تريد طباعة كارنيه العضوية فاختره."
 }
