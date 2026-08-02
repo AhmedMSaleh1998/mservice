@@ -22,6 +22,7 @@ class OraclePaymentSyncService
                 P_REGISTRATIONNO => :p_registration_no,
                 P_AMOUNT => :p_amount,
                 P_PAYMENTTYPE => :p_payment_type,
+                P_PAND_ID => :p_pand_id,
                 P_BANKTRANSACTIONID => :p_bank_transaction_id,
                 P_COURSE_ID => :p_course_id,
                 P_PHONENUMBER => :p_phone_number,
@@ -227,6 +228,8 @@ class OraclePaymentSyncService
                 'amount' => $this->formatAmount($subscriptionAmount),
                 'payment_type' => 'subscription',
                 'course_id' => null,
+                // A subscription line carries no certificate, so P_PAND_ID is null.
+                'pand_id' => null,
                 'part' => 'subscription',
             ];
         }
@@ -237,11 +240,25 @@ class OraclePaymentSyncService
                 'amount' => $this->formatAmount($serviceAmount),
                 'payment_type' => $this->resolvePaymentType($orderable),
                 'course_id' => $orderable instanceof CourseBooking ? (int) $orderable->course_id : null,
+                // Only a certificate payment sends the Oracle certificate number (P_PAND_ID); everything else is null.
+                'pand_id' => $this->resolvePandId($orderable),
                 'part' => 'service',
             ];
         }
 
         return $parts;
+    }
+
+    private function resolvePandId(mixed $orderable): ?int
+    {
+        if (! $orderable instanceof CertificateRequest) {
+            return null;
+        }
+
+        $orderable->loadMissing('certificate');
+        $pandId = $orderable->certificate?->pand_id;
+
+        return $pandId !== null ? (int) $pandId : null;
     }
 
     private function resolvePaymentType(mixed $orderable): ?string
@@ -333,6 +350,7 @@ class OraclePaymentSyncService
             'payment_type' => 'split',
             'bank_transaction_id' => (string) data_get($paymentParts, '0.bank_transaction_id', ''),
             'course_id' => collect($paymentParts)->firstWhere('part', 'service')['course_id'] ?? null,
+            'pand_id' => collect($paymentParts)->firstWhere('part', 'service')['pand_id'] ?? null,
             'phone_number' => (string) data_get($paymentParts, '0.phone_number', ''),
             'parts' => $paymentParts,
         ];
@@ -448,6 +466,7 @@ class OraclePaymentSyncService
             $statement->bindValue(':p_registration_no', $paymentData['registration_no']);
             $statement->bindValue(':p_amount', $paymentData['amount']);
             $statement->bindValue(':p_payment_type', $paymentData['payment_type']);
+            $statement->bindValue(':p_pand_id', $paymentData['pand_id']);
             $statement->bindValue(':p_bank_transaction_id', $paymentData['bank_transaction_id']);
             $statement->bindValue(':p_course_id', $paymentData['course_id']);
             $statement->bindValue(':p_phone_number', $paymentData['phone_number']);
@@ -475,11 +494,13 @@ class OraclePaymentSyncService
         $statusCode = '';
         $message = '';
         $courseId = $paymentData['course_id'];
+        $pandId = $paymentData['pand_id'];
 
         try {
             $this->bindOciByName($statement, ':p_registration_no', $paymentData['registration_no']);
             $this->bindOciByName($statement, ':p_amount', $paymentData['amount']);
             $this->bindOciByName($statement, ':p_payment_type', $paymentData['payment_type']);
+            $this->bindOciByName($statement, ':p_pand_id', $pandId);
             $this->bindOciByName($statement, ':p_bank_transaction_id', $paymentData['bank_transaction_id']);
             $this->bindOciByName($statement, ':p_course_id', $courseId);
             $this->bindOciByName($statement, ':p_phone_number', $paymentData['phone_number']);

@@ -37,6 +37,11 @@ class CertificatesTable
                     ->label(__('Price'))
                     ->money('EGP')
                     ->sortable(),
+                TextColumn::make('pand_id')
+                    ->label(__('Oracle certificate number'))
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('—'),
                 ToggleColumn::make('is_active')
                     ->label(__('Is Active')),
             ])

@@ -13,10 +13,11 @@ class Certificate extends CustomModel implements HasMedia
 {
     use HasTranslations, SoftDeletes, InteractsWithMedia;
 
-    protected $fillable = ['name', 'description', 'price', 'is_active', 'order'];
+    protected $fillable = ['name', 'description', 'price', 'pand_id', 'is_active', 'order'];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'pand_id' => 'integer',
         'is_active' => 'boolean',
     ];
 

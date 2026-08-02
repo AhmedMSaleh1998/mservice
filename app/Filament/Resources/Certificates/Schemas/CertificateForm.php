@@ -28,6 +28,7 @@ class CertificateForm
                     ->columnSpanFull(),
                 Grid::make([
                     'default' => 1,
+                    'md' => 2,
                 ])
                     ->schema([
                             TextInput::make('price')
@@ -36,6 +37,12 @@ class CertificateForm
                                 ->required()
                                 ->minValue(0)
                                 ->prefix('EGP'),
+                            TextInput::make('pand_id')
+                                ->label(__('Oracle certificate number'))
+                                ->helperText(__('The certificate number registered in Oracle. Required to create a certificate.'))
+                                ->numeric()
+                                ->required()
+                                ->minValue(1),
                         ]
                     )
                     ->columnSpanFull(),
