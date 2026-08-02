@@ -18,9 +18,11 @@ class MedicalUniversityResource extends Resource
 {
     protected static ?string $model = MedicalUniversity::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingLibrary;
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Settings';
+    protected static \UnitEnum|string|null $navigationGroup = null;
+
+    protected static ?int $navigationSort = 129;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -41,7 +43,7 @@ class MedicalUniversityResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Settings');
+        return null;
     }
 
     public static function form(Schema $schema): Schema

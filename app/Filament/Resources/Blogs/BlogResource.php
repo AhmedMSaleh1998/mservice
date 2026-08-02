@@ -22,7 +22,9 @@ class BlogResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Blogs';
+    protected static string|\UnitEnum|null $navigationGroup = null;
+
+    protected static ?int $navigationSort = 90;
 
     public static function getModelLabel(): string
     {
@@ -41,7 +43,7 @@ class BlogResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return __('Blogs');
+        return null;
     }
 
     public static function form(Schema $schema): Schema

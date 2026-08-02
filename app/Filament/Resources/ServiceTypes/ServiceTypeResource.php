@@ -7,6 +7,7 @@ use App\Filament\Resources\ServiceTypes\Pages\EditServiceType;
 use App\Filament\Resources\ServiceTypes\Pages\ListServiceTypes;
 use App\Filament\Resources\ServiceTypes\Schemas\ServiceTypeForm;
 use App\Filament\Resources\ServiceTypes\Tables\ServiceTypesTable;
+use App\Filament\Resources\Services\ServiceResource;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -18,7 +19,9 @@ class ServiceTypeResource extends Resource
 {
     protected static ?string $model = ServiceType::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::RectangleGroup;
+
+    protected static ?int $navigationSort = 11;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -39,7 +42,12 @@ class ServiceTypeResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Services');
+        return null;
+    }
+
+    public static function getNavigationParentItem(): ?string
+    {
+        return ServiceResource::getNavigationLabel();
     }
 
     public static function form(Schema $schema): Schema

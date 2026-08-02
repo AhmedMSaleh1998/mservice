@@ -10,6 +10,11 @@ use Modules\Users\Resources\NormalUserResource;
 
 class ProfileController extends Controller
 {
+    public function show(Request $request)
+    {
+        return NormalUserResource::make($request->user());
+    }
+
     public function update(UpdateProfileRequest $request)
     {
         $user = auth()->user();

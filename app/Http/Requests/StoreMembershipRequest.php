@@ -3,27 +3,43 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreMembershipRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'print_card' => $this->boolean('print_card'),
+        ]);
+    }
+
     public function rules(): array
     {
         return [
-            'full_name' => 'required|string|max:255',
-            'specialty' => 'required|string|max:255',
-            'degree' => 'required|string|max:255',
-            'registration_number' => 'required|string|max:50',
-            'delivery_method' => 'required|in:delivery,pickup',
-            'payment_method' => 'required|in:fawry,instapay',
-            'address_id' => 'required|exists:user_addresses,id',
+            'print_card' => ['sometimes', 'boolean'],
+            'delivery_method' => ['nullable', 'in:delivery,digital'],
+            'address_id' => [
+                'nullable',
+                // Only a physical delivery needs an address; a digital card does not.
+                'required_if:delivery_method,delivery',
+                Rule::exists('user_addresses', 'id')->where(
+                    fn ($query) => $query->where('user_id', $this->user()?->id)
+                ),
+            ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'address_id.required_if' => __('Please select a delivery address.'),
+            'address_id.exists' => __('The selected address is invalid.'),
         ];
     }
 }

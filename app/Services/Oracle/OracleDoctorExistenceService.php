@@ -28,23 +28,50 @@ class OracleDoctorExistenceService
         $normalizedRegisterNo = $this->normalizeLookupValue($registerNo);
         $normalizedIdNo = $this->normalizeLookupValue($idNo);
         $connection = $this->oracleConnectionService->make();
+        $driver = $connection instanceof PDO ? 'pdo_oci' : 'oci8';
+        $logContext = $this->buildLookupLogContext(
+            $driver,
+            $registerNo,
+            $idNo,
+            $normalizedRegisterNo,
+            $normalizedIdNo,
+        );
 
-        $doctorExists = $connection instanceof PDO
-            ? $this->doctorExistsWithPdo($connection, $normalizedRegisterNo, $normalizedIdNo)
-            : $this->doctorExistsWithOci8($connection, $normalizedRegisterNo, $normalizedIdNo);
+        Log::info('Oracle doctor lookup started.', $logContext);
+
+        try {
+            $doctorFlag = $connection instanceof PDO
+                ? $this->doctorExistsWithPdo($connection, $normalizedRegisterNo, $normalizedIdNo)
+                : $this->doctorExistsWithOci8($connection, $normalizedRegisterNo, $normalizedIdNo);
+        } catch (RuntimeException $exception) {
+            Log::error('Oracle doctor lookup failed.', [
+                ...$logContext,
+                'error' => $exception->getMessage(),
+            ]);
+
+            throw $exception;
+        }
+
+        $normalizedDoctorFlag = strtoupper(trim($doctorFlag));
+
+        Log::info('Oracle doctor lookup completed.', [
+            ...$logContext,
+            'doctor_flag' => $normalizedDoctorFlag,
+        ]);
+
+        $doctorExists = $this->normalizeDoctorExistsFlag($doctorFlag);
 
         if (! $doctorExists) {
             Log::warning('Oracle doctor lookup returned not found.', [
-                'driver' => $connection instanceof PDO ? 'pdo_oci' : 'oci8',
-                'register_no' => $normalizedRegisterNo,
-                'id_no_last4' => $this->maskNationalId($normalizedIdNo),
+                ...$logContext,
+                'doctor_flag' => $normalizedDoctorFlag,
             ]);
         }
 
         return $doctorExists;
     }
 
-    private function doctorExistsWithPdo(PDO $connection, string $registerNo, string $idNo): bool
+    private function doctorExistsWithPdo(PDO $connection, string $registerNo, string $idNo): string
     {
         try {
             $statement = $connection->prepare(self::CHECK_DOCTOR_EXIST_SQL);
@@ -58,13 +85,13 @@ class OracleDoctorExistenceService
             throw new RuntimeException('Oracle doctor lookup failed. ' . $exception->getMessage(), previous: $exception);
         }
 
-        return $this->normalizeDoctorExistsFlag($doctorFlag);
+        return $doctorFlag;
     }
 
     /**
      * @param resource|object $connection
      */
-    private function doctorExistsWithOci8($connection, string $registerNo, string $idNo): bool
+    private function doctorExistsWithOci8($connection, string $registerNo, string $idNo): string
     {
         $statement = @oci_parse($connection, self::CHECK_DOCTOR_EXIST_SQL);
 
@@ -88,7 +115,7 @@ class OracleDoctorExistenceService
             oci_free_statement($statement);
         }
 
-        return $this->normalizeDoctorExistsFlag($doctorFlag);
+        return $doctorFlag;
     }
 
     private function normalizeDoctorExistsFlag(string $doctorFlag): bool
@@ -126,6 +153,27 @@ class OracleDoctorExistenceService
         ]);
 
         return preg_replace('/\D+/', '', $normalized) ?? '';
+    }
+
+    private function buildLookupLogContext(
+        string $driver,
+        string $registerNo,
+        string $idNo,
+        string $normalizedRegisterNo,
+        string $normalizedIdNo,
+    ): array {
+        $trimmedRegisterNo = trim($registerNo);
+        $trimmedIdNo = trim($idNo);
+
+        return [
+            'driver' => $driver,
+            'register_no_input' => $trimmedRegisterNo,
+            'register_no_normalized' => $normalizedRegisterNo,
+            'register_no_changed' => $trimmedRegisterNo !== $normalizedRegisterNo,
+            'id_no_input' => $this->maskNationalId($trimmedIdNo),
+            'id_no_normalized' => $this->maskNationalId($normalizedIdNo),
+            'id_no_changed' => $trimmedIdNo !== $normalizedIdNo,
+        ];
     }
 
     private function maskNationalId(string $idNo): string

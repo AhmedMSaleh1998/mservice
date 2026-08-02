@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\AdRequests;
 
+use App\Filament\Resources\AdSpaces\AdSpaceResource;
 use App\Filament\Resources\AdRequests\Pages\EditAdRequest;
 use App\Filament\Resources\AdRequests\Pages\ListAdRequests;
 use App\Filament\Resources\AdRequests\Pages\ViewAdRequest;
@@ -13,15 +14,18 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Modules\Ads\Models\AdSpace;
 use Modules\Ads\Models\AdRequest;
 
 class AdRequestResource extends Resource
 {
     protected static ?string $model = AdRequest::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::ClipboardDocumentList;
 
     protected static ?string $recordTitleAttribute = 'id';
+
+    protected static ?int $navigationSort = 31;
 
     public static function getModelLabel(): string
     {
@@ -40,7 +44,24 @@ class AdRequestResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Services');
+        return null;
+    }
+
+    public static function getNavigationParentItem(): ?string
+    {
+        return AdSpaceResource::getNavigationLabel();
+    }
+
+    public static function getAdSpaceLabel(AdSpace|null $adSpace): string
+    {
+        $service = $adSpace?->service;
+
+        if (! $service) {
+            return '-';
+        }
+
+        return $service->getTranslation('title', app()->getLocale())
+            ?: ($service->getTranslation('title', 'en') ?: ($service->key ?? '-'));
     }
 
     public static function form(Schema $schema): Schema

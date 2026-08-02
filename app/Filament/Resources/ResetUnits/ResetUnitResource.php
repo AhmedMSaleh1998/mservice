@@ -6,6 +6,8 @@ use App\Filament\Resources\ResetUnits\Pages\CreateResetUnit;
 use App\Filament\Resources\ResetUnits\Pages\EditResetUnit;
 use App\Filament\Resources\ResetUnits\Pages\ListResetUnits;
 use App\Filament\Resources\ResetUnits\Pages\ViewResetUnit;
+use App\Filament\Resources\ResetUnits\RelationManagers\BedsRelationManager;
+use App\Filament\Resources\ResetUnits\RelationManagers\RoomsRelationManager;
 use App\Filament\Resources\ResetUnits\Schemas\ResetUnitForm;
 use App\Filament\Resources\ResetUnits\Schemas\ResetUnitInfolist;
 use App\Filament\Resources\ResetUnits\Tables\ResetUnitsTable;
@@ -22,9 +24,11 @@ class ResetUnitResource extends Resource
 {
     protected static ?string $model = RestUnit::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::HomeModern;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Rest units';
+    protected static string|\UnitEnum|null $navigationGroup = null;
+
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -45,7 +49,7 @@ class ResetUnitResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Rest Units');
+        return null;
     }
 
     public static function form(Schema $schema): Schema
@@ -66,7 +70,8 @@ class ResetUnitResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RoomsRelationManager::class,
+            BedsRelationManager::class,
         ];
     }
 

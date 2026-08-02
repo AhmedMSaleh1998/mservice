@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Certificates\Schemas;
 
 use AbdulmajeedJamaan\FilamentTranslatableTabs\TranslatableTabs;
-use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -29,12 +28,24 @@ class CertificateForm
                     ->columnSpanFull(),
                 Grid::make([
                     'default' => 1,
+                    'md' => 2,
                 ])
                     ->schema([
-                            TextInput::make('order')->label(__('Order'))->numeric()->required(),
-                            Checkbox::make('is_active')->label(__('Is Active')),
+                            TextInput::make('price')
+                                ->label(__('Price'))
+                                ->numeric()
+                                ->required()
+                                ->minValue(0)
+                                ->prefix('EGP'),
+                            TextInput::make('pand_id')
+                                ->label(__('Oracle certificate number'))
+                                ->helperText(__('The certificate number registered in Oracle. Required to create a certificate.'))
+                                ->numeric()
+                                ->required()
+                                ->minValue(1),
                         ]
                     )
+                    ->columnSpanFull(),
             ]);
     }
 }

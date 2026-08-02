@@ -3,7 +3,9 @@
 namespace Modules\Certificates\Resources;
 
 use Illuminate\Http\Request;
+use Modules\Certificates\Resources\CertificateResource as CertificateDetailsResource;
 use Modules\Core\CustomResource;
+use Modules\Core\Resources\OrderResource;
 use Modules\Users\Resources\UserAddressResource;
 
 class CertificateRequestResource extends CustomResource
@@ -13,17 +15,20 @@ class CertificateRequestResource extends CustomResource
     {
         return [
             'id' => $this->resource->id,
+            'certificate' => CertificateDetailsResource::make($this->whenLoaded('certificate')),
             'delivery_method' => $this->resource->delivery_method,
+            'delivery_status' => $this->resource->delivery_status,
             'phone' => $this->resource->phone,
             'email' => $this->resource->email,
             'status' => $this->resource->status,
-            'address' => UserAddressResource::make($this->userAddress),
+            'address' => UserAddressResource::make($this->resource->userAddress),
             'costs' => [
                 'printing_cost' => $this->resource->printing_cost,
                 'delivery_cost' => $this->resource->delivery_cost,
                 'subscription_cost' => $this->resource->subscription_cost,
                 'total' => $this->resource->total_amount,
             ],
+            'order' => OrderResource::make($this->whenLoaded('order')),
         ];
     }
 }

@@ -9,9 +9,11 @@ class MedicalGuideDetailsResource extends CustomResource
 {
     public function data(Request $request): array
     {
+        $isActive = (bool) $this->resource->is_active;
         $places = $this->resource->relationLoaded('places') ? $this->resource->places : collect();
+        $places = $isActive ? $places : collect();
         $primaryPlace = $places->first();
-        $primaryPhone = $primaryPlace?->phones[0] ?? null;
+        $primaryPhone = $isActive ? ($primaryPlace?->phones[0] ?? null) : null;
 
         $specialty = $this->resource->specialty?->getTranslation('name', app()->getLocale())
             ?? $this->resource->description;

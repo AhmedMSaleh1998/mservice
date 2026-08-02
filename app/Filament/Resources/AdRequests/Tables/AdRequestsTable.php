@@ -16,6 +16,7 @@ class AdRequestsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['user', 'adSpace.service', 'order']))
             ->columns([
                 TextColumn::make('id')
                     ->label(__('ID'))
@@ -26,7 +27,7 @@ class AdRequestsTable
                     ->sortable(),
                 TextColumn::make('adSpace.name')
                     ->label(__('Ad Space'))
-                    ->getStateUsing(fn ($record) => $record->adSpace?->getTranslation('name', app()->getLocale())),
+                    ->getStateUsing(fn (AdRequest $record): string => AdRequestResource::getAdSpaceLabel($record->adSpace)),
                 TextColumn::make('duration_months')
                     ->label(__('Months'))
                     ->numeric()
@@ -40,18 +41,23 @@ class AdRequestsTable
                     ->badge()
                     ->color(fn ($state) => match ($state) {
                         'pending_payment' => 'warning',
+                        'payment_expired' => 'gray',
                         'pending_review' => 'info',
                         'paid_successfully' => 'info',
+                        'completed' => 'success',
                         'approved' => 'success',
                         'rejected' => 'danger',
                         default => 'gray',
                     })
                     ->sortable(),
-                TextColumn::make('payment_method')
-                    ->label(__('Payment Method'))
-                    ->sortable(),
+                TextColumn::make('order.payment_method')
+                    ->label(__('Payment Method')),
                 TextColumn::make('created_at')
                     ->label(__('Created At'))
+                    ->dateTime()
+                    ->sortable(),
+                TextColumn::make('ends_at')
+                    ->label(__('Ends At'))
                     ->dateTime()
                     ->sortable(),
             ])

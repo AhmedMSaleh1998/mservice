@@ -17,11 +17,25 @@ class MedicalGuide extends CustomModel implements HasMedia
 {
     use InteractsWithMedia, SoftDeletes, HasTranslations;
 
-    protected $fillable = ['title', 'description', 'specialty_id', 'province_id', 'is_featured', 'is_active'];
+    protected $fillable = [
+        'reg_number',
+        'title',
+        'description',
+        'specialty_id',
+        'province_id',
+        'is_featured',
+        'is_active',
+        'oracle_payload',
+        'oracle_synced_at',
+        'oracle_last_changed_at',
+    ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
+        'oracle_payload' => 'array',
+        'oracle_synced_at' => 'datetime',
+        'oracle_last_changed_at' => 'datetime',
     ];
 
     public $translatable = ['title', 'description'];

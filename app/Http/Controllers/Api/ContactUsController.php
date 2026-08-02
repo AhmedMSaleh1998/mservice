@@ -23,6 +23,7 @@ class ContactUsController extends Controller
                 'address' => $address ?? config('contact.address'),
                 'email' => $contact?->email ?? config('contact.email'),
                 'phones' => $contact?->phones ?? config('contact.phones') ?? [],
+                'whatsapp' => $contact?->whatsapp ?? config('contact.whatsapp'),
                 'fax' => $contact?->fax ?? config('contact.fax'),
             ],
         ]);

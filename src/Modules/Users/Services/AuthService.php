@@ -3,6 +3,7 @@
 namespace Modules\Users\Services;
 
 use App\Services\Oracle\OracleDoctorExistenceService;
+use App\Support\PhoneNumberNormalizer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Modules\Core\Models\Otp;
@@ -20,8 +21,26 @@ class AuthService
     ) {
     }
 
-    public function register(RegisterDto $dto): User
+    public function register(RegisterDTO $dto): User
     {
+        $phoneVariants = PhoneNumberNormalizer::variants($dto->phone);
+        $existingUser = User::query()
+            ->whereIn('phone', $phoneVariants)
+            ->latest('id')
+            ->first();
+
+        if ($existingUser?->active) {
+            throw ValidationException::withMessages([
+                'phone' => [__('Phone number already exists.')],
+            ]);
+        }
+
+        if ($existingUser) {
+            throw ValidationException::withMessages([
+                'phone' => [__('A verification code has already been sent to this phone number. Please verify the account or request a new code.')],
+            ]);
+        }
+
 //        // Verify that the phone has been verified
 //        $verifiedPhoneOtp = Otp::where('phone', $dto->phone)
 //            ->where('action', 'register')
@@ -47,15 +66,16 @@ class AuthService
 
         if (! $doctorExists) {
             throw ValidationException::withMessages([
-                'reg_number' => [__('No doctor record matches the provided registration number and national ID in Oracle.')],
+                'reg_number' => [__('No doctor record matches the provided registration number and national ID in syndicate records.')],
             ]);
         }
 
         return User::create([
             'name' => $dto->name,
-            'phone' => $dto->phone,
+            'phone' => PhoneNumberNormalizer::normalize($dto->phone),
             'password' => bcrypt($dto->password),
             'national_id' => $dto->nationalId,
+            'email' => $dto->email,
             'reg_number' => $dto->regNumber,
         ]);
     }
@@ -63,7 +83,7 @@ class AuthService
     public function login(LoginDTO $dto)
     {
         $credentials = [
-            'phone' => $dto->phone,
+            'phone' => PhoneNumberNormalizer::normalize($dto->phone),
             'password' => $dto->password,
         ];
 

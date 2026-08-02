@@ -10,7 +10,13 @@ class CertificateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'certificate_id' => ['required', 'exists:certificates,id'],
+            'certificate_id' => [
+                'required',
+                Rule::exists('certificates', 'id')->where(function ($query) {
+                    $query->where('is_active', true)
+                        ->whereNull('deleted_at');
+                }),
+            ],
             'delivery_method' => ['required', Rule::in(['digital', 'delivery'])],
             'phone' => [
                 'nullable',
@@ -26,7 +32,9 @@ class CertificateRequest extends FormRequest
             'address_id' => [
                 'required_if:delivery_method,delivery',
                 'nullable',
-                'exists:user_addresses,id'
+                Rule::exists('user_addresses', 'id')->where(
+                    fn ($query) => $query->where('user_id', $this->user()?->id)
+                ),
             ],
 
         ];
@@ -37,7 +45,9 @@ class CertificateRequest extends FormRequest
         return [
             'phone.required_without' => 'Please provide either a phone number or an email address for digital delivery.',
             'email.required_without' => 'Please provide either an email address or a phone number for digital delivery.',
-            'user_address_id.required_if' => 'Please select a delivery address.',
+            'address_id.required_if' => 'Please select a delivery address.',
+            'address_id.exists' => 'The selected address is invalid.',
+            'certificate_id.exists' => 'The selected certificate is invalid.',
         ];
     }
 }

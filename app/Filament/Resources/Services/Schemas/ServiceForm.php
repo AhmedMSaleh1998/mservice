@@ -23,6 +23,13 @@ class ServiceForm
                     ->label(__('Key'))
                     ->unique(ignoreRecord: true)
                     ->required(),
+                TextInput::make('price')
+                    ->label(__('Price'))
+                    ->numeric()
+                    ->minValue(0)
+                    ->default(0)
+                    ->prefix('EGP')
+                    ->helperText(__('Used as the configurable base price for this service.')),
                 TranslatableTabs::make('anyLabel')
                     ->schema([
                         TextInput::make("title")

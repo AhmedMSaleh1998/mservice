@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\AdRequests\Schemas;
 
+use App\Filament\Resources\AdRequests\AdRequestResource;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Modules\Ads\Models\AdRequest;
 use Modules\Core\Models\PaymentMethod;
 
 class AdRequestInfolist
@@ -20,7 +22,7 @@ class AdRequestInfolist
                             ->label(__('User')),
                         TextEntry::make('adSpace.name')
                             ->label(__('Ad Space'))
-                            ->formatStateUsing(fn ($state, $record) => $record->adSpace?->getTranslation('name', app()->getLocale())),
+                            ->getStateUsing(fn (AdRequest $record): string => AdRequestResource::getAdSpaceLabel($record->adSpace)),
                         TextEntry::make('price_per_month')
                             ->label(__('Price Per Month')),
                         TextEntry::make('duration_months')
@@ -41,7 +43,7 @@ class AdRequestInfolist
                     ->schema([
                         TextEntry::make('status')
                             ->label(__('Status')),
-                        TextEntry::make('payment_method')
+                        TextEntry::make('order.payment_method')
                             ->label(__('Payment Method'))
                             ->formatStateUsing(fn ($state) => static::paymentMethodLabel($state)),
                         TextEntry::make('created_at')

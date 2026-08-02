@@ -18,6 +18,13 @@ class ProvinceForm
                     ->numeric()
                     ->required()
                     ->unique(ignoreRecord: true),
+                TextInput::make('shipping_cost')
+                    ->label(__('Shipping Cost'))
+                    ->numeric()
+                    ->required()
+                    ->default(0)
+                    ->minValue(0)
+                    ->prefix('EGP'),
                 TranslatableTabs::make(__('Name'))
                     ->schema([
                         TextInput::make('name')

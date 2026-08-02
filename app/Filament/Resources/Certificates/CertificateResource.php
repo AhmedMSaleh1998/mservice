@@ -20,7 +20,9 @@ class CertificateResource extends Resource
 {
     protected static ?string $model = Certificate::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::DocumentCheck;
+
+    protected static ?int $navigationSort = 40;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -41,7 +43,7 @@ class CertificateResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Services');
+        return null;
     }
 
     public static function form(Schema $schema): Schema

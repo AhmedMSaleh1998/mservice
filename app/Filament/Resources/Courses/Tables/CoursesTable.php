@@ -2,17 +2,20 @@
 
 namespace App\Filament\Resources\Courses\Tables;
 
+use App\Filament\Resources\Courses\CourseResource;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
-use Filament\Tables\Columns\IconColumn;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
-use Illuminate\Support\Str;
+use Modules\Courses\Models\Course;
 
 class CoursesTable
 {
@@ -38,32 +41,36 @@ class CoursesTable
                     ->sortable(),
                 TextColumn::make('start_date')->label(__('Start Date'))->date(),
                 TextColumn::make('end_date')->label(__('End Date'))->date(),
-                TextColumn::make('price')->label(__('Price'))->money('SAR'),
-                TextColumn::make('type')->label(__('Type'))->searchable(),
-                IconColumn::make('is_active')
-                    ->label(__('Is Active'))
-                    ->boolean()
-                    ->trueColor('success')
-                    ->falseColor('danger')
+                TextColumn::make('price')->label(__('Price'))->money('EGP'),
+                TextColumn::make('available_count')
+                    ->label(__('Available Count'))
+                    ->numeric()
                     ->sortable(),
-                IconColumn::make('is_featured')
+                TextColumn::make('type')->label(__('Type'))->searchable(),
+                ToggleColumn::make('is_active')
+                    ->label(__('Is Active'))
+                    ->onColor('success')
+                    ->offColor('danger')
+                    ->sortable(),
+                ToggleColumn::make('is_featured')
                     ->label(__('Is Featured'))
-                    ->boolean()
-                    ->trueColor('success')
-                    ->falseColor('danger')
+                    ->onColor('success')
+                    ->offColor('danger')
                     ->sortable(),
             ])
             ->filters([
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make(),
+                ActionGroup::make([
+                    ViewAction::make()
+                        ->url(fn (Course $record): string => CourseResource::getUrl('view', ['record' => $record])),
+                    EditAction::make(),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
-                    ForceDeleteBulkAction::make(),
-                    RestoreBulkAction::make(),
                 ]),
             ]);
     }

@@ -66,7 +66,7 @@ class AuthServiceRegisterOracleTest extends TestCase
         $this->assertDatabaseCount('users', 1);
         $this->assertNotNull($user->id);
         $this->assertSame('Doctor Test', $user->name);
-        $this->assertSame('01123456789', $user->phone);
+        $this->assertSame('201123456789', $user->phone);
         $this->assertSame('29901011234567', $user->national_id);
         $this->assertSame('12345', $user->reg_number);
         $this->assertTrue(Hash::check('secret123', $user->password));
@@ -82,10 +82,10 @@ class AuthServiceRegisterOracleTest extends TestCase
 
         try {
             $this->makeAuthService($oracleService)->register($this->makeDto());
-            $this->fail('Registration should fail when the doctor is missing from Oracle.');
+            $this->fail('Registration should fail when the doctor is missing from syndicate records.');
         } catch (ValidationException $exception) {
             $this->assertSame(
-                [__('No doctor record matches the provided registration number and national ID in Oracle.')],
+                [__('No doctor record matches the provided registration number and national ID in syndicate records.')],
                 $exception->errors()['reg_number'] ?? [],
             );
         }
@@ -114,6 +114,36 @@ class AuthServiceRegisterOracleTest extends TestCase
         $this->assertDatabaseCount('users', 0);
     }
 
+    public function test_register_rejects_pending_duplicate_phone_without_creating_another_user(): void
+    {
+        DB::table('users')->insert([
+            'name' => 'Pending User',
+            'phone' => '201123456789',
+            'email' => 'pending@example.com',
+            'password' => bcrypt('secret123'),
+            'national_id' => '29901011234567',
+            'reg_number' => '12345',
+            'active' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $oracleService = Mockery::mock(OracleDoctorExistenceService::class);
+        $oracleService->shouldNotReceive('doctorExists');
+
+        try {
+            $this->makeAuthService($oracleService)->register($this->makeDto());
+            $this->fail('Registration should reject a pending duplicate phone.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                [__('A verification code has already been sent to this phone number. Please verify the account or request a new code.')],
+                $exception->errors()['phone'] ?? [],
+            );
+        }
+
+        $this->assertDatabaseCount('users', 1);
+    }
+
     private function makeAuthService(OracleDoctorExistenceService $oracleService): AuthService
     {
         return new AuthService($oracleService);
@@ -123,6 +153,7 @@ class AuthServiceRegisterOracleTest extends TestCase
     {
         return new RegisterDTO(
             name: 'Doctor Test',
+            email: 'doctor@example.com',
             phone: '01123456789',
             nationalId: '29901011234567',
             regNumber: '12345',

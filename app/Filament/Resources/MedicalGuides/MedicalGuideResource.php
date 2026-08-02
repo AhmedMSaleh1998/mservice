@@ -26,7 +26,9 @@ class MedicalGuideResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;
     
-    protected static UnitEnum|string|null $navigationGroup = 'Medical Guides';
+    protected static UnitEnum|string|null $navigationGroup = null;
+
+    protected static ?int $navigationSort = 80;
 
     protected static ?string $recordTitleAttribute = 'title';
 
@@ -47,7 +49,7 @@ class MedicalGuideResource extends Resource
 
     public static function getNavigationGroup(): UnitEnum|string|null
     {
-        return __('Medical Guides');
+        return null;
     }
 
     public static function form(Schema $schema): Schema

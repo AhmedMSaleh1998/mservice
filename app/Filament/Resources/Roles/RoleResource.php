@@ -27,6 +27,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -39,6 +40,10 @@ class RoleResource extends Resource
     use Essentials\HasLabels;
     use Essentials\HasNavigation;
     use HasShieldFormComponents;
+
+    protected static string|\BackedEnum|null $navigationIcon = Heroicon::ShieldCheck;
+
+    protected static ?int $navigationSort = 111;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -59,7 +64,7 @@ class RoleResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Access Management');
+        return null;
     }
 
     public static function form(Schema $schema): Schema

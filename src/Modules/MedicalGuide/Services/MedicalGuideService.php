@@ -10,8 +10,7 @@ class MedicalGuideService
 {
     protected function baseQuery()
     {
-        return MedicalGuide::query()
-            ->active();
+        return MedicalGuide::query();
     }
 
     public function getMedicalGuides($limit = 100, array $specialties = [], array $provinceIds = [], string $keyword = '')
@@ -38,6 +37,7 @@ class MedicalGuideService
                 'specialty',
                 'province'
             ])
+            ->orderByDesc('is_active')
             ->orderByDesc('is_featured');
 
         return $query

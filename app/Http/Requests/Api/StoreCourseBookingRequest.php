@@ -5,7 +5,7 @@ namespace App\Http\Requests\Api;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class PayAdRequest extends FormRequest
+class StoreCourseBookingRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -16,7 +16,7 @@ class PayAdRequest extends FormRequest
     {
         return [
             'payment_method' => [
-                'required',
+                'nullable',
                 Rule::exists('payment_methods', 'key')->where('is_active', true),
             ],
         ];

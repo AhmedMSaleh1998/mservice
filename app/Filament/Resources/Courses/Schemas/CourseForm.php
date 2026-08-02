@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Courses\Schemas;
 
 use AbdulmajeedJamaan\FilamentTranslatableTabs\TranslatableTabs;
-use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
@@ -31,6 +30,12 @@ class CourseForm
                 DatePicker::make('start_date')->label(__('Start Date'))->required(),
                 DatePicker::make('end_date')->label(__('End Date'))->required(),
                 TextInput::make('price')->label(__('Price'))->numeric()->required(),
+                TextInput::make('available_count')
+                    ->label(__('Available Count'))
+                    ->numeric()
+                    ->default(0)
+                    ->minValue(0)
+                    ->required(),
                 Select::make('type')
                     ->label(__('Type'))
                     ->options([
@@ -39,8 +44,6 @@ class CourseForm
                         'hybrid' => __('Hybrid'),
                     ])
                     ->required(),
-                Checkbox::make('is_active')->label(__('Is Active')),
-                Checkbox::make('is_featured')->label(__('Is Featured'))
             ]);
     }
 }

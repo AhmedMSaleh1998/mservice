@@ -24,7 +24,7 @@ class SendOtpVerification
     public function handle(OtpEventInterface $event): void
     {
         $user = $event->user;
-        $type = $event?->type ?? OtpEnum::REGISTER->value;
+        $type = OtpEnum::normalizeAction($event?->type ?? null, OtpEnum::REGISTER->value);
         $phone = $event?->phone ?? $user->phone;
         $this->otpService->generatePhoneOtp($phone, $type);
     }

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\SendOtpRequest;
 use App\Http\Requests\Api\VerityOtpRequest;
+use App\Support\PhoneNumberNormalizer;
+use Illuminate\Support\Facades\Log;
 use Modules\Core\Enums\OtpEnum;
 use Modules\Core\Services\OtpService;
 use Modules\Users\Models\User;
@@ -19,21 +21,50 @@ class OtpSendController extends Controller
 
     public function send(SendOtpRequest $request)
     {
-        if (User::where(['phone' => $request->phone, 'active' => true])->exists() && $request->action && $request->action == OtpEnum::REGISTER->value) {
+        $phoneVariants = PhoneNumberNormalizer::variants($request->phone);
+        $action = OtpEnum::normalizeAction($request->input('action'), OtpEnum::REGISTER->value);
+        $normalizedPhone = PhoneNumberNormalizer::normalize($request->phone);
+        $matchingUser = User::whereIn('phone', $phoneVariants)
+            ->latest('id')
+            ->first();
+
+        Log::info('OTP send request received.', [
+            'action' => $action,
+            'raw_action' => $request->input('action'),
+            'normalized_phone' => $normalizedPhone,
+            'phone_variants' => $phoneVariants,
+            'matching_user_id' => $matchingUser?->id,
+            'matching_user_active' => $matchingUser?->active,
+        ]);
+
+        if ($matchingUser?->active && $request->action && $action === OtpEnum::REGISTER->value) {
+            Log::info('OTP send rejected because phone already belongs to an active user.', [
+                'action' => $action,
+                'normalized_phone' => $normalizedPhone,
+                'matching_user_id' => $matchingUser->id,
+            ]);
+
             return response()->json([
                 'status' => false,
                 'message' => __('Phone number already exists.')
             ], 422);
         }
 
-        if (!User::where('phone', $request->phone)->exists() && $request->action && $request->action == OtpEnum::FORGET->value) {
+        if (! ($matchingUser?->active) && $action === OtpEnum::FORGET->value) {
+            Log::info('OTP send rejected because no active user was found for forgot password.', [
+                'action' => $action,
+                'normalized_phone' => $normalizedPhone,
+                'matching_user_id' => $matchingUser?->id,
+                'matching_user_active' => $matchingUser?->active,
+            ]);
+
             return response()->json([
                 'status' => false,
                 'message' => __('Phone number not found.')
             ], 422);
         }
 
-        $this->otpService->generatePhoneOtp($request->phone, $request->input('action') ?? OtpEnum::REGISTER->value);
+        $this->otpService->generatePhoneOtp($request->phone, $action);
 
         return response()->json([
             'message' => __('OTP sent to your phone.'),
@@ -43,16 +74,22 @@ class OtpSendController extends Controller
 
     public function verify(VerityOtpRequest $request)
     {
-        $res = $this->otpService->verifyPhoneOtp($request->phone, $request->code, $request->input('action') ?? OtpEnum::REGISTER->value);
+        $action = OtpEnum::normalizeAction($request->input('action'), OtpEnum::REGISTER->value);
+        $res = $this->otpService->verifyPhoneOtp($request->phone, $request->code, $action);
         if ($res) {
-            if ($request->input('action') && $request->input('action') == OtpEnum::REGISTER->value) {
+            if ($request->input('action') && $action === OtpEnum::REGISTER->value) {
+                $phoneVariants = PhoneNumberNormalizer::variants($request->phone);
+
                 // Activate user
-                $user = User::where('phone', $request->phone)->orderByDesc('id')->first();
+                $user = User::whereIn('phone', $phoneVariants)->orderByDesc('id')->first();
                 $user->active = true;
                 $user->save();
 
                 // delete previous phone
-                User::where(['phone' => $request->phone, 'active' => false, 'role_id' => 3])->delete();
+                User::whereIn('phone', $phoneVariants)
+                    ->where('active', false)
+                    ->where('role_id', 3)
+                    ->delete();
             }
 
             return response()->json([
@@ -70,7 +107,37 @@ class OtpSendController extends Controller
 
     public function resend(SendOtpRequest $request)
     {
-        $this->otpService->generatePhoneOtp($request->phone, $request->input('action') ?? OtpEnum::REGISTER->value);
+        $phoneVariants = PhoneNumberNormalizer::variants($request->phone);
+        $action = OtpEnum::normalizeAction($request->input('action'), OtpEnum::REGISTER->value);
+        $normalizedPhone = PhoneNumberNormalizer::normalize($request->phone);
+        $matchingUser = User::whereIn('phone', $phoneVariants)
+            ->latest('id')
+            ->first();
+
+        Log::info('OTP resend request received.', [
+            'action' => $action,
+            'raw_action' => $request->input('action'),
+            'normalized_phone' => $normalizedPhone,
+            'phone_variants' => $phoneVariants,
+            'matching_user_id' => $matchingUser?->id,
+            'matching_user_active' => $matchingUser?->active,
+        ]);
+
+        if (! ($matchingUser?->active) && $action === OtpEnum::FORGET->value) {
+            Log::info('OTP resend rejected because no active user was found for forgot password.', [
+                'action' => $action,
+                'normalized_phone' => $normalizedPhone,
+                'matching_user_id' => $matchingUser?->id,
+                'matching_user_active' => $matchingUser?->active,
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => __('Phone number not found.')
+            ], 422);
+        }
+
+        $this->otpService->generatePhoneOtp($request->phone, $action);
 
         return response()->json([
             'message' => __('OTP resent to your phone.'),

@@ -27,6 +27,10 @@ class ContactInfoForm
                     ->email()
                     ->required()
                     ->maxLength(255),
+                TextInput::make('whatsapp')
+                    ->label(__('WhatsApp'))
+                    ->tel()
+                    ->maxLength(50),
                 TextInput::make('fax')
                     ->label(__('Fax'))
                     ->required()

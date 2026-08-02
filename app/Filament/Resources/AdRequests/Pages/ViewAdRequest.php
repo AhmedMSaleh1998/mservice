@@ -6,6 +6,7 @@ use App\Filament\Resources\AdRequests\AdRequestResource;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Illuminate\Database\Eloquent\Model;
 
 class ViewAdRequest extends ViewRecord
 {
@@ -43,5 +44,13 @@ class ViewAdRequest extends ViewRecord
                 })
                 ->visible(fn () => $this->record->status === 'paid_successfully'),
         ];
+    }
+
+    protected function resolveRecord(int|string $key): Model
+    {
+        /** @var Model $record */
+        $record = parent::resolveRecord($key);
+
+        return $record->loadMissing(['user', 'adSpace.service', 'order']);
     }
 }

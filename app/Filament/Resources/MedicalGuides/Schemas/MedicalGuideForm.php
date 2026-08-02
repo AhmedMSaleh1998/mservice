@@ -72,7 +72,6 @@ class MedicalGuideForm
                     ->required()
                     ->columnSpanFull(),
                 Checkbox::make('is_active')->label(__('Is Active')),
-                Checkbox::make('is_featured')->label(__('Is Featured'))
             ]);
     }
 }

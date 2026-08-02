@@ -20,6 +20,8 @@ class ContactInfoResource extends Resource
 
     protected static ?string $navigationLabel = 'Contact Info';
 
+    protected static ?int $navigationSort = 121;
+
     public static function getModelLabel(): string
     {
         return __('Contact Info');
@@ -37,7 +39,7 @@ class ContactInfoResource extends Resource
 
     public static function getNavigationGroup(): \UnitEnum|string|null
     {
-        return __('Settings');
+        return null;
     }
 
     public static function form(Schema $schema): Schema
