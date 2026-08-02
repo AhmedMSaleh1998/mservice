@@ -7,13 +7,9 @@
 .fi-body.manage-login {
     background-color: #25282e;
     background-image: url("/assets/image3.png");
-    background-position: right 0% center;
+    background-position: center;
     background-repeat: no-repeat;
-    background-size: clamp(200px, 73vw, 1400px);
-}
-
-html[dir="rtl"] .fi-body.manage-login {
-    background-position: left 0% center;
+    background-size: cover;
 }
 
 .fi-body.manage-login .fi-simple-layout {
@@ -22,11 +18,26 @@ html[dir="rtl"] .fi-body.manage-login {
     min-height: 100dvh;
 }
 
+/* Readability scrim that fades from the form side into the photo. */
+.fi-body.manage-login .fi-simple-layout::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: linear-gradient(to left, rgba(20, 22, 26, 0.72) 0, rgba(20, 22, 26, 0.35) 34rem, rgba(20, 22, 26, 0) 62%);
+}
+
+html[dir="ltr"] .fi-body.manage-login .fi-simple-layout::before {
+    background: linear-gradient(to right, rgba(20, 22, 26, 0.72) 0, rgba(20, 22, 26, 0.35) 34rem, rgba(20, 22, 26, 0) 62%);
+}
+
 .fi-body.manage-login .fi-simple-main {
     width: min(100%, 34rem);
     height: 100dvh;
     min-height: 100dvh;
     margin: 0;
+    padding: 2.5rem clamp(1.25rem, 4vw, 2.75rem);
     background: rgba(255, 255, 255, 0.14);
     border: 1px solid rgba(255, 255, 255, 0.25);
     border-radius: 0;
@@ -97,16 +108,57 @@ html[dir="rtl"] .fi-body.manage-login {
     padding: 0;
 }
 
+/* Tablet: center the form as a card and evenly dim the photo for contrast. */
 @media (max-width: 1024px) {
+    .fi-body.manage-login {
+        background-size: cover;
+        background-position: center;
+    }
+
+    .fi-body.manage-login .fi-simple-layout::before,
+    html[dir="ltr"] .fi-body.manage-login .fi-simple-layout::before {
+        background: rgba(18, 20, 24, 0.62);
+    }
+
     .fi-body.manage-login .fi-simple-main-ctn {
         justify-content: center;
-        padding: 0;
+        align-items: center;
+        padding: 1.5rem;
+    }
+
+    .fi-body.manage-login .fi-simple-main {
+        width: min(100%, 26rem);
+        height: auto;
+        min-height: 0;
+        border-radius: 1.25rem;
+        padding: 2.25rem clamp(1.25rem, 5vw, 2.25rem);
     }
 }
 
+/* Mobile: drop the photo and use the solid dark background full width. */
 @media (max-width: 640px) {
     .fi-body.manage-login {
         background-image: none;
+    }
+
+    .fi-body.manage-login .fi-simple-layout::before {
+        display: none;
+    }
+
+    .fi-body.manage-login .fi-simple-main-ctn {
+        padding: 0;
+    }
+
+    .fi-body.manage-login .fi-simple-main {
+        width: 100%;
+        height: auto;
+        min-height: 100dvh;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        backdrop-filter: none;
+        box-shadow: none;
+        padding: 2rem 1.5rem;
     }
 }
 
