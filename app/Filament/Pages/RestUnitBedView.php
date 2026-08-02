@@ -28,7 +28,8 @@ class RestUnitBedView extends Page
 
     public function getTitle(): string
     {
-        return (string) $this->bed->label;
+        // The page is instantiated without mounting (e.g. shield:generate); guard the record.
+        return isset($this->bed) ? (string) $this->bed->label : parent::getTitle();
     }
 
     protected function getHeaderWidgets(): array
