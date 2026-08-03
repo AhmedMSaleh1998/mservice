@@ -439,11 +439,11 @@ class OraclePaymentSyncService
             'orderable_id' => $order->orderable_id,
             'payment_type' => $paymentData['payment_type'] ?? null,
             'amount' => $paymentData['amount'] ?? null,
-            'registration_no' => $this->maskValue($paymentData['registration_no'] ?? null),
+            'registration_no' => $paymentData['registration_no'] ?? null,
             'bank_transaction_id' => $paymentData['bank_transaction_id'] ?? null,
             'course_id' => $paymentData['course_id'] ?? null,
             'pand_id' => $paymentData['pand_id'] ?? null,
-            'phone_number' => $this->maskValue($paymentData['phone_number'] ?? null),
+            'phone_number' => $paymentData['phone_number'] ?? null,
         ];
     }
 
