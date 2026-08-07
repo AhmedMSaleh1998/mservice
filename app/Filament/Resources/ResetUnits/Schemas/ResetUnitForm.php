@@ -44,6 +44,7 @@ class ResetUnitForm
                     ->schema([
                         TextInput::make('name')->label(__('Name'))->required(),
                         TextInput::make('address')->label(__('Address'))->required(),
+                        Textarea::make('description')->label(__('Description'))->rows(3),
                     ])
                     ->columnSpanFull(),
 
@@ -61,6 +62,14 @@ class ResetUnitForm
                     ->searchable()
                     ->preload()
                     ->required()
+                    ->columnSpanFull(),
+
+                // Oracle "pand" (item) number sent to Oracle when a rest unit payment is synced.
+                TextInput::make('pand_id')
+                    ->label(__('Oracle item number'))
+                    ->helperText(__('The item (pand) number registered in Oracle for this rest unit.'))
+                    ->numeric()
+                    ->minValue(1)
                     ->columnSpanFull(),
 
                 // Shared price for beds (per bed) and whole unit (per unit); rooms price is per room.

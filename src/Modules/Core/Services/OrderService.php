@@ -567,8 +567,54 @@ class OrderService
         return $order->fresh(['orderable', 'user']);
     }
 
-    private function hasSuccessfulOraclePaymentSync(Order $order): bool
+    public function hasSuccessfulOraclePaymentSync(Order $order): bool
     {
         return data_get($order->payload, 'oracle_payment_sync.status') === 'success';
+    }
+
+    /**
+     * Manually (re)run the Oracle payment sync for a single paid order and persist the result.
+     * Used by the admin sync actions. Returns the sync result array.
+     */
+    public function runOraclePaymentSync(Order $order): array
+    {
+        if ($order->status !== 'paid_successfully') {
+            return [
+                'status' => 'skipped',
+                'reason' => 'not_paid',
+                'attempted_at' => now()->format('Y-m-d H:i:s'),
+                'synced_at' => null,
+                'payment_type' => null,
+                'status_code' => null,
+                'message' => __('Only paid orders can be synced with Oracle.'),
+                'request' => null,
+            ];
+        }
+
+        try {
+            $syncResult = app(OraclePaymentSyncService::class)->syncPaidOrder($order);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            $syncResult = [
+                'status' => 'failed',
+                'reason' => 'unexpected_error',
+                'attempted_at' => now()->format('Y-m-d H:i:s'),
+                'synced_at' => null,
+                'payment_type' => null,
+                'status_code' => null,
+                'message' => $exception->getMessage(),
+                'request' => null,
+            ];
+        }
+
+        $payload = is_array($order->payload) ? $order->payload : [];
+        $payload['oracle_payment_sync'] = $syncResult;
+
+        $order->forceFill([
+            'payload' => $payload,
+        ])->save();
+
+        return $syncResult;
     }
 }

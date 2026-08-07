@@ -26,6 +26,7 @@ class RestUnitResource extends CustomResource
             'id' => $this->resource->id,
             'name' => $this->resource->name,
             'address' => $this->resource->address,
+            'description' => $this->resource->description,
             'province_id' => $this->resource->province_id,
             'type' => $this->resource->type,
             'province' => ProvinceResource::make($this->resource->province),

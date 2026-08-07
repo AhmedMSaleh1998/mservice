@@ -33,6 +33,7 @@ class RestUnitDetailResource extends CustomResource
             'id' => $this->resource->id,
             'name' => $this->resource->name,
             'address' => $this->resource->address,
+            'description' => $this->resource->description,
             'province' => [
                 'id' => $this->resource->province_id,
                 'name' => data_get($this->resource, 'province.name'),

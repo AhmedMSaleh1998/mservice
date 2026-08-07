@@ -251,12 +251,12 @@ class OraclePaymentSyncService
 
     private function resolvePandId(mixed $orderable): ?int
     {
-        if (! $orderable instanceof CertificateRequest) {
-            return null;
-        }
-
-        $orderable->loadMissing('certificate');
-        $pandId = $orderable->certificate?->pand_id;
+        $pandId = match (true) {
+            $orderable instanceof CertificateRequest => $orderable->loadMissing('certificate')->certificate?->pand_id,
+            $orderable instanceof CourseBooking => $orderable->loadMissing('course')->course?->pand_id,
+            $orderable instanceof RestUnitBooking => $orderable->loadMissing('restUnit')->restUnit?->pand_id,
+            default => null,
+        };
 
         return $pandId !== null ? (int) $pandId : null;
     }
@@ -268,7 +268,7 @@ class OraclePaymentSyncService
             $orderable instanceof CertificateRequest => 'certificate',
             $orderable instanceof CourseBooking => 'course',
             $orderable instanceof AdRequest => 'ad',
-            $orderable instanceof RestUnitBooking => 'rest_unit',
+            $orderable instanceof RestUnitBooking => 'restunit',
             $orderable instanceof TravelBooking => 'travel',
             default => null,
         };
@@ -563,12 +563,9 @@ class OraclePaymentSyncService
 
     private function isSuccessfulPaymentResponse(array $paymentData, int|string|null $statusCode): bool
     {
-        if ($statusCode === 200) {
-            return true;
-        }
-
-        return ($paymentData['payment_type'] ?? null) === 'subscription'
-            && $statusCode === 1;
+        // Oracle PAYMENT_SERVICE returns 200 or 1 ("تم دفع قيمة الخدمة") on a successful payment,
+        // for every payment type (subscription and services: certificate/course/rest unit ...).
+        return in_array($statusCode, [200, 1], true);
     }
 
     private function normalizeDigits(string $value): string

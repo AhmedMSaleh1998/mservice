@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Services\Oracle\OracleDoctorDataLookupService;
 use App\Services\Oracle\OracleDoctorExistenceService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -70,6 +71,38 @@ class AuthServiceRegisterOracleTest extends TestCase
         $this->assertSame('29901011234567', $user->national_id);
         $this->assertSame('12345', $user->reg_number);
         $this->assertTrue(Hash::check('secret123', $user->password));
+    }
+
+    public function test_register_stores_oracle_name_instead_of_submitted_name(): void
+    {
+        $oracleService = Mockery::mock(OracleDoctorExistenceService::class);
+        $oracleService->shouldReceive('doctorExists')
+            ->once()
+            ->with('12345', '29901011234567')
+            ->andReturnTrue();
+
+        // Oracle returns the official name; it must win over the name the user typed.
+        $dataLookup = $this->makeDataLookup(['doctor_name' => 'الاسم الرسمي من أوراكل']);
+
+        $user = $this->makeAuthService($oracleService, $dataLookup)->register($this->makeDto());
+
+        $this->assertSame('الاسم الرسمي من أوراكل', $user->name);
+    }
+
+    public function test_register_falls_back_to_submitted_name_when_oracle_has_no_name(): void
+    {
+        $oracleService = Mockery::mock(OracleDoctorExistenceService::class);
+        $oracleService->shouldReceive('doctorExists')
+            ->once()
+            ->with('12345', '29901011234567')
+            ->andReturnTrue();
+
+        // Oracle returns no usable name → keep the submitted name.
+        $dataLookup = $this->makeDataLookup(['doctor_name' => '']);
+
+        $user = $this->makeAuthService($oracleService, $dataLookup)->register($this->makeDto());
+
+        $this->assertSame('Doctor Test', $user->name);
     }
 
     public function test_register_rejects_user_when_oracle_does_not_find_doctor(): void
@@ -144,9 +177,19 @@ class AuthServiceRegisterOracleTest extends TestCase
         $this->assertDatabaseCount('users', 1);
     }
 
-    private function makeAuthService(OracleDoctorExistenceService $oracleService): AuthService
+    private function makeAuthService(
+        OracleDoctorExistenceService $oracleService,
+        ?OracleDoctorDataLookupService $dataLookup = null,
+    ): AuthService {
+        return new AuthService($oracleService, $dataLookup ?? $this->makeDataLookup(null));
+    }
+
+    private function makeDataLookup(?array $profile): OracleDoctorDataLookupService
     {
-        return new AuthService($oracleService);
+        $lookup = Mockery::mock(OracleDoctorDataLookupService::class);
+        $lookup->shouldReceive('findByRegisterNo')->andReturn($profile);
+
+        return $lookup;
     }
 
     private function makeDto(): RegisterDTO
