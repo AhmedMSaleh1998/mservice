@@ -17,8 +17,9 @@ class PageForm
             ->components([
                 TranslatableTabs::make('content')
                     ->schema([
-                        TextInput::make('title')->required(),
+                        TextInput::make('title')->label(__('Title'))->required(),
                         RichEditor::make('content')
+                            ->label(__('Content'))
                             ->extraAttributes(['style' => 'min-height: 400px;'])
                             ->required(),
                     ])

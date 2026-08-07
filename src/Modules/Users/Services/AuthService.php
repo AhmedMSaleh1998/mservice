@@ -2,10 +2,12 @@
 
 namespace Modules\Users\Services;
 
+use App\Services\Oracle\OracleDoctorDataLookupService;
 use App\Services\Oracle\OracleDoctorExistenceService;
 use App\Support\PhoneNumberNormalizer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Modules\Core\Models\Otp;
 use Modules\Users\Dto\LoginDTO;
 use Modules\Users\Dto\RegisterDTO;
@@ -18,6 +20,7 @@ class AuthService
 {
     public function __construct(
         private readonly OracleDoctorExistenceService $oracleDoctorExistenceService,
+        private readonly OracleDoctorDataLookupService $oracleDoctorDataLookupService,
     ) {
     }
 
@@ -70,14 +73,33 @@ class AuthService
             ]);
         }
 
+        // Store the official Oracle name to keep data consistent; fall back to the submitted name if Oracle has none.
+        $name = $this->resolveOracleDoctorName($dto->regNumber) ?: $dto->name;
+
         return User::create([
-            'name' => $dto->name,
+            'name' => $name,
             'phone' => PhoneNumberNormalizer::normalize($dto->phone),
             'password' => bcrypt($dto->password),
             'national_id' => $dto->nationalId,
             'email' => $dto->email,
             'reg_number' => $dto->regNumber,
         ]);
+    }
+
+    private function resolveOracleDoctorName(string $registerNo): string
+    {
+        try {
+            $profile = $this->oracleDoctorDataLookupService->findByRegisterNo($registerNo);
+        } catch (RuntimeException $exception) {
+            Log::warning('Oracle doctor data lookup failed while resolving the name at registration.', [
+                'register_no' => $registerNo,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return '';
+        }
+
+        return trim((string) ($profile['doctor_name'] ?? ''));
     }
 
     public function login(LoginDTO $dto)

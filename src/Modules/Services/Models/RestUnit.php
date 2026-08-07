@@ -34,18 +34,21 @@ class RestUnit extends CustomModel implements HasMedia
     protected $fillable = [
         'name',
         'address',
+        'description',
         'province_id',
         'type',
         'price',
+        'pand_id',
         'status',
         'maintenance_note',
         'is_active',
     ];
 
-    public $translatable = ['name', 'address'];
+    public $translatable = ['name', 'address', 'description'];
 
     protected $casts = [
         'price' => 'float',
+        'pand_id' => 'integer',
         'is_active' => 'boolean',
     ];
 

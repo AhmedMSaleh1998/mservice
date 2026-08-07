@@ -17,6 +17,7 @@ class RestUnitListResource extends CustomResource
         return [
             'id' => $this->resource->id,
             'name' => $this->resource->name,
+            'description' => $this->resource->description,
             'province' => [
                 'id' => $this->resource->province_id,
                 'name' => data_get($this->resource, 'province.name'),

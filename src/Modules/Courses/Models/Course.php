@@ -14,12 +14,13 @@ class Course extends CustomModel implements HasMedia
 {
     use InteractsWithMedia, SoftDeletes, HasTranslations;
 
-    protected $fillable = ['title', 'description', 'start_date', 'end_date', 'price', 'available_count', 'type', 'is_active', 'is_featured'];
+    protected $fillable = ['title', 'description', 'start_date', 'end_date', 'price', 'pand_id', 'available_count', 'type', 'is_active', 'is_featured'];
 
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
         'available_count' => 'integer',
+        'pand_id' => 'integer',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
     ];

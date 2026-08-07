@@ -30,6 +30,11 @@ class CourseForm
                 DatePicker::make('start_date')->label(__('Start Date'))->required(),
                 DatePicker::make('end_date')->label(__('End Date'))->required(),
                 TextInput::make('price')->label(__('Price'))->numeric()->required(),
+                TextInput::make('pand_id')
+                    ->label(__('Oracle course number'))
+                    ->helperText(__('The course number registered in Oracle.'))
+                    ->numeric()
+                    ->minValue(1),
                 TextInput::make('available_count')
                     ->label(__('Available Count'))
                     ->numeric()

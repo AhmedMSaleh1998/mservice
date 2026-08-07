@@ -3,8 +3,6 @@
 namespace App\Filament\Resources\Users\Tables;
 
 use Filament\Actions\ActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -63,11 +61,7 @@ class UsersTable
             ->recordActions([
                 ActionGroup::make([
                     EditAction::make(),
-                    DeleteAction::make(),
                 ]),
-            ])
-            ->toolbarActions([
-                DeleteBulkAction::make(),
             ])
             ->defaultSort('id', 'desc');
     }
