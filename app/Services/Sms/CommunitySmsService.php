@@ -13,7 +13,7 @@ use RuntimeException;
 
 class CommunitySmsService
 {
-    private const OTP_TEMPLATE = 'Your verification code is :code';
+    private const OTP_TEMPLATE = 'Your EMS verification code is :code';
 
     public function isEnabled(): bool
     {
