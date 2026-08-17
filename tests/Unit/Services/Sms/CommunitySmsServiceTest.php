@@ -99,7 +99,7 @@ class CommunitySmsServiceTest extends TestCase
         ]);
 
         Http::assertSent(function ($request): bool {
-            return $request['SMSText'] === 'Your verification code is 123456'
+            return $request['SMSText'] === 'Your EMS verification code is 123456'
                 && $request['SMSReceiver'] === '201026513696'
                 && $request['SMSID'] === 'otp-123'
                 && $request['DLRURL'] === 'https://app.example.test/otp-dlr';
