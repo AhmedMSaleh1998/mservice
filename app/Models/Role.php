@@ -66,9 +66,13 @@ class Role extends SpatieRole
         $locale ??= app()->getLocale();
         $fallbackLocale = (string) config('app.fallback_locale', 'en');
 
-        $displayName = data_get($this->translated_name, $locale)
-            ?: data_get($this->translated_name, $fallbackLocale)
-            ?: data_get($this->translated_name, 'en');
+        // HasTranslations makes $this->translated_name return a single-locale
+        // string, so read the full translations array instead.
+        $translations = $this->getTranslations('translated_name');
+
+        $displayName = data_get($translations, $locale)
+            ?: data_get($translations, $fallbackLocale)
+            ?: data_get($translations, 'en');
 
         return filled($displayName)
             ? (string) $displayName
