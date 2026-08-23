@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Services\Oracle\OracleDoctorDataLookupService;
 use App\Services\Oracle\OracleDoctorExistenceService;
+use App\Support\DoctorLookupThrottle;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -181,7 +182,7 @@ class AuthServiceRegisterOracleTest extends TestCase
         OracleDoctorExistenceService $oracleService,
         ?OracleDoctorDataLookupService $dataLookup = null,
     ): AuthService {
-        return new AuthService($oracleService, $dataLookup ?? $this->makeDataLookup(null));
+        return new AuthService($oracleService, $dataLookup ?? $this->makeDataLookup(null), new DoctorLookupThrottle());
     }
 
     private function makeDataLookup(?array $profile): OracleDoctorDataLookupService

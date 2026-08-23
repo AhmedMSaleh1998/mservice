@@ -90,7 +90,10 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
 
     Route::prefix('auth')->group(function () {
         Route::controller(RegisterController::class)->group(function () {
-            Route::post('register', 'register');
+            // Coarse backstop in front of the per-identity limiter in
+            // DoctorLookupThrottle: caps how fast a single source can reach the
+            // Oracle lookup at all.
+            Route::post('register', 'register')->middleware('throttle:10,1');
         });
 
         Route::controller(LoginController::class)->group(function () {
