@@ -7,6 +7,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Support\NationalIdentifier;
 use App\Support\PhoneNumberNormalizer;
 use Modules\Core\Models\SmsMessage;
 use RuntimeException;
@@ -189,7 +190,9 @@ class CommunitySmsService
 
     private function normalizeReceiver(string $phone): string
     {
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        // Fold Arabic-Indic numerals before stripping, otherwise a number typed
+        // on an Arabic keypad reduces to an empty string.
+        $digits = NationalIdentifier::normalize($phone);
 
         if ($digits === '') {
             throw new RuntimeException('A valid SMS receiver is required.');

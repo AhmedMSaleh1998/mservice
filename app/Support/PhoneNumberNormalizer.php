@@ -4,9 +4,23 @@ namespace App\Support;
 
 class PhoneNumberNormalizer
 {
+    /**
+     * National (subscriber) number shapes we can recognise with certainty, keyed
+     * by country calling code.
+     *
+     * Egyptian mobiles are rigid enough to normalise structurally: the national
+     * number is always 1 + operator digit (0 Vodafone, 1 Etisalat, 2 Orange,
+     * 5 WE) + 8 subscriber digits. Anything that peels down to that shape is an
+     * Egyptian mobile no matter how many trunk zeros or country codes were
+     * stacked in front of it.
+     */
+    private const NATIONAL_NUMBER_PATTERNS = [
+        '20' => '/^1[0125]\d{8}$/',
+    ];
+
     public static function normalize(string $phone, ?string $countryCode = null): string
     {
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        $digits = self::digits($phone);
 
         if ($digits === '') {
             return '';
@@ -20,6 +34,14 @@ class PhoneNumberNormalizer
 
         if ($countryCode === '') {
             return $digits;
+        }
+
+        // When the country has a known national number shape, peel whatever
+        // prefixes were stacked in front of it and rebuild the number cleanly.
+        $nationalNumber = self::peelToNationalNumber($digits, $countryCode);
+
+        if ($nationalNumber !== null) {
+            return $countryCode . $nationalNumber;
         }
 
         if (str_starts_with($digits, $countryCode . '0')) {
@@ -37,9 +59,31 @@ class PhoneNumberNormalizer
         return $digits;
     }
 
+    /**
+     * True when the number resolves to a recognised mobile for the country —
+     * i.e. normalize() produced a number we can vouch for structurally rather
+     * than one it simply passed through untouched.
+     */
+    public static function isValidMobile(string $phone, ?string $countryCode = null): bool
+    {
+        $resolvedCountryCode = self::countryCode($countryCode);
+
+        if (! isset(self::NATIONAL_NUMBER_PATTERNS[$resolvedCountryCode])) {
+            return false;
+        }
+
+        $digits = self::digits($phone);
+
+        if (str_starts_with($digits, '00')) {
+            $digits = substr($digits, 2);
+        }
+
+        return self::peelToNationalNumber($digits, $resolvedCountryCode) !== null;
+    }
+
     public static function variants(string $phone, ?string $countryCode = null): array
     {
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        $digits = self::digits($phone);
         $normalized = self::normalize($phone, $countryCode);
         $countryCode = self::countryCode($countryCode);
         $variants = [$phone, $digits, $normalized];
@@ -60,6 +104,52 @@ class PhoneNumberNormalizer
         }
 
         return array_values(array_unique(array_filter($variants, static fn ($value): bool => $value !== '')));
+    }
+
+    /**
+     * Strip trunk zeros and stacked country codes until what remains matches the
+     * country's national number shape. Returns null when the number never gets
+     * there, which leaves foreign numbers untouched.
+     */
+    private static function peelToNationalNumber(string $digits, string $countryCode): ?string
+    {
+        $pattern = self::NATIONAL_NUMBER_PATTERNS[$countryCode] ?? null;
+
+        if ($pattern === null) {
+            return null;
+        }
+
+        $candidate = $digits;
+
+        // Every pass removes at least one leading digit, so this terminates.
+        while ($candidate !== '') {
+            if (preg_match($pattern, $candidate) === 1) {
+                return $candidate;
+            }
+
+            if (str_starts_with($candidate, '0')) {
+                $candidate = substr($candidate, 1);
+                continue;
+            }
+
+            if (str_starts_with($candidate, $countryCode) && strlen($candidate) > strlen($countryCode)) {
+                $candidate = substr($candidate, strlen($countryCode));
+                continue;
+            }
+
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Digits only, with Arabic-Indic and Eastern Arabic numerals folded to ASCII
+     * first — otherwise a number typed on an Arabic keypad collapses to nothing.
+     */
+    private static function digits(string $phone): string
+    {
+        return NationalIdentifier::normalize($phone);
     }
 
     private static function countryCode(?string $countryCode): string
