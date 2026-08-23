@@ -37,34 +37,4 @@ class ContactInfoPolicy
         return $authUser->can('Delete:ContactInfo');
     }
 
-    public function restore(AuthUser $authUser, ContactInfo $contactInfo): bool
-    {
-        return $authUser->can('Restore:ContactInfo');
-    }
-
-    public function forceDelete(AuthUser $authUser, ContactInfo $contactInfo): bool
-    {
-        return $authUser->can('ForceDelete:ContactInfo');
-    }
-
-    public function forceDeleteAny(AuthUser $authUser): bool
-    {
-        return $authUser->can('ForceDeleteAny:ContactInfo');
-    }
-
-    public function restoreAny(AuthUser $authUser): bool
-    {
-        return $authUser->can('RestoreAny:ContactInfo');
-    }
-
-    public function replicate(AuthUser $authUser, ContactInfo $contactInfo): bool
-    {
-        return $authUser->can('Replicate:ContactInfo');
-    }
-
-    public function reorder(AuthUser $authUser): bool
-    {
-        return $authUser->can('Reorder:ContactInfo');
-    }
-
 }

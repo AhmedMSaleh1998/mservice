@@ -37,34 +37,4 @@ class RegistrationRequestPolicy
         return $authUser->can('Delete:RegistrationRequest');
     }
 
-    public function restore(AuthUser $authUser, RegistrationRequest $registrationRequest): bool
-    {
-        return $authUser->can('Restore:RegistrationRequest');
-    }
-
-    public function forceDelete(AuthUser $authUser, RegistrationRequest $registrationRequest): bool
-    {
-        return $authUser->can('ForceDelete:RegistrationRequest');
-    }
-
-    public function forceDeleteAny(AuthUser $authUser): bool
-    {
-        return $authUser->can('ForceDeleteAny:RegistrationRequest');
-    }
-
-    public function restoreAny(AuthUser $authUser): bool
-    {
-        return $authUser->can('RestoreAny:RegistrationRequest');
-    }
-
-    public function replicate(AuthUser $authUser, RegistrationRequest $registrationRequest): bool
-    {
-        return $authUser->can('Replicate:RegistrationRequest');
-    }
-
-    public function reorder(AuthUser $authUser): bool
-    {
-        return $authUser->can('Reorder:RegistrationRequest');
-    }
-
 }

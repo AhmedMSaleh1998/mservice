@@ -726,7 +726,7 @@ class AdRequestCheckoutFlowTest extends TestCase
         ]);
     }
 
-    public function test_sync_payment_status_marks_ad_paid_when_fawry_reports_paid(): void
+    public function test_sync_payment_status_reads_pending_state_without_calling_fawry(): void
     {
         $user = $this->seedAuthenticatedUser();
         $adSpace = $this->seedAdSpace();
@@ -751,6 +751,88 @@ class AdRequestCheckoutFlowTest extends TestCase
             'checkout_url' => 'https://atfawry.fawrystaging.com/checkout/session-777',
         ]);
 
+        Http::fake();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson("/api/v1/orders/{$order->id}/sync-payment-status");
+
+        $response->assertOk();
+        $response->assertJsonPath('data.order.gateway_status', 'NEW');
+
+        // Polling reads the local database only — no gateway round-trip.
+        Http::assertNothingSent();
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => 'checkout_pending',
+        ]);
+    }
+
+    public function test_sync_payment_status_reports_paid_state_from_database(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $this->seedPaymentMethods();
+        $this->configureFawry();
+
+        $adRequest = AdRequest::query()->create([
+            'user_id' => $user->id,
+            'ad_space_id' => $adSpace->id,
+            'duration_months' => 1,
+            'price_per_month' => 1000,
+            'total_amount' => 1000,
+            'ad_text' => 'Test ad',
+            'status' => 'paid_successfully',
+        ]);
+        $order = $this->createOrderForAdRequest($adRequest, [
+            'status' => 'paid_successfully',
+            'payment_method' => 'fawry',
+            'provider' => 'fawry',
+            'merchant_ref_num' => 'AD-777',
+            'gateway_status' => 'PAID',
+            'gateway_reference' => '123456789',
+        ]);
+
+        Http::fake();
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->postJson("/api/v1/orders/{$order->id}/sync-payment-status");
+
+        $response->assertOk();
+        $response->assertJsonPath('data.order.request.status', 'paid_successfully');
+        $response->assertJsonPath('data.order.gateway_status', 'PAID');
+
+        Http::assertNothingSent();
+    }
+
+    public function test_reconcile_command_marks_ad_paid_when_fawry_reports_paid(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $this->seedPaymentMethods();
+        $this->configureFawry();
+
+        $adRequest = AdRequest::query()->create([
+            'user_id' => $user->id,
+            'ad_space_id' => $adSpace->id,
+            'duration_months' => 1,
+            'price_per_month' => 1000,
+            'total_amount' => 1000,
+            'ad_text' => 'Test ad',
+            'status' => 'pending_payment',
+        ]);
+        $order = $this->createOrderForAdRequest($adRequest, [
+            'status' => 'checkout_pending',
+            'payment_method' => 'fawry',
+            'provider' => 'fawry',
+            'merchant_ref_num' => 'AD-777',
+            'gateway_status' => 'NEW',
+            'checkout_url' => 'https://atfawry.fawrystaging.com/checkout/session-777',
+            'payment_started_at' => now()->subMinutes(10),
+        ]);
+
         $payload = [
             'fawryRefNumber' => '123456789',
             'merchantRefNumber' => 'AD-777',
@@ -766,13 +848,7 @@ class AdRequestCheckoutFlowTest extends TestCase
             'https://atfawry.fawrystaging.com/ECommerceWeb/Fawry/payments/status/v2*' => Http::response($payload, 200),
         ]);
 
-        $response = $this
-            ->withHeaders(['lang' => 'en'])
-            ->postJson("/api/v1/orders/{$order->id}/sync-payment-status");
-
-        $response->assertOk();
-        $response->assertJsonPath('data.order.request.status', 'paid_successfully');
-        $response->assertJsonPath('data.order.gateway_status', 'PAID');
+        $this->artisan('payments:reconcile-fawry')->assertExitCode(0);
 
         $this->assertDatabaseHas('ad_requests', [
             'id' => $adRequest->id,
@@ -783,6 +859,51 @@ class AdRequestCheckoutFlowTest extends TestCase
             'status' => 'paid_successfully',
             'gateway_status' => 'PAID',
             'gateway_reference' => '123456789',
+        ]);
+    }
+
+    public function test_reconcile_command_expires_unpaid_checkout_after_payment_window(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $this->seedPaymentMethods();
+        $this->configureFawry();
+
+        $adRequest = AdRequest::query()->create([
+            'user_id' => $user->id,
+            'ad_space_id' => $adSpace->id,
+            'duration_months' => 1,
+            'price_per_month' => 1000,
+            'total_amount' => 1000,
+            'ad_text' => 'Test ad',
+            'status' => 'pending_payment',
+        ]);
+        $order = $this->createOrderForAdRequest($adRequest, [
+            'status' => 'checkout_pending',
+            'payment_method' => 'fawry',
+            'provider' => 'fawry',
+            'merchant_ref_num' => 'AD-777',
+            'gateway_status' => 'NEW',
+            'checkout_url' => 'https://atfawry.fawrystaging.com/checkout/session-777',
+            // Past the 5-minute expiry window (plus the one-minute grace).
+            'payment_started_at' => now()->subMinutes(30),
+        ]);
+
+        // Fawry answers "no transaction" for a checkout nobody paid.
+        Http::fake([
+            'https://atfawry.fawrystaging.com/ECommerceWeb/Fawry/payments/status/v2*' => Http::response([
+                'code' => '9938',
+                'reason' => 'NO_DATA',
+                'description' => 'Invalid Transaction id',
+            ], 404),
+        ]);
+
+        $this->artisan('payments:reconcile-fawry')->assertExitCode(0);
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => 'pending_payment',
+            'gateway_status' => 'EXPIRED',
         ]);
     }
 

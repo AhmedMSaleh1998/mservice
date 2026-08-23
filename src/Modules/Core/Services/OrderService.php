@@ -5,6 +5,7 @@ namespace Modules\Core\Services;
 use App\Services\Oracle\OraclePaymentSyncService;
 use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 use Modules\Ads\Models\AdRequest;
@@ -189,6 +190,23 @@ class OrderService
 
     public function applyFawryPaymentUpdate(Order $order, array $payload, string $source): Order
     {
+        // Serialize concurrent updates for the same order (return redirect,
+        // notification webhook and the reconciliation command can land within
+        // the same second) so the Oracle export guard in synchronizePaidOrder
+        // always sees the latest persisted state.
+        return DB::transaction(function () use ($order, $payload, $source): Order {
+            $locked = Order::query()
+                ->with('orderable')
+                ->whereKey($order->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            return $this->applyFawryPaymentUpdateLocked($locked ?? $order, $payload, $source);
+        });
+    }
+
+    private function applyFawryPaymentUpdateLocked(Order $order, array $payload, string $source): Order
+    {
         $storedPayload = is_array($order->payload) ? $order->payload : [];
         $storedPayload[$source] = $payload;
 
@@ -215,6 +233,50 @@ class OrderService
         }
 
         return $this->sync($order->orderable, $attributes);
+    }
+
+    /**
+     * Marks a Fawry checkout as expired once its gateway payment window has
+     * passed, so pending orders reach a terminal state instead of being
+     * re-checked forever. A one-minute grace period avoids racing a boundary
+     * payment; a genuinely late PAID update still wins because
+     * applyFawryPaymentUpdate always honours PAID.
+     */
+    public function expireStaleFawryCheckout(Order $order): Order
+    {
+        if ($order->payment_method !== 'fawry' || $order->status !== 'checkout_pending') {
+            return $order;
+        }
+
+        $expiresAt = $this->fawryCheckoutExpiresAt($order);
+        if (! $expiresAt || $expiresAt->copy()->addMinute()->isFuture()) {
+            return $order;
+        }
+
+        return $this->applyFawryPaymentUpdate($order, [
+            'orderStatus' => 'EXPIRED',
+            'expiredLocally' => true,
+            'checkoutExpiredAt' => $expiresAt->format('Y-m-d H:i:s'),
+        ], 'local_expiry');
+    }
+
+    public function fawryCheckoutExpiresAt(Order $order): ?Carbon
+    {
+        $expiryMs = data_get($order->payload, 'charge_request.paymentExpiry');
+        if (is_numeric($expiryMs) && (int) $expiryMs > 0) {
+            return Carbon::createFromTimestampMs((int) $expiryMs);
+        }
+
+        if (! $order->payment_started_at) {
+            return null;
+        }
+
+        $expiryMinutes = config('services.fawry.payment_expiry_minutes');
+        if (is_numeric($expiryMinutes) && (int) $expiryMinutes > 0) {
+            return $order->payment_started_at->copy()->addMinutes((int) $expiryMinutes);
+        }
+
+        return $order->payment_started_at->copy()->addHours((int) config('services.fawry.payment_expiry_hours', 24));
     }
 
     public function findByMerchantReference(string $merchantRefNum, ?string $orderableType = null): ?Order

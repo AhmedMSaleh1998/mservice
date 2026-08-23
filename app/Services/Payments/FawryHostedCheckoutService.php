@@ -151,10 +151,33 @@ class FawryHostedCheckoutService
                 'merchantCode' => $this->merchantCode(),
                 'merchantRefNumber' => $order->merchant_ref_num,
                 'signature' => hash('sha256', $this->merchantCode() . $order->merchant_ref_num . $this->secureKey()),
-            ])
-            ->throw();
+            ]);
+
+        // Fawry answers 404 code 9938 ("Invalid Transaction id") whenever no
+        // transaction exists yet for the reference — i.e. the customer simply
+        // has not paid. That is an expected state, not an error.
+        if ($response->status() === 404 && (string) data_get($response->json(), 'code') === '9938') {
+            return [
+                'orderStatus' => 'UNPAID',
+                'no_transaction' => true,
+                'code' => '9938',
+                'description' => (string) data_get($response->json(), 'description'),
+            ];
+        }
+
+        $response->throw();
 
         return $response->json();
+    }
+
+    /**
+     * True when pullPaymentStatus() returned the synthetic "no transaction at
+     * Fawry yet" payload. Such payloads carry no gateway signature and must
+     * not be fed into verifyStatusSignature() or applied to the order.
+     */
+    public function isNoTransactionPayload(array $payload): bool
+    {
+        return (bool) ($payload['no_transaction'] ?? false);
     }
 
     public function verifyReturnSignature(array $payload): bool

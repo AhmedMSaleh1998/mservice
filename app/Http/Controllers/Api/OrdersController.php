@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\PayOrderRequest;
 use App\Services\Payments\FawryHostedCheckoutService;
-use Illuminate\Support\Carbon;
+use App\Services\Payments\FawryPaymentUpdateService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -44,6 +44,7 @@ class OrdersController extends Controller
         private readonly RestUnitService $restUnitService,
         private readonly TravelService $travelService,
         private readonly FawryHostedCheckoutService $fawryHostedCheckoutService,
+        private readonly FawryPaymentUpdateService $fawryPaymentUpdateService,
     ) {
     }
 
@@ -138,26 +139,11 @@ class OrdersController extends Controller
             ], 422);
         }
 
-        try {
-            $payload = $this->fawryHostedCheckoutService->pullPaymentStatus($order);
-            if (! $this->fawryHostedCheckoutService->verifyStatusSignature($payload)) {
-                return response()->json([
-                    'message' => 'Invalid Fawry payment status signature.',
-                    'status' => 422,
-                ], 422);
-            }
-
-            $order = $this->applyFawryPaymentUpdate($order, $payload, 'status_response');
-        } catch (ValidationException $exception) {
-            throw $exception;
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return response()->json([
-                'message' => __('Unable to sync Fawry payment status at the moment.'),
-                'status' => 502,
-            ], 502);
-        }
+        // The local database is the source of truth here: it is updated by the
+        // Fawry return redirect and the notification webhook the moment payment
+        // completes, so polling clients never trigger a gateway round-trip
+        // (which used to return 404 for every not-yet-paid order).
+        $order->loadMissing('orderable', 'user');
 
         return response()->json([
             'message' => __('Payment status synced successfully.'),
@@ -911,106 +897,7 @@ class OrdersController extends Controller
 
     private function applyFawryPaymentUpdate(Order $order, array $payload, string $source): Order
     {
-        $order->loadMissing('orderable');
-        $orderable = $order->orderable;
-        $orderStatus = strtoupper((string) data_get($payload, 'orderStatus'));
-
-        if ($orderable instanceof AdRequest && $orderStatus === 'PAID' && $this->isLateFawryPayment($orderable, $payload)) {
-            $expiredPayload = $payload;
-            $expiredPayload['originalOrderStatus'] = $orderStatus;
-            $expiredPayload['latePaymentRejected'] = true;
-            $expiredPayload['orderStatus'] = 'EXPIRED';
-
-            $order = $this->orderService->applyFawryPaymentUpdate($order, $expiredPayload, $source);
-            $this->adRequestService->expireReservation($orderable);
-
-            return $order->fresh(['orderable', 'user']);
-        }
-
-        if ($orderable instanceof CourseBooking && $orderStatus === 'PAID' && $this->isLateCourseBookingPayment($orderable, $payload)) {
-            $expiredPayload = $payload;
-            $expiredPayload['originalOrderStatus'] = $orderStatus;
-            $expiredPayload['latePaymentRejected'] = true;
-            $expiredPayload['orderStatus'] = 'EXPIRED';
-
-            $order = $this->orderService->applyFawryPaymentUpdate($order, $expiredPayload, $source);
-            $this->courseBookingService->expireReservation($orderable);
-
-            return $order->fresh(['orderable', 'user']);
-        }
-
-        if ($orderable instanceof RestUnitBooking && $orderStatus === 'PAID' && $this->isLateRestUnitBookingPayment($orderable, $payload)) {
-            $expiredPayload = $payload;
-            $expiredPayload['originalOrderStatus'] = $orderStatus;
-            $expiredPayload['latePaymentRejected'] = true;
-            $expiredPayload['orderStatus'] = 'EXPIRED';
-
-            $order = $this->orderService->applyFawryPaymentUpdate($order, $expiredPayload, $source);
-            $this->restUnitService->expireReservation($orderable);
-
-            return $order->fresh(['orderable', 'user']);
-        }
-
-        if ($orderable instanceof TravelBooking && $orderStatus === 'PAID' && $this->isLateTravelBookingPayment($orderable, $payload)) {
-            $expiredPayload = $payload;
-            $expiredPayload['originalOrderStatus'] = $orderStatus;
-            $expiredPayload['latePaymentRejected'] = true;
-            $expiredPayload['orderStatus'] = 'EXPIRED';
-
-            $order = $this->orderService->applyFawryPaymentUpdate($order, $expiredPayload, $source);
-            $this->travelService->expireReservation($orderable);
-
-            return $order->fresh(['orderable', 'user']);
-        }
-
-        return $this->orderService->applyFawryPaymentUpdate($order, $payload, $source);
+        return $this->fawryPaymentUpdateService->apply($order, $payload, $source);
     }
 
-    private function isLateFawryPayment(AdRequest $adRequest, array $payload): bool
-    {
-        $reservationExpiresAt = $this->adRequestService->reservationExpiresAt($adRequest);
-        $paymentTime = data_get($payload, 'paymentTime');
-
-        if (is_numeric($paymentTime)) {
-            return Carbon::createFromTimestampMs((int) $paymentTime)->greaterThan($reservationExpiresAt);
-        }
-
-        return Carbon::now()->greaterThan($reservationExpiresAt);
-    }
-
-    private function isLateCourseBookingPayment(CourseBooking $courseBooking, array $payload): bool
-    {
-        $reservationExpiresAt = $this->courseBookingService->reservationExpiresAt($courseBooking);
-        $paymentTime = data_get($payload, 'paymentTime');
-
-        if (is_numeric($paymentTime)) {
-            return Carbon::createFromTimestampMs((int) $paymentTime)->greaterThan($reservationExpiresAt);
-        }
-
-        return Carbon::now()->greaterThan($reservationExpiresAt);
-    }
-
-    private function isLateRestUnitBookingPayment(RestUnitBooking $restUnitBooking, array $payload): bool
-    {
-        $reservationExpiresAt = $this->restUnitService->reservationExpiresAt($restUnitBooking);
-        $paymentTime = data_get($payload, 'paymentTime');
-
-        if (is_numeric($paymentTime)) {
-            return Carbon::createFromTimestampMs((int) $paymentTime)->greaterThan($reservationExpiresAt);
-        }
-
-        return Carbon::now()->greaterThan($reservationExpiresAt);
-    }
-
-    private function isLateTravelBookingPayment(TravelBooking $travelBooking, array $payload): bool
-    {
-        $reservationExpiresAt = $this->travelService->reservationExpiresAt($travelBooking);
-        $paymentTime = data_get($payload, 'paymentTime');
-
-        if (is_numeric($paymentTime)) {
-            return Carbon::createFromTimestampMs((int) $paymentTime)->greaterThan($reservationExpiresAt);
-        }
-
-        return Carbon::now()->greaterThan($reservationExpiresAt);
-    }
 }

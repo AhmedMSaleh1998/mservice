@@ -4,6 +4,7 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 use Modules\Ads\Models\AdRequest;
+use Modules\Core\Models\Order;
 use Modules\Courses\Models\CourseBooking;
 use Modules\Services\Models\RestUnitBooking;
 use Modules\Travels\Models\TravelBooking;
@@ -37,3 +38,16 @@ Schedule::command('travels:release-expired-bookings')
     ->when(fn (): bool => TravelBooking::query()->where('status', TravelBooking::STATUS_PENDING_PAYMENT)->exists());
 
 Schedule::command('medical-guides:sync-oracle')->dailyAt('03:00')->withoutOverlapping();
+
+// Safety net for the Fawry webhook/return redirect: pulls the gateway status for
+// pending checkouts (applying missed payments, which also triggers the Oracle
+// payment sync) and expires checkouts whose payment window has passed. Only
+// spawns when pending Fawry checkouts actually exist.
+Schedule::command('payments:reconcile-fawry')
+    ->everyTwoMinutes()
+    ->withoutOverlapping()
+    ->when(fn (): bool => Order::query()
+        ->where('payment_method', 'fawry')
+        ->where('status', 'checkout_pending')
+        ->whereNotNull('merchant_ref_num')
+        ->exists());
