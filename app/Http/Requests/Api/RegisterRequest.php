@@ -23,9 +23,10 @@ class RegisterRequest extends FormRequest
             'national_id' => ['required', 'numeric', Rule::unique('users')->where(function ($query) {
                 return $query->where('active', true);
             })],
-            'reg_number' => ['required', 'numeric', Rule::unique('users')->where(function ($query) {
-                return $query->where('active', true);
-            })],
+            // Unique across every row, not just the active ones: an abandoned
+            // unverified account used to leave the registration number free,
+            // which is how one doctor ended up holding several accounts.
+            'reg_number' => ['required', 'numeric', Rule::unique('users')],
         ];
     }
 
@@ -33,6 +34,7 @@ class RegisterRequest extends FormRequest
     {
         return [
             'email.unique' => __('This email address is already registered.'),
+            'reg_number.unique' => __('This registration number already has an account.'),
         ];
     }
 }

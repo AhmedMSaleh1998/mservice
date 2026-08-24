@@ -59,6 +59,21 @@ class AuthService
 //                'phone' => [__('This phone number has not been verified.')],
 //            ]);
 //        }
+        // The request rule already rejects a taken registration number, but two
+        // concurrent registrations both pass validation before either inserts.
+        // Re-check here so the second one loses, and so callers that reach the
+        // service directly get the same guarantee. An inactive account still
+        // holds its number — one registration number, one account, always.
+        $regNumberTaken = User::query()
+            ->where('reg_number', $dto->regNumber)
+            ->exists();
+
+        if ($regNumberTaken) {
+            throw ValidationException::withMessages([
+                'reg_number' => [__('This registration number already has an account.')],
+            ]);
+        }
+
         // Refuse before touching Oracle once this identity (or this source) has
         // burned through its budget of failed matches.
         $this->doctorLookupThrottle->ensureNotThrottled($dto->nationalId);
