@@ -36,14 +36,28 @@ class PhoneNumberNormalizer
             return $digits;
         }
 
-        // When the country has a known national number shape, peel whatever
-        // prefixes were stacked in front of it and rebuild the number cleanly.
-        $nationalNumber = self::peelToNationalNumber($digits, $countryCode);
+        // Where the national number shape is known, that shape is the entire
+        // rule: peel down to it, or hand the number back exactly as it came in.
+        // Attaching a country code to anything else is guesswork — it is what
+        // turned foreign local numbers such as 0501234567 into 20501234567.
+        if (isset(self::NATIONAL_NUMBER_PATTERNS[$countryCode])) {
+            $nationalNumber = self::peelToNationalNumber($digits, $countryCode);
 
-        if ($nationalNumber !== null) {
-            return $countryCode . $nationalNumber;
+            return $nationalNumber === null
+                ? $digits
+                : $countryCode . $nationalNumber;
         }
 
+        return self::legacyNormalize($digits, $countryCode);
+    }
+
+    /**
+     * Prefix juggling for country codes we have no structural rule for. Kept so
+     * that pointing `default_country_code` at another country keeps behaving as
+     * it did before Egyptian numbers gained a shape of their own.
+     */
+    private static function legacyNormalize(string $digits, string $countryCode): string
+    {
         if (str_starts_with($digits, $countryCode . '0')) {
             return $countryCode . substr($digits, strlen($countryCode) + 1);
         }
