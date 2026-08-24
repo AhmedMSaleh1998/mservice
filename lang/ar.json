@@ -689,5 +689,6 @@
     "Oracle sync did not succeed.": "لم تنجح مزامنة أوراكل.",
     "Oracle sync finished.": "انتهت مزامنة أوراكل.",
     ":synced synced, :failed not synced.": "تمت مزامنة :synced، وتعذّرت مزامنة :failed.",
-    "Only paid orders can be synced with Oracle.": "فقط الدفعات المدفوعة يمكن مزامنتها مع أوراكل."
+    "Only paid orders can be synced with Oracle.": "فقط الدفعات المدفوعة يمكن مزامنتها مع أوراكل.",
+    "This registration number already has an account.": "رقم القيد هذا مسجّل بالفعل ولا يمكن إنشاء حساب آخر به."
 }

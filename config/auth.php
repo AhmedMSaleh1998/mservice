@@ -126,4 +126,27 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Doctor Lookup Throttling
+    |--------------------------------------------------------------------------
+    |
+    | Registration matches the submitted registration number and national ID
+    | against the syndicate records in Oracle. Only failed lookups count towards
+    | these limits and a successful match resets them, so a doctor correcting a
+    | typo keeps a full budget while someone probing registration numbers
+    | against a fixed identity runs out of attempts.
+    |
+    */
+
+    'doctor_lookup_throttle' => [
+        'identity' => [
+            'max_attempts' => env('DOCTOR_LOOKUP_MAX_ATTEMPTS_PER_IDENTITY', 5),
+        ],
+        'ip' => [
+            'max_attempts' => env('DOCTOR_LOOKUP_MAX_ATTEMPTS_PER_IP', 15),
+        ],
+        'decay_seconds' => env('DOCTOR_LOOKUP_THROTTLE_DECAY_SECONDS', 900),
+    ],
+
 ];

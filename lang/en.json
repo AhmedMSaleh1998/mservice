@@ -462,5 +462,6 @@
   "This travel booking does not belong to the authenticated user.": "This travel booking does not belong to the authenticated user.",
   "Travel booking reservation has expired.": "Travel booking reservation has expired.",
   "Travel booking is not awaiting payment.": "Travel booking is not awaiting payment.",
-  "Global": "Global"
+  "Global": "Global",
+  "This registration number already has an account.": "This registration number already has an account."
 }

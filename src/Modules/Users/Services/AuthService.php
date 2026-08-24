@@ -4,6 +4,7 @@ namespace Modules\Users\Services;
 
 use App\Services\Oracle\OracleDoctorDataLookupService;
 use App\Services\Oracle\OracleDoctorExistenceService;
+use App\Support\DoctorLookupThrottle;
 use App\Support\PhoneNumberNormalizer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +22,7 @@ class AuthService
     public function __construct(
         private readonly OracleDoctorExistenceService $oracleDoctorExistenceService,
         private readonly OracleDoctorDataLookupService $oracleDoctorDataLookupService,
+        private readonly DoctorLookupThrottle $doctorLookupThrottle,
     ) {
     }
 
@@ -57,9 +59,30 @@ class AuthService
 //                'phone' => [__('This phone number has not been verified.')],
 //            ]);
 //        }
+        // The request rule already rejects a taken registration number, but two
+        // concurrent registrations both pass validation before either inserts.
+        // Re-check here so the second one loses, and so callers that reach the
+        // service directly get the same guarantee. An inactive account still
+        // holds its number — one registration number, one account, always.
+        $regNumberTaken = User::query()
+            ->where('reg_number', $dto->regNumber)
+            ->exists();
+
+        if ($regNumberTaken) {
+            throw ValidationException::withMessages([
+                'reg_number' => [__('This registration number already has an account.')],
+            ]);
+        }
+
+        // Refuse before touching Oracle once this identity (or this source) has
+        // burned through its budget of failed matches.
+        $this->doctorLookupThrottle->ensureNotThrottled($dto->nationalId);
+
         try {
             $doctorExists = $this->oracleDoctorExistenceService->doctorExists($dto->regNumber, $dto->nationalId);
         } catch (RuntimeException $exception) {
+            // An Oracle outage is our fault, not a failed guess — it must not
+            // consume the caller's attempts.
             throw new ServiceUnavailableHttpException(
                 null,
                 __('Unable to verify doctor data with Oracle at the moment. Please try again later.'),
@@ -68,10 +91,15 @@ class AuthService
         }
 
         if (! $doctorExists) {
+            $this->doctorLookupThrottle->recordFailedAttempt($dto->nationalId, $dto->regNumber);
+
             throw ValidationException::withMessages([
                 'reg_number' => [__('No doctor record matches the provided registration number and national ID in syndicate records.')],
             ]);
         }
+
+        // A genuine match proves the caller is not guessing; give the budget back.
+        $this->doctorLookupThrottle->clear($dto->nationalId);
 
         // Store the official Oracle name to keep data consistent; fall back to the submitted name if Oracle has none.
         $name = $this->resolveOracleDoctorName($dto->regNumber) ?: $dto->name;

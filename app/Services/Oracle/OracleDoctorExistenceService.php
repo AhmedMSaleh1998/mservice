@@ -3,6 +3,7 @@
 namespace App\Services\Oracle;
 
 use PDO;
+use App\Support\NationalIdentifier;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
@@ -129,30 +130,7 @@ class OracleDoctorExistenceService
 
     private function normalizeLookupValue(string $value): string
     {
-        $normalized = strtr(trim($value), [
-            '٠' => '0',
-            '١' => '1',
-            '٢' => '2',
-            '٣' => '3',
-            '٤' => '4',
-            '٥' => '5',
-            '٦' => '6',
-            '٧' => '7',
-            '٨' => '8',
-            '٩' => '9',
-            '۰' => '0',
-            '۱' => '1',
-            '۲' => '2',
-            '۳' => '3',
-            '۴' => '4',
-            '۵' => '5',
-            '۶' => '6',
-            '۷' => '7',
-            '۸' => '8',
-            '۹' => '9',
-        ]);
-
-        return preg_replace('/\D+/', '', $normalized) ?? '';
+        return NationalIdentifier::normalize($value);
     }
 
     private function buildLookupLogContext(
@@ -172,17 +150,16 @@ class OracleDoctorExistenceService
             'register_no_changed' => $trimmedRegisterNo !== $normalizedRegisterNo,
             'id_no_input' => $this->maskNationalId($trimmedIdNo),
             'id_no_normalized' => $this->maskNationalId($normalizedIdNo),
+            // Masking leaves only the last four digits, so two different IDs can
+            // read identically in the log. The fingerprint keeps them apart.
+            'id_no_fingerprint' => NationalIdentifier::fingerprint($normalizedIdNo),
             'id_no_changed' => $trimmedIdNo !== $normalizedIdNo,
         ];
     }
 
     private function maskNationalId(string $idNo): string
     {
-        if ($idNo === '') {
-            return '';
-        }
-
-        return str_repeat('*', max(strlen($idNo) - 4, 0)) . substr($idNo, -4);
+        return NationalIdentifier::mask($idNo);
     }
 
     /**

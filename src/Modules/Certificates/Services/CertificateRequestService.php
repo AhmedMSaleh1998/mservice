@@ -2,6 +2,7 @@
 
 namespace Modules\Certificates\Services;
 
+use App\Support\PhoneNumberNormalizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Certificates\Models\Certificate;
@@ -109,7 +110,11 @@ class CertificateRequestService
                 'user_id' => $userId,
                 'certificate_id' => $certificate->id,
                 'delivery_method' => $data['delivery_method'],
-                'phone' => $data['phone'] ?? null,
+                // Persist the canonical form so the number matches the user record
+                // and reaches Oracle and the SMS gateway in one shape.
+                'phone' => filled($data['phone'] ?? null)
+                    ? PhoneNumberNormalizer::normalize((string) $data['phone'])
+                    : null,
                 'email' => $data['email'] ?? null,
                 'user_address_id' => $address?->id,
                 'printing_cost' => $costs['printing_cost'],

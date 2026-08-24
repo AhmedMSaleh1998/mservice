@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Services\Oracle\OracleDoctorDataLookupService;
 use App\Services\Oracle\OracleDoctorExistenceService;
+use App\Support\DoctorLookupThrottle;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -177,11 +178,96 @@ class AuthServiceRegisterOracleTest extends TestCase
         $this->assertDatabaseCount('users', 1);
     }
 
+    public function test_register_rejects_a_registration_number_that_already_has_an_active_account(): void
+    {
+        DB::table('users')->insert([
+            'name' => 'Existing Doctor',
+            'phone' => '201999888777',
+            'email' => 'existing@example.com',
+            'password' => bcrypt('secret123'),
+            'national_id' => '29901011234567',
+            'reg_number' => '12345',
+            'active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $oracleService = Mockery::mock(OracleDoctorExistenceService::class);
+        $oracleService->shouldNotReceive('doctorExists');
+
+        try {
+            $this->makeAuthService($oracleService)->register($this->makeDto());
+            $this->fail('A taken registration number must not produce a second account.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                [__('This registration number already has an account.')],
+                $exception->errors()['reg_number'] ?? [],
+            );
+        }
+
+        $this->assertDatabaseCount('users', 1);
+    }
+
+    public function test_register_rejects_a_registration_number_held_by_an_unverified_account(): void
+    {
+        // The abandoned-signup case: previously this left the number free and
+        // let the same doctor collect several accounts. An unverified account
+        // is refused exactly like a verified one — same message, no way in.
+        DB::table('users')->insert([
+            'name' => 'Pending Doctor',
+            'phone' => '201999888777',
+            'email' => 'pending@example.com',
+            'password' => bcrypt('secret123'),
+            'national_id' => '29901011234567',
+            'reg_number' => '12345',
+            'active' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $oracleService = Mockery::mock(OracleDoctorExistenceService::class);
+        $oracleService->shouldNotReceive('doctorExists');
+
+        try {
+            $this->makeAuthService($oracleService)->register($this->makeDto());
+            $this->fail('An unverified account must still hold its registration number.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                [__('This registration number already has an account.')],
+                $exception->errors()['reg_number'] ?? [],
+            );
+        }
+
+        $this->assertDatabaseCount('users', 1);
+    }
+
+    public function test_register_still_accepts_an_unused_registration_number(): void
+    {
+        DB::table('users')->insert([
+            'name' => 'Another Doctor',
+            'phone' => '201999888777',
+            'email' => 'another@example.com',
+            'password' => bcrypt('secret123'),
+            'national_id' => '29901011111111',
+            'reg_number' => '99999',
+            'active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $oracleService = Mockery::mock(OracleDoctorExistenceService::class);
+        $oracleService->shouldReceive('doctorExists')->once()->andReturnTrue();
+
+        $this->makeAuthService($oracleService)->register($this->makeDto());
+
+        $this->assertDatabaseCount('users', 2);
+    }
+
     private function makeAuthService(
         OracleDoctorExistenceService $oracleService,
         ?OracleDoctorDataLookupService $dataLookup = null,
     ): AuthService {
-        return new AuthService($oracleService, $dataLookup ?? $this->makeDataLookup(null));
+        return new AuthService($oracleService, $dataLookup ?? $this->makeDataLookup(null), new DoctorLookupThrottle());
     }
 
     private function makeDataLookup(?array $profile): OracleDoctorDataLookupService
