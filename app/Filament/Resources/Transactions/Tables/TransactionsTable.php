@@ -11,6 +11,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Modules\Core\Models\Order;
 use Modules\Core\Services\OrderService;
 
@@ -97,6 +98,33 @@ class TransactionsTable
                 SelectFilter::make('payment_method')
                     ->label(__('Payment Method'))
                     ->options(OrderAdminSupport::paymentMethodOptions()),
+                // The sync outcome lives inside the payload JSON rather than in a
+                // column of its own, so the filter has to reach into it directly.
+                SelectFilter::make('oracle_sync')
+                    ->label(__('Oracle Sync'))
+                    ->options([
+                        'success' => __('Synced'),
+                        'failed' => __('Sync failed'),
+                        'skipped' => __('Sync skipped'),
+                        'none' => __('Not synced'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (blank($value)) {
+                            return $query;
+                        }
+
+                        // "none" is every order the sync never wrote a status for,
+                        // which is exactly what the column renders as not synced.
+                        if ($value === 'none') {
+                            return $query->where(fn (Builder $query): Builder => $query
+                                ->whereNull('payload->oracle_payment_sync->status')
+                                ->orWhere('payload->oracle_payment_sync->status', ''));
+                        }
+
+                        return $query->where('payload->oracle_payment_sync->status', $value);
+                    }),
             ])
             ->recordUrl(fn (Order $record): string => TransactionResource::getUrl('view', ['record' => $record]))
             ->recordActions([
