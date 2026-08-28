@@ -100,6 +100,8 @@ class RestUnitBookingResourceTest extends TestCase
 
         Livewire::test(ListRestUnitBookings::class)
             ->assertSuccessful()
+            // The list opens filtered to paid bookings; clear it to see all.
+            ->filterTable('status', null)
             ->assertCanSeeTableRecords([$booking])
             ->assertTableActionExists('view', null, $booking);
     }
@@ -387,6 +389,27 @@ class RestUnitBookingResourceTest extends TestCase
             ->assertSee('No pricing breakdown available.')
             ->assertSee('No subscription snapshot available.')
             ->assertSee('No gateway payload available.');
+    }
+
+    public function test_checkout_day_is_free_for_the_next_booking(): void
+    {
+        $booking = $this->createBooking(); // stays 2026-04-08 -> 2026-04-10
+        $roomId = $booking->rest_unit_room_id;
+        $unitId = $booking->rest_unit_id;
+
+        // Same-day handover: a stay starting on the previous checkout day is free.
+        $this->assertSame([], RestUnitBookingResource::occupiedUnitIds($unitId, 'rest_unit_room_id', '2026-04-10', '2026-04-12'));
+
+        // A stay ending on the existing check-in day is free too.
+        $this->assertSame([], RestUnitBookingResource::occupiedUnitIds($unitId, 'rest_unit_room_id', '2026-04-06', '2026-04-08'));
+
+        // Real overlaps still block.
+        $this->assertSame([$roomId], RestUnitBookingResource::occupiedUnitIds($unitId, 'rest_unit_room_id', '2026-04-09', '2026-04-11'));
+        $this->assertSame([$roomId], RestUnitBookingResource::occupiedUnitIds($unitId, 'rest_unit_room_id', '2026-04-07', '2026-04-09'));
+
+        // A single-day range means that night: blocked during the stay, free on checkout day.
+        $this->assertSame([$roomId], RestUnitBookingResource::occupiedUnitIds($unitId, 'rest_unit_room_id', '2026-04-09', '2026-04-09'));
+        $this->assertSame([], RestUnitBookingResource::occupiedUnitIds($unitId, 'rest_unit_room_id', '2026-04-10', '2026-04-10'));
     }
 
     private function createBooking(array $attributes = []): RestUnitBooking

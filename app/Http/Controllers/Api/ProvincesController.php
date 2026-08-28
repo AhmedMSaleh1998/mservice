@@ -11,6 +11,6 @@ class ProvincesController extends Controller
 {
     public function index()
     {
-        return ProvinceResource::collection(Province::orderBy('id')->get());
+        return ProvinceResource::collection(Province::where('active', true)->orderBy('id')->get());
     }
 }

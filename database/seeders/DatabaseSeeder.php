@@ -35,6 +35,7 @@ class DatabaseSeeder extends Seeder
             RolesSeeder::class,
             ServicesSeeder::class,
             PagesSeeder::class,
+            ProvinceEnglishNamesSeeder::class,
         ]);
     }
 }

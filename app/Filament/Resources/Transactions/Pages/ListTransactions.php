@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Transactions\Pages;
 
 use App\Filament\Resources\Transactions\TransactionResource;
+use App\Filament\Resources\Transactions\Widgets\TransactionsStatsWidget;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
@@ -15,6 +16,13 @@ class ListTransactions extends ListRecords
     protected static string $resource = TransactionResource::class;
 
     protected Width|string|null $maxContentWidth = Width::Full;
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            TransactionsStatsWidget::class,
+        ];
+    }
 
     protected function getHeaderActions(): array
     {

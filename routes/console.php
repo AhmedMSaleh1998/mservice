@@ -39,6 +39,14 @@ Schedule::command('travels:release-expired-bookings')
 
 Schedule::command('medical-guides:sync-oracle')->dailyAt('03:00')->withoutOverlapping();
 
+// Keeps user names aligned with the syndicate's official Oracle records: each
+// user is re-verified by registration number + national ID, then the name is
+// refreshed from Oracle. Runs at night after the medical-guide sync; the full
+// pass makes two Oracle calls per user, so give it a generous overlap lock.
+Schedule::command('users:sync-oracle-names --apply')
+    ->dailyAt('04:00')
+    ->withoutOverlapping(expiresAt: 180);
+
 // Safety net for the Fawry webhook/return redirect: pulls the gateway status for
 // pending checkouts (applying missed payments, which also triggers the Oracle
 // payment sync) and expires checkouts whose payment window has passed. Only
@@ -50,4 +58,16 @@ Schedule::command('payments:reconcile-fawry')
         ->where('payment_method', 'fawry')
         ->where('status', 'checkout_pending')
         ->whereNotNull('merchant_ref_num')
+        ->exists());
+
+// Membership/certificate orders abandoned before ever reaching the gateway
+// (no merchant reference) get a terminal state after two days — they hold no
+// inventory, so unlike the booking release commands a daily pass is enough.
+Schedule::command('payments:expire-abandoned-orders')
+    ->dailyAt('02:30')
+    ->withoutOverlapping()
+    ->when(fn (): bool => Order::query()
+        ->where('status', 'pending_payment')
+        ->whereNull('merchant_ref_num')
+        ->where('created_at', '<=', now()->subDays(2))
         ->exists());

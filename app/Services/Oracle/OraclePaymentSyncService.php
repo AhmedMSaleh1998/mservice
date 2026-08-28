@@ -2,6 +2,7 @@
 
 namespace App\Services\Oracle;
 
+use App\Support\OrderAdminSupport;
 use Illuminate\Support\Facades\Log;
 use Modules\Ads\Models\AdRequest;
 use Modules\Certificates\Models\CertificateRequest;
@@ -26,6 +27,8 @@ class OraclePaymentSyncService
                 P_BANKTRANSACTIONID => :p_bank_transaction_id,
                 P_COURSE_ID => :p_course_id,
                 P_PHONENUMBER => :p_phone_number,
+                P_DELIVERED_TYPE => :p_delivered_type,
+                P_DELIVERED_PRICE => :p_delivered_price,
                 P_STATUSCODE => :p_status_code,
                 P_MESSAGE => :p_message
             );
@@ -220,6 +223,8 @@ class OraclePaymentSyncService
             'phone_number' => $this->resolvePhoneNumber($orderable, $user),
         ];
 
+        [$deliveredType, $deliveredPrice] = $this->resolveDeliveryInfo($order);
+
         $parts = [];
 
         if ($subscriptionAmount > 0) {
@@ -230,6 +235,9 @@ class OraclePaymentSyncService
                 'course_id' => null,
                 // A subscription line carries no certificate, so P_PAND_ID is null.
                 'pand_id' => null,
+                // Subscription fees carry no shipping either.
+                'delivered_type' => null,
+                'delivered_price' => null,
                 'part' => 'subscription',
             ];
         }
@@ -242,11 +250,38 @@ class OraclePaymentSyncService
                 'course_id' => $orderable instanceof CourseBooking ? (int) $orderable->course_id : null,
                 // Only a certificate payment sends the Oracle certificate number (P_PAND_ID); everything else is null.
                 'pand_id' => $this->resolvePandId($orderable),
+                'delivered_type' => $deliveredType,
+                'delivered_price' => $deliveredPrice,
                 'part' => 'service',
             ];
         }
 
         return $parts;
+    }
+
+    /**
+     * The Oracle delivery region code and the delivery price registered on the
+     * province of the order's delivery address. Both null when the order ships
+     * nothing or no delivery province can be resolved.
+     *
+     * @return array{0: ?int, 1: ?string}
+     */
+    private function resolveDeliveryInfo(Order $order): array
+    {
+        if (! OrderAdminSupport::hasPhysicalDelivery($order)) {
+            return [null, null];
+        }
+
+        $province = $order->orderable?->userAddress?->province;
+
+        if (! $province) {
+            return [null, null];
+        }
+
+        return [
+            $province->delivery_region_id !== null ? (int) $province->delivery_region_id : null,
+            $this->formatAmount($province->shipping_cost),
+        ];
     }
 
     private function resolvePandId(mixed $orderable): ?int
@@ -351,6 +386,8 @@ class OraclePaymentSyncService
             'bank_transaction_id' => (string) data_get($paymentParts, '0.bank_transaction_id', ''),
             'course_id' => collect($paymentParts)->firstWhere('part', 'service')['course_id'] ?? null,
             'pand_id' => collect($paymentParts)->firstWhere('part', 'service')['pand_id'] ?? null,
+            'delivered_type' => collect($paymentParts)->firstWhere('part', 'service')['delivered_type'] ?? null,
+            'delivered_price' => collect($paymentParts)->firstWhere('part', 'service')['delivered_price'] ?? null,
             'phone_number' => (string) data_get($paymentParts, '0.phone_number', ''),
             'parts' => $paymentParts,
         ];
@@ -443,18 +480,10 @@ class OraclePaymentSyncService
             'bank_transaction_id' => $paymentData['bank_transaction_id'] ?? null,
             'course_id' => $paymentData['course_id'] ?? null,
             'pand_id' => $paymentData['pand_id'] ?? null,
+            'delivered_type' => $paymentData['delivered_type'] ?? null,
+            'delivered_price' => $paymentData['delivered_price'] ?? null,
             'phone_number' => $paymentData['phone_number'] ?? null,
         ];
-    }
-
-    private function maskValue(mixed $value): ?string
-    {
-        $value = trim((string) $value);
-        if ($value === '') {
-            return null;
-        }
-
-        return str_repeat('*', max(strlen($value) - 4, 0)) . substr($value, -4);
     }
 
     private function syncWithPdo(PDO $connection, array $paymentData): array
@@ -471,6 +500,8 @@ class OraclePaymentSyncService
             $statement->bindValue(':p_bank_transaction_id', $paymentData['bank_transaction_id']);
             $statement->bindValue(':p_course_id', $paymentData['course_id']);
             $statement->bindValue(':p_phone_number', $paymentData['phone_number']);
+            $statement->bindValue(':p_delivered_type', $paymentData['delivered_type'] ?? null);
+            $statement->bindValue(':p_delivered_price', $paymentData['delivered_price'] ?? null);
             $statement->bindParam(':p_status_code', $statusCode, PDO::PARAM_STR | PDO::PARAM_INPUT_OUTPUT, 100);
             $statement->bindParam(':p_message', $message, PDO::PARAM_STR | PDO::PARAM_INPUT_OUTPUT, 4000);
             $statement->execute();
@@ -496,6 +527,8 @@ class OraclePaymentSyncService
         $message = '';
         $courseId = $paymentData['course_id'];
         $pandId = $paymentData['pand_id'];
+        $deliveredType = $paymentData['delivered_type'] ?? null;
+        $deliveredPrice = $paymentData['delivered_price'] ?? null;
 
         try {
             $this->bindOciByName($statement, ':p_registration_no', $paymentData['registration_no']);
@@ -505,6 +538,8 @@ class OraclePaymentSyncService
             $this->bindOciByName($statement, ':p_bank_transaction_id', $paymentData['bank_transaction_id']);
             $this->bindOciByName($statement, ':p_course_id', $courseId);
             $this->bindOciByName($statement, ':p_phone_number', $paymentData['phone_number']);
+            $this->bindOciByName($statement, ':p_delivered_type', $deliveredType);
+            $this->bindOciByName($statement, ':p_delivered_price', $deliveredPrice);
             $this->bindOciByName($statement, ':p_status_code', $statusCode, 100);
             $this->bindOciByName($statement, ':p_message', $message, 4000);
 

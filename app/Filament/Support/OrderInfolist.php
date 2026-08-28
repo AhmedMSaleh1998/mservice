@@ -17,6 +17,26 @@ class OrderInfolist
     {
         return $schema
             ->components([
+                Section::make(__('User'))
+                    ->schema([
+                        TextEntry::make('user.name')
+                            ->label(__('Name'))
+                            ->placeholder('-'),
+                        TextEntry::make('user.reg_number')
+                            ->label(__('Registration Number'))
+                            ->placeholder('-')
+                            ->copyable(),
+                        TextEntry::make('user.phone')
+                            ->label(__('Phone'))
+                            ->placeholder('-')
+                            ->copyable(),
+                        TextEntry::make('user.email')
+                            ->label(__('Email'))
+                            ->placeholder('-'),
+                    ])
+                    ->columns(4)
+                    ->columnSpanFull(),
+
                 Section::make(__('Transaction Summary'))
                     ->schema([
                         TextEntry::make('id')

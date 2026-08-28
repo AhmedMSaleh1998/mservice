@@ -31,6 +31,8 @@
     "Certificate Requests": "طلبات الشهادات",
     "Course": "دورة",
     "Courses": "الدورات",
+    "Course Bookings": "حجوزات الدورات",
+    "Travel Bookings": "حجوزات الرحلات",
     "Medical Guide": "دليل طبي",
     "Medical Guides": "الأدلة الطبية",
     "Doctor": "طبيب",
@@ -113,6 +115,7 @@
     "Status": "الحالة",
     "Delivery Method": "طريقة الاستلام",
     "Delivery Status": "حالة التوصيل",
+    "Delivery Region": "منطقة التوصيل",
     "Submitted At": "تاريخ التقديم",
     "All requests": "كل الطلبات",
     "Active only": "المفعلة فقط",
@@ -690,5 +693,15 @@
     "Oracle sync finished.": "انتهت مزامنة أوراكل.",
     ":synced synced, :failed not synced.": "تمت مزامنة :synced، وتعذّرت مزامنة :failed.",
     "Only paid orders can be synced with Oracle.": "فقط الدفعات المدفوعة يمكن مزامنتها مع أوراكل.",
-    "This registration number already has an account.": "رقم القيد هذا مسجّل بالفعل ولا يمكن إنشاء حساب آخر به."
+    "This registration number already has an account.": "رقم القيد هذا مسجّل بالفعل ولا يمكن إنشاء حساب آخر به.",
+    "You have a pending situation with the syndicate. Please contact the syndicate to resolve it.": "يوجد موقف مسجّل عليك لدى النقابة، برجاء التواصل مع النقابة لتسوية الأمر.",
+    "Paid transactions": "المعاملات المدفوعة",
+    "Paid today": "مدفوعات اليوم",
+    "EGP :amount collected": "تم تحصيل :amount ج.م",
+    "Awaiting Oracle sync": "بانتظار المزامنة مع أوراكل",
+    "Paid but not synced to Oracle yet": "مدفوعة ولم تتم مزامنتها مع أوراكل بعد",
+    "Filters": "الفلاتر",
+    "Columns": "الأعمدة",
+    "Search by name or registration number...": "ابحث بالاسم أو رقم القيد...",
+    "Period": "الفترة"
 }

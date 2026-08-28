@@ -4,7 +4,6 @@ namespace Tests\Unit;
 
 use App\Services\Oracle\OracleConnectionService;
 use App\Services\Oracle\OracleDoctorExistenceService;
-use App\Support\NationalIdentifier;
 use Illuminate\Support\Facades\Log;
 use Mockery;
 use PDO;
@@ -82,9 +81,8 @@ class OracleDoctorExistenceServiceTest extends TestCase
                 'register_no_input' => '368393',
                 'register_no_normalized' => '368393',
                 'register_no_changed' => false,
-                'id_no_input' => '**********1215',
-                'id_no_normalized' => '**********1215',
-                'id_no_fingerprint' => NationalIdentifier::fingerprint('29903021801215'),
+                'id_no_input' => '29903021801215',
+                'id_no_normalized' => '29903021801215',
                 'id_no_changed' => false,
                 'doctor_flag' => 'N',
             ]);

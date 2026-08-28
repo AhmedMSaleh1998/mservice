@@ -32,8 +32,9 @@ class DoctorLookupThrottle
 
             Log::warning('Doctor lookup throttled.', [
                 'scope' => $bucket['scope'],
-                'national_id' => NationalIdentifier::mask(NationalIdentifier::normalize($nationalId)),
-                'national_id_fingerprint' => NationalIdentifier::fingerprint($nationalId),
+                // Logged unmasked on purpose: support searches the logs by the
+                // exact national ID.
+                'national_id' => NationalIdentifier::normalize($nationalId),
                 'ip' => $this->clientIp(),
                 'max_attempts' => $bucket['max_attempts'],
                 'retry_after_seconds' => $seconds,
@@ -54,8 +55,9 @@ class DoctorLookupThrottle
         }
 
         Log::warning('Doctor lookup failed attempt recorded.', [
-            'national_id' => NationalIdentifier::mask(NationalIdentifier::normalize($nationalId)),
-            'national_id_fingerprint' => NationalIdentifier::fingerprint($nationalId),
+            // Logged unmasked on purpose: support searches the logs by the
+            // exact national ID.
+            'national_id' => NationalIdentifier::normalize($nationalId),
             'register_no' => NationalIdentifier::normalize($registerNo),
             'ip' => $this->clientIp(),
             'identity_attempts' => RateLimiter::attempts($this->identityKey($nationalId)),

@@ -324,3 +324,111 @@ html[dir="ltr"] .fi-body.manage-login .fi-simple-layout::before {
     background: color-mix(in oklab, var(--color-primary-500) 30%, var(--gray-900));
     border-color: color-mix(in oklab, var(--color-primary-300) 65%, transparent);
 }
+
+/* ===== Tables: search box, filter and column-manager polish ===== */
+
+/* The search side of the toolbar stretches over the free space, and the
+   search box itself grows to fill it (the trigger buttons keep their size). */
+.fi-ta-header-toolbar > div:last-child {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: calc(var(--spacing) * 3);
+}
+
+.fi-ta-header-toolbar > div:last-child .fi-ta-search-field {
+    flex: 1 1 auto;
+    max-width: none;
+}
+
+/* Pill-shaped search box that lights up on focus. */
+.fi-ta-search-field {
+    min-width: 16rem;
+}
+
+.fi-ta-search-field .fi-input-wrp {
+    width: 100%;
+}
+
+.fi-ta-search-field .fi-input-wrp {
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--gray-50) 70%, white);
+    border: 1px solid color-mix(in oklab, var(--gray-300) 60%, transparent);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+    transition-property: background-color, border-color, box-shadow;
+    transition-duration: var(--default-transition-duration);
+    transition-timing-function: var(--default-transition-timing-function);
+}
+
+.fi-ta-search-field .fi-input-wrp:focus-within {
+    background: white;
+    border-color: color-mix(in oklab, var(--color-primary-500) 55%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary-500) 16%, transparent);
+}
+
+.dark .fi-ta-search-field .fi-input-wrp {
+    background: color-mix(in oklab, var(--gray-900) 70%, var(--gray-800));
+    border-color: color-mix(in oklab, var(--gray-700) 55%, transparent);
+}
+
+.dark .fi-ta-search-field .fi-input-wrp:focus-within {
+    background: var(--gray-900);
+    border-color: color-mix(in oklab, var(--color-primary-400) 55%, transparent);
+}
+
+/* Filter / column-manager trigger buttons as pills, lifting on hover. */
+.fi-ta-header-toolbar .fi-btn {
+    border-radius: 999px;
+    transition-property: background-color, border-color, transform, box-shadow;
+    transition-duration: var(--default-transition-duration);
+    transition-timing-function: var(--default-transition-timing-function);
+}
+
+@media (hover: hover) {
+    .fi-ta-header-toolbar .fi-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 12px rgba(15, 23, 42, 0.09);
+    }
+}
+
+/* Dropdown panels (filters form, column manager) get softer corners. */
+.fi-ta-col-manager-dropdown,
+.fi-dropdown-panel {
+    border-radius: 1rem;
+}
+
+/* Active-filters chip row reads as a highlighted notice. */
+.fi-ta-filter-indicators {
+    border-radius: 0.9rem;
+    padding-block: calc(var(--spacing) * 2);
+    background: color-mix(in oklab, var(--color-primary-400) 7%, white);
+    border: 1px dashed color-mix(in oklab, var(--color-primary-400) 35%, transparent);
+}
+
+.dark .fi-ta-filter-indicators {
+    background: color-mix(in oklab, var(--color-primary-500) 14%, var(--gray-900));
+    border-color: color-mix(in oklab, var(--color-primary-400) 40%, transparent);
+}
+
+/* Firmer table header and a gentle row hover highlight. */
+.fi-ta-header-cell {
+    background: color-mix(in oklab, var(--gray-100) 55%, white);
+}
+
+.dark .fi-ta-header-cell {
+    background: color-mix(in oklab, var(--gray-800) 70%, var(--gray-900));
+}
+
+.fi-ta-row {
+    transition-property: background-color;
+    transition-duration: var(--default-transition-duration);
+    transition-timing-function: var(--default-transition-timing-function);
+}
+
+.fi-ta-row:hover {
+    background: color-mix(in oklab, var(--color-primary-400) 6%, white);
+}
+
+.dark .fi-ta-row:hover {
+    background: color-mix(in oklab, var(--color-primary-500) 12%, var(--gray-900));
+}

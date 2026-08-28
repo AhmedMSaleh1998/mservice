@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Transactions\Tables;
 
 use App\Filament\Resources\Transactions\TransactionResource;
+use App\Filament\Resources\Users\UserResource;
 use App\Support\OrderAdminSupport;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -11,6 +12,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Modules\Core\Models\Order;
 use Modules\Core\Services\OrderService;
 
@@ -27,7 +29,22 @@ class TransactionsTable
                     ->label(__('User'))
                     ->searchable()
                     ->sortable()
-                    ->placeholder('-'),
+                    ->placeholder('-')
+                    ->color('info')
+                    ->url(fn (Order $record): ?string => $record->user_id
+                        ? UserResource::getUrl('edit', ['record' => $record->user_id])
+                        : null)
+                    ->openUrlInNewTab(),
+                TextColumn::make('user.reg_number')
+                    ->label(__('Registration Number'))
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('-')
+                    ->color('info')
+                    ->url(fn (Order $record): ?string => $record->user_id
+                        ? UserResource::getUrl('edit', ['record' => $record->user_id])
+                        : null)
+                    ->openUrlInNewTab(),
                 TextColumn::make('orderable_type')
                     ->label(__('Service Type'))
                     ->getStateUsing(fn (Order $record): string => OrderAdminSupport::typeLabel($record))
@@ -93,10 +110,52 @@ class TransactionsTable
                     ->options(OrderAdminSupport::typeOptions()),
                 SelectFilter::make('status')
                     ->label(__('Payment Status'))
-                    ->options(OrderAdminSupport::orderStatusOptions()),
+                    ->options(OrderAdminSupport::orderStatusOptions())
+                    // The page opens on successfully paid transactions; clearing
+                    // the filter shows everything.
+                    ->default('paid_successfully')
+                    // A live search means the admin is hunting one doctor's
+                    // history (e.g. by registration number) — it must span
+                    // every status, so the filter steps aside while searching.
+                    ->query(function (Builder $query, array $data, $livewire): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (! filled($value) || filled($livewire->getTableSearch())) {
+                            return $query;
+                        }
+
+                        return $query->where('status', $value);
+                    }),
                 SelectFilter::make('payment_method')
                     ->label(__('Payment Method'))
                     ->options(OrderAdminSupport::paymentMethodOptions()),
+                // The sync outcome lives inside the payload JSON rather than in a
+                // column of its own, so the filter has to reach into it directly.
+                SelectFilter::make('oracle_sync')
+                    ->label(__('Oracle Sync'))
+                    ->options([
+                        'success' => __('Synced'),
+                        'failed' => __('Sync failed'),
+                        'skipped' => __('Sync skipped'),
+                        'none' => __('Not synced'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (blank($value)) {
+                            return $query;
+                        }
+
+                        // "none" is every order the sync never wrote a status for,
+                        // which is exactly what the column renders as not synced.
+                        if ($value === 'none') {
+                            return $query->where(fn (Builder $query): Builder => $query
+                                ->whereNull('payload->oracle_payment_sync->status')
+                                ->orWhere('payload->oracle_payment_sync->status', ''));
+                        }
+
+                        return $query->where('payload->oracle_payment_sync->status', $value);
+                    }),
             ])
             ->recordUrl(fn (Order $record): string => TransactionResource::getUrl('view', ['record' => $record]))
             ->recordActions([

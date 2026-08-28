@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Users\Tables;
 
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
@@ -19,6 +20,10 @@ class UsersTable
                     ->label(__('Name'))
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('reg_number')
+                    ->label(__('Registration Number'))
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('email')
                     ->label(__('Email'))
                     ->searchable()
@@ -31,17 +36,14 @@ class UsersTable
                     ->label(__('National ID'))
                     ->searchable()
                     ->toggleable(),
-                TextColumn::make('reg_number')
-                    ->label(__('Registration Number'))
-                    ->searchable()
-                    ->toggleable(),
                 TextColumn::make('lang')
                     ->label(__('Language'))
                     ->badge()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('notification_enabled')
                     ->label(__('Notification Enabled'))
-                    ->boolean(),
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('active')
                     ->label(__('Active'))
                     ->boolean(),
@@ -60,6 +62,7 @@ class UsersTable
             ])
             ->recordActions([
                 ActionGroup::make([
+                    ViewAction::make(),
                     EditAction::make(),
                 ]),
             ])

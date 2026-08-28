@@ -12,7 +12,9 @@ use Throwable;
 
 class ReconcileFawryPendingPayments extends Command
 {
-    protected $signature = 'payments:reconcile-fawry {--limit=100 : Maximum number of pending checkouts to reconcile per run}';
+    protected $signature = 'payments:reconcile-fawry
+        {--limit=100 : Maximum number of pending checkouts to reconcile per run}
+        {--days=2 : How many days back to scan pending checkouts (raise for a one-off backlog cleanup)}';
 
     protected $description = 'Pull Fawry payment status for pending checkouts, apply missed payments (with Oracle sync) and expire stale ones';
 
@@ -35,7 +37,7 @@ class ReconcileFawryPendingPayments extends Command
             // Give the webhook and return redirect a head start, and skip
             // checkouts old enough that only manual review makes sense.
             ->where('payment_started_at', '<=', now()->subMinutes(2))
-            ->where('payment_started_at', '>=', now()->subDays(2))
+            ->where('payment_started_at', '>=', now()->subDays(max(1, (int) $this->option('days'))))
             ->orderBy('payment_started_at')
             ->limit(max(1, (int) $this->option('limit')))
             ->get();

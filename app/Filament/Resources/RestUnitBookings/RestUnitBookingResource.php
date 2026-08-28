@@ -4,6 +4,7 @@ namespace App\Filament\Resources\RestUnitBookings;
 
 use App\Filament\Resources\ResetUnits\ResetUnitResource;
 use App\Filament\Resources\RestUnitBookings\Pages;
+use App\Filament\Resources\Users\UserResource;
 use App\Filament\Resources\RestUnitBookings\Schemas\RestUnitBookingInfolist;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -283,13 +284,22 @@ class RestUnitBookingResource extends Resource
             return [];
         }
 
+        $fromDate = Carbon::parse($from)->startOfDay();
+        $toDate = Carbon::parse($to)->startOfDay();
+
+        // Checkout day is exclusive: a stay ending on day X frees day X for the
+        // next guest. A single-day range still counts as one night's stay.
+        if ($toDate->lessThanOrEqualTo($fromDate)) {
+            $toDate = $fromDate->copy()->addDay();
+        }
+
         return RestUnitBooking::query()
             ->where('rest_unit_id', $restUnitId)
             ->whereNotNull($column)
             ->when($excludeBookingId, fn ($q) => $q->where('id', '!=', $excludeBookingId))
             ->whereNotIn('status', [RestUnitBooking::STATUS_CANCELLED, RestUnitBooking::STATUS_PAYMENT_EXPIRED])
-            ->where('start_date', '<=', $to)
-            ->where('end_date', '>=', $from)
+            ->whereDate('start_date', '<', $toDate->toDateString())
+            ->whereDate('end_date', '>', $fromDate->toDateString())
             ->pluck($column)
             ->filter()
             ->map(fn ($v): int => (int) $v)
@@ -365,63 +375,51 @@ class RestUnitBookingResource extends Resource
                 TextColumn::make('id')->label(__('ID'))->sortable(),
                 TextColumn::make('user.name')
                     ->label(__('User'))
+                    // One column for both: the account holder, with the actual
+                    // guest underneath only when it is a different person
+                    // (martyr-family bookings).
+                    ->state(fn (RestUnitBooking $record): ?string => $record->user?->name ?? $record->guestName())
+                    ->description(function (RestUnitBooking $record): ?string {
+                        $guest = $record->guestName();
+                        $shown = $record->user?->name ?? $guest;
+
+                        return ($guest && $guest !== $shown) ? __('Guest') . ': ' . $guest : null;
+                    })
+                    ->searchable(query: fn ($query, string $search) => $query
+                        ->where(function ($q) use ($search): void {
+                            $q->whereHas('user', fn ($userQuery) => $userQuery->where('name', 'like', "%{$search}%"))
+                                ->orWhere('beneficiary_name', 'like', "%{$search}%");
+                        }))
+                    ->placeholder('-')
+                    ->color('info')
+                    ->url(fn (RestUnitBooking $record): ?string => $record->user_id
+                        ? UserResource::getUrl('edit', ['record' => $record->user_id])
+                        : null)
+                    ->openUrlInNewTab(),
+                TextColumn::make('user.reg_number')
+                    ->label(__('Registration Number'))
                     ->searchable()
-                    ->action(
-                        Action::make('viewUser')
-                            ->modalHeading(__('User Details'))
-                            ->modalSubmitAction(false)
-                            ->modalCancelAction(fn (Action $action) => $action->label(__('Close')))
-                            ->infolist(fn (Infolist $infolist) => $infolist
-                                ->schema([
-                                    Section::make(__('User Info'))
-                                        ->schema([
-                                            TextEntry::make('user.name')->label(__('Name')),
-                                            TextEntry::make('user.email')->label(__('Email')),
-                                            TextEntry::make('user.phone')->label(__('Phone')),
-                                        ])
-                                        ->columns(3),
-                                ]))
-                    ),
+                    ->sortable()
+                    ->placeholder('-')
+                    ->color('info')
+                    ->url(fn (RestUnitBooking $record): ?string => $record->user_id
+                        ? UserResource::getUrl('edit', ['record' => $record->user_id])
+                        : null)
+                    ->openUrlInNewTab(),
                 TextColumn::make('restUnit.name')
                     ->label(__('Rest Unit'))
                     ->searchable()
-                    ->action(
-                        Action::make('viewRestUnit')
-                            ->modalHeading(__('Rest Unit Details'))
-                            ->modalSubmitAction(false)
-                            ->modalCancelAction(fn (Action $action) => $action->label(__('Close')))
-                            ->infolist(fn (Infolist $infolist) => $infolist
-                                ->schema([
-                                    Section::make(__('General Info'))
-                                        ->schema([
-                                            TextEntry::make('restUnit.name')->label(__('Name')),
-                                            TextEntry::make('restUnit.address')->label(__('Address')),
-                                            TextEntry::make('restUnit.province.name')->label(__('Province')),
-                                        ])
-                                        ->columns(3),
-                                    Section::make(__('Capacity'))
-                                        ->schema([
-                                            TextEntry::make('restUnit.type')
-                                                ->label(__('Type'))
-                                                ->formatStateUsing(fn (?string $state): string => RestUnit::typeLabel($state)),
-                                            TextEntry::make('restUnit.total_places')
-                                                ->label(__('Total Places'))
-                                                ->state(fn (RestUnitBooking $record): int => (int) $record->restUnit?->loadMissing(['rooms', 'beds'])->totalPlaces()),
-                                        ])
-                                        ->columns(2),
-                                ]))
-                    ),
+                    ->placeholder('-')
+                    ->color('info')
+                    ->url(fn (RestUnitBooking $record): ?string => $record->rest_unit_id
+                        ? ResetUnitResource::getUrl('view', ['record' => $record->rest_unit_id])
+                        : null)
+                    ->openUrlInNewTab(),
                 TextColumn::make('beneficiary_type')
                     ->label(__('Beneficiary'))
                     ->badge()
                     ->formatStateUsing(fn (?string $state): string => RestUnitBooking::beneficiaryTypeOptions()[$state] ?? (string) $state)
                     ->color(fn (?string $state): string => $state === RestUnitBooking::BENEFICIARY_MARTYR_FAMILY ? 'warning' : 'gray'),
-                TextColumn::make('guest_name')
-                    ->label(__('Guest'))
-                    ->state(fn (RestUnitBooking $record): ?string => $record->guestName())
-                    ->searchable(query: fn ($query, string $search) => $query
-                        ->where('beneficiary_name', 'like', "%{$search}%")
-                        ->orWhereHas('user', fn ($q) => $q->where('name', 'like', "%{$search}%"))),
                 TextColumn::make('target')
                     ->label(__('Type'))
                     ->badge()
@@ -432,12 +430,31 @@ class RestUnitBookingResource extends Resource
                     ->money(currency: 'EGP')
                     ->sortable(),
                 TextColumn::make('start_date')
-                    ->label(__('Start Date'))
-                    ->date()
-                    ->sortable(),
-                TextColumn::make('end_date')
-                    ->label(__('End Date'))
-                    ->date()
+                    ->label(__('Period'))
+                    // Both dates always in full, with an arrow between them.
+                    // The LTR-isolate marks keep the RTL page from reshuffling
+                    // the digits, so day/month/year stay in fixed positions.
+                    ->state(function (RestUnitBooking $record): string {
+                        $start = $record->start_date;
+                        $end = $record->end_date;
+
+                        if (! $start || ! $end) {
+                            $single = $start ?? $end;
+
+                            return $single ? "\u{2066}" . $single->format('j/n/Y') . "\u{2069}" : '-';
+                        }
+
+                        return "\u{2066}" . $start->format('j/n/Y') . ' → ' . $end->format('j/n/Y') . "\u{2069}";
+                    })
+                    ->description(function (RestUnitBooking $record): ?string {
+                        if (! $record->start_date || ! $record->end_date) {
+                            return null;
+                        }
+
+                        $nights = (int) $record->start_date->diffInDays($record->end_date);
+
+                        return $nights > 0 ? $nights . ' ' . __('Nights') : null;
+                    })
                     ->sortable(),
                 TextColumn::make('status')
                     ->label(__('Status'))
@@ -447,7 +464,21 @@ class RestUnitBookingResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('status')
-                    ->options(self::statusOptions()),
+                    ->options(self::statusOptions())
+                    // The page opens on successfully paid bookings; clearing
+                    // the filter shows everything.
+                    ->default(RestUnitBooking::STATUS_PAID_SUCCESSFULLY)
+                    // A live search (e.g. by registration number) must span
+                    // every status, so the filter steps aside while searching.
+                    ->query(function ($query, array $data, $livewire) {
+                        $value = $data['value'] ?? null;
+
+                        if (! filled($value) || filled($livewire->getTableSearch())) {
+                            return $query;
+                        }
+
+                        return $query->where('status', $value);
+                    }),
                 SelectFilter::make('beneficiary_type')
                     ->label(__('Beneficiary'))
                     ->options(RestUnitBooking::beneficiaryTypeOptions()),

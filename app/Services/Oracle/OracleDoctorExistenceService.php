@@ -148,18 +148,12 @@ class OracleDoctorExistenceService
             'register_no_input' => $trimmedRegisterNo,
             'register_no_normalized' => $normalizedRegisterNo,
             'register_no_changed' => $trimmedRegisterNo !== $normalizedRegisterNo,
-            'id_no_input' => $this->maskNationalId($trimmedIdNo),
-            'id_no_normalized' => $this->maskNationalId($normalizedIdNo),
-            // Masking leaves only the last four digits, so two different IDs can
-            // read identically in the log. The fingerprint keeps them apart.
-            'id_no_fingerprint' => NationalIdentifier::fingerprint($normalizedIdNo),
+            // Logged unmasked on purpose: support searches the logs by the
+            // exact national ID, and masked values made that impossible.
+            'id_no_input' => $trimmedIdNo,
+            'id_no_normalized' => $normalizedIdNo,
             'id_no_changed' => $trimmedIdNo !== $normalizedIdNo,
         ];
-    }
-
-    private function maskNationalId(string $idNo): string
-    {
-        return NationalIdentifier::mask($idNo);
     }
 
     /**
