@@ -127,7 +127,18 @@ class AuthService
             return '';
         }
 
-        return trim((string) ($profile['doctor_name'] ?? ''));
+        $name = trim((string) ($profile['doctor_name'] ?? ''));
+
+        if ($name === '') {
+            // The account falls back to the self-typed name, which will not
+            // match the official card until users:sync-oracle-names catches it.
+            Log::warning('Oracle doctor record has no name at registration; keeping the submitted name.', [
+                'register_no' => $registerNo,
+                'record_found' => $profile !== null,
+            ]);
+        }
+
+        return $name;
     }
 
     public function login(LoginDTO $dto)

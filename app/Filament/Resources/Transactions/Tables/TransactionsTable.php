@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Transactions\Tables;
 
 use App\Filament\Resources\Transactions\TransactionResource;
+use App\Filament\Resources\Users\UserResource;
 use App\Support\OrderAdminSupport;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -28,7 +29,22 @@ class TransactionsTable
                     ->label(__('User'))
                     ->searchable()
                     ->sortable()
-                    ->placeholder('-'),
+                    ->placeholder('-')
+                    ->color('info')
+                    ->url(fn (Order $record): ?string => $record->user_id
+                        ? UserResource::getUrl('edit', ['record' => $record->user_id])
+                        : null)
+                    ->openUrlInNewTab(),
+                TextColumn::make('user.reg_number')
+                    ->label(__('Registration Number'))
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('-')
+                    ->color('info')
+                    ->url(fn (Order $record): ?string => $record->user_id
+                        ? UserResource::getUrl('edit', ['record' => $record->user_id])
+                        : null)
+                    ->openUrlInNewTab(),
                 TextColumn::make('orderable_type')
                     ->label(__('Service Type'))
                     ->getStateUsing(fn (Order $record): string => OrderAdminSupport::typeLabel($record))
@@ -94,7 +110,22 @@ class TransactionsTable
                     ->options(OrderAdminSupport::typeOptions()),
                 SelectFilter::make('status')
                     ->label(__('Payment Status'))
-                    ->options(OrderAdminSupport::orderStatusOptions()),
+                    ->options(OrderAdminSupport::orderStatusOptions())
+                    // The page opens on successfully paid transactions; clearing
+                    // the filter shows everything.
+                    ->default('paid_successfully')
+                    // A live search means the admin is hunting one doctor's
+                    // history (e.g. by registration number) — it must span
+                    // every status, so the filter steps aside while searching.
+                    ->query(function (Builder $query, array $data, $livewire): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (! filled($value) || filled($livewire->getTableSearch())) {
+                            return $query;
+                        }
+
+                        return $query->where('status', $value);
+                    }),
                 SelectFilter::make('payment_method')
                     ->label(__('Payment Method'))
                     ->options(OrderAdminSupport::paymentMethodOptions()),

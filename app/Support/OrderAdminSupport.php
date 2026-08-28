@@ -41,13 +41,14 @@ class OrderAdminSupport
 
     public static function applyDeliveryScope(Builder $query): Builder
     {
+        // Only orders with an actual physical delivery: a membership request
+        // can also be a subscription-only payment ('none') or a digital card
+        // ('digital') — neither belongs on the delivery requests screen.
         return $query->whereHasMorph(
             'orderable',
             [MembershipRequest::class, CertificateRequest::class],
-            function (Builder $orderableQuery, string $type): void {
-                if ($type === CertificateRequest::class) {
-                    $orderableQuery->where('delivery_method', 'delivery');
-                }
+            function (Builder $orderableQuery): void {
+                $orderableQuery->where('delivery_method', 'delivery');
             }
         );
     }

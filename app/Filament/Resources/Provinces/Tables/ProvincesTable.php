@@ -4,13 +4,12 @@ namespace App\Filament\Resources\Provinces\Tables;
 
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
-use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 use Modules\Core\Models\Province;
 
@@ -26,13 +25,21 @@ class ProvincesTable
                     ->numeric()
                     ->sortable()
                     ->searchable(),
+                TextColumn::make('name')
+                    ->label(__('Name'))
+                    ->searchable(),
                 TextColumn::make('shipping_cost')
                     ->label(__('Shipping Cost'))
                     ->money('EGP')
                     ->sortable(),
-                TextColumn::make('name')
-                    ->label(__('Name'))
-                    ->searchable()
+                TextColumn::make('delivery_region_id')
+                    ->label(__('Delivery Region'))
+                    ->formatStateUsing(fn (int $state): string => Province::deliveryRegionOptions()[$state] ?? (string) $state)
+                    ->placeholder('—')
+                    ->sortable(),
+                ToggleColumn::make('active')
+                    ->label(__('Active'))
+                    ->sortable(),
             ])
             ->filters([
                 //
@@ -67,7 +74,6 @@ class ProvincesTable
                                 ->send();
                         }),
                     EditAction::make(),
-                    DeleteAction::make(),
                 ]),
             ])
             ->toolbarActions([

@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\DeliveryRequests\Tables;
 
-use App\Filament\Resources\DeliveryRequests\DeliveryRequestResource;
+use App\Filament\Resources\Users\UserResource;
 use App\Support\OrderAdminSupport;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -31,7 +31,22 @@ class DeliveryRequestsTable
                     ->label(__('User'))
                     ->searchable()
                     ->sortable()
-                    ->placeholder('-'),
+                    ->placeholder('-')
+                    ->color('info')
+                    ->url(fn (Order $record): ?string => $record->user_id
+                        ? UserResource::getUrl('edit', ['record' => $record->user_id])
+                        : null)
+                    ->openUrlInNewTab(),
+                TextColumn::make('user.reg_number')
+                    ->label(__('Registration Number'))
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('-')
+                    ->color('info')
+                    ->url(fn (Order $record): ?string => $record->user_id
+                        ? UserResource::getUrl('edit', ['record' => $record->user_id])
+                        : null)
+                    ->openUrlInNewTab(),
                 TextColumn::make('orderable_type')
                     ->label(__('Service Type'))
                     ->getStateUsing(fn (Order $record): string => OrderAdminSupport::typeLabel($record))
@@ -91,7 +106,10 @@ class DeliveryRequestsTable
                     ->label(__('Payment Status'))
                     ->options(OrderAdminSupport::orderStatusOptions()),
             ])
-            ->recordUrl(fn (Order $record): string => DeliveryRequestResource::getUrl('view', ['record' => $record]))
+            // Explicit null: without it the list page falls back to linking
+            // every row to the view page — rows must not be clickable here.
+            ->recordUrl(fn (): ?string => null)
+            ->recordAction(fn (): ?string => null)
             ->recordActions([
                 ActionGroup::make([
                     static::updateDeliveryStatusAction(),

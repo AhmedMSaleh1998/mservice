@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\SupportTicketsController;
 use App\Http\Controllers\Api\TravelsController;
 use App\Http\Controllers\Api\UserAddressController;
 use App\Http\Controllers\ServicesController;
+use App\Http\Middleware\EnsureDoctorHasNoSituation;
 use App\Http\Middleware\ValidateHeadersMiddleware;
 use Illuminate\Support\Facades\Route;
 use Modules\Users\Services\RegistrationRequestPdfService;
@@ -120,12 +121,14 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
 
             Route::get('/rest-units', [RestUnitsController::class, 'index']);
             Route::get('/rest-units/{id}', [RestUnitsController::class, 'show']);
-            Route::post('rest-units/booking', [RestUnitsController::class, 'booking']);
+            Route::post('rest-units/booking', [RestUnitsController::class, 'booking'])
+                ->middleware(EnsureDoctorHasNoSituation::class);
             Route::get('rest-units/bookings/{restUnitBooking}', [RestUnitsController::class, 'showBooking'])
                 ->name('api.services.rest-units.bookings.show');
         });
 
-        Route::post('membership/request', [MembershipController::class, 'store']);
+        Route::post('membership/request', [MembershipController::class, 'store'])
+            ->middleware(EnsureDoctorHasNoSituation::class);
         Route::prefix('my-courses')->group(function () {
             Route::get('/', [MyCoursesController::class, 'index'])->name('api.my-courses.index');
             Route::get('{courseBooking}', [MyCoursesController::class, 'show'])->name('api.my-courses.show');
@@ -136,14 +139,17 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
                 Route::get('/{travel}', 'show');
             });
         });
-        Route::post('travels/{travel}/booking', [TravelsController::class, 'booking']);
+        Route::post('travels/{travel}/booking', [TravelsController::class, 'booking'])
+            ->middleware(EnsureDoctorHasNoSituation::class);
         Route::get('travel-bookings/{travelBooking}', [TravelsController::class, 'showBooking']);
         Route::prefix('payments')->group(function () {
             Route::get('/', [PaymentsController::class, 'index'])->name('api.payments.index');
             Route::get('{order}', [PaymentsController::class, 'show'])->name('api.payments.show');
         });
         Route::prefix('orders')->group(function () {
-            Route::post('{order}/pay', [OrdersController::class, 'pay'])->name('api.orders.pay');
+            Route::post('{order}/pay', [OrdersController::class, 'pay'])
+                ->middleware(EnsureDoctorHasNoSituation::class)
+                ->name('api.orders.pay');
             Route::post('{order}/sync-payment-status', [OrdersController::class, 'syncPaymentStatus'])
                 ->name('api.orders.sync-payment');
             Route::post('{order}/confirm-payment', [OrdersController::class, 'confirmPayment'])
@@ -158,7 +164,8 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
         Route::get('procedures/{procedure}', [ProceduresController::class, 'show']);
 
         Route::get('certificates', [CertificatesController::class, 'index']);
-        Route::post('certificate/request', [CertificateRequestController::class, 'store']);
+        Route::post('certificate/request', [CertificateRequestController::class, 'store'])
+            ->middleware(EnsureDoctorHasNoSituation::class);
 
         Route::prefix('medical-guides/me')->group(function () {
             Route::get('/', [DoctorMedicalGuideController::class, 'show']);
@@ -169,13 +176,16 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
         Route::prefix('ads')->group(function () {
             Route::get('/', [AdRequestsController::class, 'approved']);
             Route::get('spaces', [AdSpacesController::class, 'index']);
-            Route::post('/', [AdRequestsController::class, 'store']);
+            Route::post('/', [AdRequestsController::class, 'store'])
+                ->middleware(EnsureDoctorHasNoSituation::class);
             Route::post('{adRequest}/cancel', [AdRequestsController::class, 'cancel']);
             Route::get('{adRequest}', [AdRequestsController::class, 'show']);
         });
 
-        Route::post('courses/{course}', [CourseBookingsController::class, 'store']);
-        Route::post('courses/{course}/booking', [CourseBookingsController::class, 'store']);
+        Route::post('courses/{course}', [CourseBookingsController::class, 'store'])
+            ->middleware(EnsureDoctorHasNoSituation::class);
+        Route::post('courses/{course}/booking', [CourseBookingsController::class, 'store'])
+            ->middleware(EnsureDoctorHasNoSituation::class);
         Route::get('course-bookings/{courseBooking}', [CourseBookingsController::class, 'show']);
     });
 

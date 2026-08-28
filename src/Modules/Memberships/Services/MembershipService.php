@@ -131,6 +131,33 @@ class MembershipService
             $paymentMethod = $isFreeRequest ? 'free' : null;
             $storedDeliveryMethod = ! $printCard ? 'none' : ($withDelivery ? 'delivery' : 'digital');
 
+            // An identical unpaid renewal already exists: hand it back instead
+            // of stacking a duplicate row (and a duplicate order) per visit.
+            if (! $isFreeRequest) {
+                $identical = MembershipRequest::query()
+                    ->where('user_id', $user->id)
+                    ->where('status', 'pending_payment')
+                    ->where('print_card', $printCard)
+                    ->where('delivery_method', $storedDeliveryMethod)
+                    ->when(
+                        $address,
+                        fn ($query) => $query->where('user_address_id', $address->id),
+                        fn ($query) => $query->whereNull('user_address_id'),
+                    )
+                    ->where('total_amount', $costs['total_amount'])
+                    ->latest('id')
+                    ->first();
+
+                if ($identical) {
+                    return $identical->fresh(['userAddress.province', 'order']);
+                }
+            }
+
+            // The options or amount changed: retire older unpaid renewals so a
+            // member only ever has one live renewal. A late gateway PAID on a
+            // retired order still wins — applyFawryPaymentUpdate honours PAID.
+            $this->expireStalePendingRenewals($user->id);
+
             $membershipRequest = MembershipRequest::create([
                 'user_id' => $user->id,
                 'full_name' => $snapshot['full_name'],
@@ -165,6 +192,32 @@ class MembershipService
 
             return $membershipRequest->fresh(['userAddress.province', 'order']);
         });
+    }
+
+    private function expireStalePendingRenewals(int $userId): void
+    {
+        $staleRequests = MembershipRequest::query()
+            ->where('user_id', $userId)
+            ->where('status', 'pending_payment')
+            ->get();
+
+        foreach ($staleRequests as $staleRequest) {
+            $order = $staleRequest->order()->first();
+
+            // Never touch anything the gateway already settled.
+            if ($order && $order->status === 'paid_successfully') {
+                continue;
+            }
+
+            $staleRequest->update(['status' => 'payment_expired']);
+
+            $order?->forceFill([
+                'status' => 'payment_expired',
+                'gateway_status' => 'EXPIRED',
+                'checkout_url' => null,
+                'payment_last_synced_at' => now(),
+            ])->save();
+        }
     }
 
     public function buildProfileSnapshot(User $user): array

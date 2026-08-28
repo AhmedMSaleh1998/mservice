@@ -106,6 +106,41 @@ class CertificateRequestService
                 ? CertificateRequest::STATUS_PAID_SUCCESSFULLY
                 : CertificateRequest::STATUS_PENDING_PAYMENT;
 
+            // An identical unpaid request for this certificate already exists:
+            // hand it back (with the latest contact details) instead of
+            // stacking a duplicate row per visit.
+            if (! $isFreeRequest) {
+                $identical = CertificateRequest::query()
+                    ->where('user_id', $userId)
+                    ->where('certificate_id', $certificate->id)
+                    ->where('status', CertificateRequest::STATUS_PENDING_PAYMENT)
+                    ->where('delivery_method', $data['delivery_method'])
+                    ->when(
+                        $address,
+                        fn ($query) => $query->where('user_address_id', $address->id),
+                        fn ($query) => $query->whereNull('user_address_id'),
+                    )
+                    ->where('total_amount', $costs['total_amount'])
+                    ->latest('id')
+                    ->first();
+
+                if ($identical) {
+                    $identical->forceFill([
+                        'phone' => filled($data['phone'] ?? null)
+                            ? PhoneNumberNormalizer::normalize((string) $data['phone'])
+                            : $identical->phone,
+                        'email' => $data['email'] ?? $identical->email,
+                    ])->save();
+
+                    return $identical->fresh(['certificate.media', 'userAddress.province', 'order']);
+                }
+            }
+
+            // The options or amount changed: retire older unpaid requests for
+            // this same certificate so only one live request exists. A late
+            // gateway PAID on a retired order still wins.
+            $this->expireStalePendingRequests($userId, $certificate->id);
+
             $certificateRequest = CertificateRequest::create([
                 'user_id' => $userId,
                 'certificate_id' => $certificate->id,
@@ -141,6 +176,33 @@ class CertificateRequestService
 
             return $certificateRequest->fresh(['certificate.media', 'userAddress.province', 'order']);
         });
+    }
+
+    private function expireStalePendingRequests(int $userId, int $certificateId): void
+    {
+        $staleRequests = CertificateRequest::query()
+            ->where('user_id', $userId)
+            ->where('certificate_id', $certificateId)
+            ->where('status', CertificateRequest::STATUS_PENDING_PAYMENT)
+            ->get();
+
+        foreach ($staleRequests as $staleRequest) {
+            $order = $staleRequest->order()->first();
+
+            // Never touch anything the gateway already settled.
+            if ($order && $order->status === 'paid_successfully') {
+                continue;
+            }
+
+            $staleRequest->update(['status' => 'payment_expired']);
+
+            $order?->forceFill([
+                'status' => 'payment_expired',
+                'gateway_status' => 'EXPIRED',
+                'checkout_url' => null,
+                'payment_last_synced_at' => now(),
+            ])->save();
+        }
     }
 
     private function resolveCertificate(int $certificateId): Certificate

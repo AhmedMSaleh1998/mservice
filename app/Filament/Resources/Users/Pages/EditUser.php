@@ -14,4 +14,9 @@ class EditUser extends EditRecord
         return [
         ];
     }
+
+    public function getRelationManagers(): array
+    {
+        return [];
+    }
 }

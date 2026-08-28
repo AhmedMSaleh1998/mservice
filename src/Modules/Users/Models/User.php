@@ -46,4 +46,39 @@ class User extends Authenticatable implements  HasMedia
     {
         return $this->hasMany(UserAddress::class);
     }
+
+    public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\Modules\Core\Models\Order::class);
+    }
+
+    public function restUnitBookings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\Modules\Services\Models\RestUnitBooking::class);
+    }
+
+    public function certificateRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\Modules\Certificates\Models\CertificateRequest::class);
+    }
+
+    public function supportTickets(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\Modules\Support\Models\SupportTicket::class);
+    }
+
+    public function adRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\Modules\Ads\Models\AdRequest::class);
+    }
+
+    public function courseBookings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\Modules\Courses\Models\CourseBooking::class);
+    }
+
+    public function travelBookings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\Modules\Travels\Models\TravelBooking::class);
+    }
 }

@@ -451,12 +451,21 @@ class RestUnitService
             return collect();
         }
 
+        $from = Carbon::parse($fromDate)->startOfDay();
+        $to = Carbon::parse($toDate)->startOfDay();
+
+        // Checkout day is exclusive: a stay ending on day X frees day X for the
+        // next guest. A single-day range still counts as one night's stay.
+        if ($to->lessThanOrEqualTo($from)) {
+            $to = $from->copy()->addDay();
+        }
+
         return RestUnitBooking::query()
             ->whereIn('rest_unit_id', $unitIds)
-            ->where(function ($query) use ($fromDate, $toDate): void {
+            ->where(function ($query) use ($from, $to): void {
                 $query
-                    ->where('start_date', '<=', $toDate)
-                    ->where('end_date', '>=', $fromDate);
+                    ->whereDate('start_date', '<', $to->toDateString())
+                    ->whereDate('end_date', '>', $from->toDateString());
             })
             ->get()
             ->filter(fn (RestUnitBooking $booking): bool => RestUnitBooking::blocksInventoryStatus($booking->status))

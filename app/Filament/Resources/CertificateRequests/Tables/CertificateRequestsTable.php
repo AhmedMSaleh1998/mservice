@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\CertificateRequests\Tables;
 
 use App\Filament\Resources\CertificateRequests\CertificateRequestResource;
+use App\Filament\Resources\Users\UserResource;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
@@ -12,6 +14,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Modules\Certificates\Models\CertificateRequest;
 
@@ -28,7 +31,22 @@ class CertificateRequestsTable
                 TextColumn::make('user.name')
                     ->label(__('User'))
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->color('info')
+                    ->url(fn (CertificateRequest $record): ?string => $record->user_id
+                        ? UserResource::getUrl('edit', ['record' => $record->user_id])
+                        : null)
+                    ->openUrlInNewTab(),
+                TextColumn::make('user.reg_number')
+                    ->label(__('Registration Number'))
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('-')
+                    ->color('info')
+                    ->url(fn (CertificateRequest $record): ?string => $record->user_id
+                        ? UserResource::getUrl('edit', ['record' => $record->user_id])
+                        : null)
+                    ->openUrlInNewTab(),
                 TextColumn::make('certificate_id')
                     ->label(__('Certificate'))
                     ->getStateUsing(fn (CertificateRequest $record): string => $record->certificate
@@ -72,15 +90,31 @@ class CertificateRequestsTable
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('Status'))
-                    ->options(CertificateRequest::statusOptions()),
+                    ->options(CertificateRequest::statusOptions())
+                    // The page opens on successfully paid requests; clearing
+                    // the filter shows everything.
+                    ->default(CertificateRequest::STATUS_PAID_SUCCESSFULLY)
+                    // A live search (e.g. by registration number) must span
+                    // every status, so the filter steps aside while searching.
+                    ->query(function (Builder $query, array $data, $livewire): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (! filled($value) || filled($livewire->getTableSearch())) {
+                            return $query;
+                        }
+
+                        return $query->where('status', $value);
+                    }),
                 SelectFilter::make('delivery_status')
                     ->label(__('Delivery Status'))
                     ->options(CertificateRequest::deliveryStatusOptions()),
             ])
             ->recordUrl(fn (CertificateRequest $record): string => CertificateRequestResource::getUrl('view', ['record' => $record]))
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
