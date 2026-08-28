@@ -40,6 +40,7 @@ class User extends Authenticatable implements  HasMedia
         'password' => 'hashed',
         'active' => 'boolean',
         'notification_enabled' => 'boolean',
+        'oracle_synced_at' => 'datetime',
     ];
 
     public function addresses(): \Illuminate\Database\Eloquent\Relations\HasMany
