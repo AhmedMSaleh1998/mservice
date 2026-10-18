@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreAdRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Modules\Ads\Models\AdRequest;
 use Modules\Ads\Resources\AdRequestResource;
@@ -32,9 +33,15 @@ class AdRequestsController extends Controller
         ], 201);
     }
 
-    public function approved(): JsonResponse
+    public function approved(Request $request): JsonResponse
     {
-        $ads = $this->adRequestService->listApproved();
+        $validated = $request->validate([
+            'service_id' => ['nullable', 'integer'],
+        ]);
+
+        $ads = $this->adRequestService->listApproved(
+            isset($validated['service_id']) ? (int) $validated['service_id'] : null
+        );
 
         return response()->json([
             'message' => 'Approved ads loaded successfully.',

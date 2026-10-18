@@ -15,4 +15,9 @@ class AdRequestQueryBuilder extends Builder
     {
         return $this->where('status', 'approved');
     }
+
+    public function forService(int $serviceId): self
+    {
+        return $this->whereHas('adSpace', fn (Builder $query) => $query->where('service_id', $serviceId));
+    }
 }

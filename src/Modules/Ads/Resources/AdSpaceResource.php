@@ -11,6 +11,7 @@ class AdSpaceResource extends CustomResource
     {
         return [
             'id' => $this->resource->id,
+            'service_id' => $this->resource->service_id,
             // Spaces created before service_id existed, or whose service was
             // deleted, have no service; one of them must not break the list.
             'service' => $this->service?->title,
