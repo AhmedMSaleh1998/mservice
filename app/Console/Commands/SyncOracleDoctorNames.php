@@ -2,8 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Oracle\OracleDoctorDataLookupService;
-use App\Services\Oracle\OracleDoctorExistenceService;
+use App\Services\OracleNameSyncService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Modules\Users\Models\User;
@@ -14,11 +13,16 @@ use Modules\Users\Models\User;
  * (CHK_DOCTOR_EXIST); only a verified identity gets its name refreshed from
  * GET_DOCTOR_DATA_REGNO. Users whose identity does not verify are reported,
  * never rewritten. Oracle records without a name are reported and left alone.
+ *
+ * A successful pass stamps users.oracle_synced_at, and the default run skips
+ * stamped users — so the nightly sweep only retries unresolved cases. Pass
+ * --all to re-check everyone (e.g. after the syndicate bulk-fixes records).
  */
 class SyncOracleDoctorNames extends Command
 {
     protected $signature = 'users:sync-oracle-names
                             {--apply : Write the changes; without this the command only reports}
+                            {--all : Re-check users already marked as synced, not just pending ones}
                             {--user=* : Limit the run to these user IDs}
                             {--limit=0 : Stop after processing this many users (0 = all)}';
 
@@ -27,8 +31,7 @@ class SyncOracleDoctorNames extends Command
     private const MAX_CONSECUTIVE_FAILURES = 5;
 
     public function __construct(
-        private readonly OracleDoctorExistenceService $oracleDoctorExistenceService,
-        private readonly OracleDoctorDataLookupService $oracleDoctorDataLookupService,
+        private readonly OracleNameSyncService $oracleNameSyncService,
     ) {
         parent::__construct();
     }
@@ -36,6 +39,7 @@ class SyncOracleDoctorNames extends Command
     public function handle(): int
     {
         $apply = (bool) $this->option('apply');
+        $all = (bool) $this->option('all');
         $userIds = array_filter(array_map('intval', (array) $this->option('user')));
         $limit = max(0, (int) $this->option('limit'));
 
@@ -46,6 +50,7 @@ class SyncOracleDoctorNames extends Command
         $query = User::query()
             ->whereNotNull('reg_number')->where('reg_number', '!=', '')
             ->whereNotNull('national_id')->where('national_id', '!=', '')
+            ->when(! $all && $userIds === [], fn ($q) => $q->whereNull('oracle_synced_at'))
             ->when($userIds !== [], fn ($q) => $q->whereIn('id', $userIds))
             ->orderBy('id');
 
@@ -109,7 +114,7 @@ class SyncOracleDoctorNames extends Command
             ]],
         );
 
-        Log::info('Oracle name sync finished.', [...$stats, 'apply' => $apply, 'aborted' => $aborted]);
+        Log::info('Oracle name sync finished.', [...$stats, 'apply' => $apply, 'all' => $all, 'aborted' => $aborted]);
 
         return $aborted ? self::FAILURE : self::SUCCESS;
     }
@@ -119,57 +124,48 @@ class SyncOracleDoctorNames extends Command
      */
     private function syncUser(User $user, bool $apply, array &$stats): void
     {
-        // Step 1: the identity the user registered with must verify against
-        // Oracle before we trust the registration number for anything.
-        if (! $this->oracleDoctorExistenceService->doctorExists((string) $user->reg_number, (string) $user->national_id)) {
+        $oldName = $user->name;
+        $result = $this->oracleNameSyncService->syncUser($user, $apply);
+        $outcome = $result['outcome'];
+
+        if ($outcome === OracleNameSyncService::OUTCOME_IDENTITY_MISMATCH) {
             $stats['identity_mismatch']++;
             $this->warn(sprintf(
                 '#%d %s: registration number + national ID do not match any Oracle doctor — left untouched.',
                 $user->id,
                 $user->reg_number,
             ));
-            Log::warning('Oracle name sync: identity did not verify.', [
-                'user_id' => $user->id,
-                'register_no' => $user->reg_number,
-            ]);
 
             return;
         }
 
-        // Step 2: identity verified — fetch the official record.
-        $profile = $this->oracleDoctorDataLookupService->findByRegisterNo((string) $user->reg_number);
-        $oracleName = trim((string) ($profile['doctor_name'] ?? ''));
-
-        if ($oracleName === '') {
+        if ($outcome === OracleNameSyncService::OUTCOME_NO_ORACLE_NAME) {
             $stats['no_oracle_name']++;
             $this->line(sprintf(
-                '#%d %s: Oracle has no name for this record — left untouched.',
+                '#%d %s: Oracle data lookup has no record or no name for this number — left untouched.',
                 $user->id,
                 $user->reg_number,
             ));
-            Log::info('Oracle name sync: record has no name.', [
-                'user_id' => $user->id,
-                'register_no' => $user->reg_number,
-            ]);
 
             return;
         }
 
-        if ($oracleName === trim((string) $user->name)) {
+        if ($outcome === OracleNameSyncService::OUTCOME_ALREADY_MATCHING) {
             $stats['already_matching']++;
 
             return;
         }
 
-        $stats['updated']++;
-        $this->info(sprintf('#%d %s: "%s" -> "%s"', $user->id, $user->reg_number, $user->name, $oracleName));
-
-        if ($apply) {
-            $user->update(['name' => $oracleName]);
-            Log::info('Oracle name sync: user name updated.', [
-                'user_id' => $user->id,
-                'register_no' => $user->reg_number,
-            ]);
+        if ($outcome === OracleNameSyncService::OUTCOME_UPDATED) {
+            $stats['updated']++;
+            $this->info(sprintf(
+                '#%d %s: "%s" -> "%s"%s',
+                $user->id,
+                $user->reg_number,
+                $oldName,
+                $result['oracle_name'],
+                $apply ? '' : ' [REPORT ONLY — nothing saved, run with --apply]',
+            ));
         }
     }
 }

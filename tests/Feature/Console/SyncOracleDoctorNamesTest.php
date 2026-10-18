@@ -45,6 +45,7 @@ class SyncOracleDoctorNamesTest extends TestCase
             $table->string('password')->nullable();
             $table->string('national_id')->nullable();
             $table->string('reg_number')->nullable();
+            $table->timestamp('oracle_synced_at')->nullable();
             $table->timestamps();
         });
     }
@@ -120,6 +121,55 @@ class SyncOracleDoctorNamesTest extends TestCase
         $this->artisan('users:sync-oracle-names', ['--apply' => true])->assertSuccessful();
 
         $this->assertSame('Ahmed Samir', $user->fresh()->name);
+    }
+
+    public function test_successful_sync_stamps_oracle_synced_at(): void
+    {
+        $user = $this->makeUser();
+        $this->mockOracle(true, ['doctor_name' => 'احمد سمير محمد علي']);
+
+        $this->artisan('users:sync-oracle-names', ['--apply' => true])->assertSuccessful();
+
+        $this->assertNotNull($user->fresh()->oracle_synced_at);
+    }
+
+    public function test_already_synced_user_is_skipped_by_default(): void
+    {
+        $user = $this->makeUser();
+        $user->forceFill(['oracle_synced_at' => now()])->save();
+
+        $existence = Mockery::mock(OracleDoctorExistenceService::class);
+        $existence->shouldNotReceive('doctorExists');
+        $this->app->instance(OracleDoctorExistenceService::class, $existence);
+
+        $lookup = Mockery::mock(OracleDoctorDataLookupService::class);
+        $lookup->shouldNotReceive('findByRegisterNo');
+        $this->app->instance(OracleDoctorDataLookupService::class, $lookup);
+
+        $this->artisan('users:sync-oracle-names', ['--apply' => true])->assertSuccessful();
+
+        $this->assertSame('Ahmed Samir', $user->fresh()->name);
+    }
+
+    public function test_all_option_re_checks_synced_users(): void
+    {
+        $user = $this->makeUser();
+        $user->forceFill(['oracle_synced_at' => now()->subWeek()])->save();
+        $this->mockOracle(true, ['doctor_name' => 'احمد سمير محمد علي']);
+
+        $this->artisan('users:sync-oracle-names', ['--apply' => true, '--all' => true])->assertSuccessful();
+
+        $this->assertSame('احمد سمير محمد علي', $user->fresh()->name);
+    }
+
+    public function test_unresolved_cases_stay_unstamped_for_nightly_retry(): void
+    {
+        $user = $this->makeUser();
+        $this->mockOracle(true, ['doctor_name' => null]);
+
+        $this->artisan('users:sync-oracle-names', ['--apply' => true])->assertSuccessful();
+
+        $this->assertNull($user->fresh()->oracle_synced_at);
     }
 
     public function test_user_without_national_id_is_skipped_entirely(): void

@@ -85,6 +85,17 @@ class OtpSendController extends Controller
                 $user->active = true;
                 $user->save();
 
+                // Refresh the official name from Oracle right away so the
+                // account starts with syndicate data; never block activation.
+                try {
+                    app(\App\Services\OracleNameSyncService::class)->syncUser($user);
+                } catch (\Throwable $exception) {
+                    \Illuminate\Support\Facades\Log::warning('Oracle name sync at activation failed.', [
+                        'user_id' => $user->id,
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+
                 // delete previous phone
                 User::whereIn('phone', $phoneVariants)
                     ->where('active', false)
