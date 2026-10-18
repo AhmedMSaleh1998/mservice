@@ -24,11 +24,12 @@ class AdRequestService
         $this->subscriptionChargeService = $subscriptionChargeService ?? app(SubscriptionChargeService::class);
     }
 
-    public function listApproved()
+    public function listApproved(?int $serviceId = null)
     {
         return AdRequest::query()
             ->approved()
-            ->with(['adSpace', 'media', 'order'])
+            ->when($serviceId, fn ($query) => $query->forService($serviceId))
+            ->with(['adSpace.service', 'media', 'order'])
             ->latest()
             ->get();
     }

@@ -187,6 +187,8 @@
     "Language must be either Arabic (ar) or English (en).": "اللغة يجب أن تكون العربية أو الإنجليزية.",
     "Ad Space": "مساحة إعلانية",
     "Ad Spaces": "مساحات إعلانية",
+    "Service Section": "قسم الخدمة",
+    "This ad will be shown in the selected service section.": "سيظهر هذا الإعلان في قسم الخدمة المختارة.",
     "Ad Request": "طلب إعلان",
     "Ad Requests": "طلبات الإعلانات",
     "Width (px)": "العرض (px)",

@@ -438,6 +438,46 @@ class AdRequestCheckoutFlowTest extends TestCase
         $response->assertJsonPath('data.0.ad_space.id', $adSpace->id);
     }
 
+    public function test_approved_filters_ads_by_service(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $homepageSpace = $this->seedAdSpace();
+        $otherServiceSpace = $this->seedAdSpace();
+
+        $homepageAd = AdRequest::query()->create([
+            'user_id' => $user->id,
+            'ad_space_id' => $homepageSpace->id,
+            'duration_months' => 1,
+            'price_per_month' => 1000,
+            'total_amount' => 1000,
+            'ad_text' => 'Homepage campaign',
+            'status' => 'approved',
+        ]);
+        AdRequest::query()->create([
+            'user_id' => $user->id,
+            'ad_space_id' => $otherServiceSpace->id,
+            'duration_months' => 1,
+            'price_per_month' => 1000,
+            'total_amount' => 1000,
+            'ad_text' => 'Other service campaign',
+            'status' => 'approved',
+        ]);
+
+        $response = $this
+            ->withHeaders(['lang' => 'en'])
+            ->getJson("/api/v1/ads?service_id={$homepageSpace->service_id}");
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $homepageAd->id);
+        $response->assertJsonPath('data.0.ad_space.service_id', $homepageSpace->service_id);
+
+        $this->withHeaders(['lang' => 'en'])
+            ->getJson('/api/v1/ads')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+    }
+
     public function test_cancel_releases_ad_space_and_marks_request_cancelled(): void
     {
         $this->seedAuthenticatedUser();
