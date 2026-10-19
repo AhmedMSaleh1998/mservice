@@ -472,18 +472,15 @@ class OrderService
         $orderable = $order->orderable;
 
         if ($orderable instanceof AdRequest) {
-            if ($orderable->status === $status && ! ($status === 'paid_successfully' && blank($orderable->starts_at))) {
+            // A late gateway update for the same payment must not pull an ad
+            // the admin already approved, rejected or finished back to "paid".
+            if ($orderable->status === $status || in_array($orderable->status, ['approved', 'rejected', 'completed'], true)) {
                 return;
             }
 
+            // Payment only marks the ad as awaiting review: its display period
+            // starts when an admin approves it (AdRequestService::approve).
             $orderable->status = $status;
-
-            if ($status === 'paid_successfully') {
-                $startsAt = $order->paid_at ?: now();
-                $orderable->starts_at = $orderable->starts_at ?: $startsAt;
-                $orderable->ends_at = $orderable->ends_at ?: $startsAt->copy()->addMonthsNoOverflow((int) $orderable->duration_months);
-            }
-
             $orderable->save();
 
             return;

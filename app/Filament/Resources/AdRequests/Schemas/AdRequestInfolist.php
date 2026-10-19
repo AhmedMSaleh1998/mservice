@@ -8,7 +8,6 @@ use Filament\Infolists\Components\ViewEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Modules\Ads\Models\AdRequest;
-use Modules\Core\Models\PaymentMethod;
 
 class AdRequestInfolist
 {
@@ -42,30 +41,25 @@ class AdRequestInfolist
                 Section::make(__('Status'))
                     ->schema([
                         TextEntry::make('status')
-                            ->label(__('Status')),
+                            ->label(__('Status'))
+                            ->badge()
+                            ->formatStateUsing(fn (?string $state): string => AdRequestResource::statusLabel($state)),
                         TextEntry::make('order.payment_method')
                             ->label(__('Payment Method'))
-                            ->formatStateUsing(fn ($state) => static::paymentMethodLabel($state)),
+                            ->formatStateUsing(fn ($state) => AdRequestResource::paymentMethodLabel($state)),
                         TextEntry::make('created_at')
                             ->label(__('Created At'))
                             ->dateTime(),
+                        TextEntry::make('starts_at')
+                            ->label(__('Starts At'))
+                            ->dateTime()
+                            ->placeholder('-'),
+                        TextEntry::make('ends_at')
+                            ->label(__('Ends At'))
+                            ->dateTime()
+                            ->placeholder('-'),
                     ])
                     ->columns(3),
             ]);
-    }
-
-    private static function paymentMethodLabel(?string $key): ?string
-    {
-        if (! $key) {
-            return null;
-        }
-
-        $method = PaymentMethod::query()->where('key', $key)->first();
-
-        if (! $method) {
-            return $key;
-        }
-
-        return $method->getTranslation('name', app()->getLocale());
     }
 }

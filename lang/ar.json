@@ -740,5 +740,12 @@
     "Device token saved successfully.": "تم حفظ رمز الجهاز بنجاح.",
     "Device token removed successfully.": "تم حذف رمز الجهاز بنجاح.",
     "Notification marked as read.": "تم تعليم الإشعار كمقروء.",
-    "All notifications marked as read.": "تم تعليم كل الإشعارات كمقروءة."
+    "All notifications marked as read.": "تم تعليم كل الإشعارات كمقروءة.",
+    "Starts At": "تاريخ البدء",
+    "Ends At": "تاريخ الانتهاء",
+    "The ad starts showing now and runs for its paid duration.": "سيبدأ عرض الإعلان من الآن ولمدة الاشتراك المدفوعة.",
+    "This request is no longer awaiting approval.": "هذا الطلب لم يعد بانتظار الموافقة.",
+    "The ad is shown until :date.": "سيُعرض الإعلان حتى :date.",
+    "The ad space becomes available again. Refund the payment to the doctor separately.": "ستصبح المساحة الإعلانية متاحة مرة أخرى. يتم رد المبلغ للطبيب بشكل منفصل.",
+    "Only paid requests can be approved or rejected.": "يمكن قبول أو رفض الطلبات المدفوعة فقط."
 }

@@ -13,8 +13,10 @@ use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Modules\Ads\Models\AdRequest;
 use Modules\Ads\Models\AdSpace;
+use Modules\Ads\Services\AdRequestService;
 use Modules\Core\Models\Order;
 use Modules\Core\Models\PaymentMethod;
+use Modules\Core\Services\OrderService;
 use Modules\Core\Services\SubscriptionChargeService;
 use Modules\Services\Models\Service;
 use Modules\Users\Models\User;
@@ -34,9 +36,12 @@ class AdRequestCheckoutFlowTest extends TestCase
             mkdir(dirname($this->databasePath), 0777, true);
         }
 
-        if (! file_exists($this->databasePath)) {
-            touch($this->databasePath);
+        // A run that was killed mid-test leaves its database behind; start clean.
+        if (file_exists($this->databasePath)) {
+            unlink($this->databasePath);
         }
+
+        touch($this->databasePath);
 
         config()->set('database.default', 'sqlite');
         config()->set('database.connections.sqlite.database', $this->databasePath);
@@ -180,8 +185,9 @@ class AdRequestCheckoutFlowTest extends TestCase
             'status' => 'paid_successfully',
             'price_per_month' => 0,
             'total_amount' => 0,
-            'starts_at' => '2026-04-14 10:00:00',
-            'ends_at' => '2026-06-14 10:00:00',
+            // The display period starts when an admin approves the ad.
+            'starts_at' => null,
+            'ends_at' => null,
         ]);
         $this->assertDatabaseMissing('orders', [
             'orderable_type' => AdRequest::class,
@@ -624,10 +630,11 @@ class AdRequestCheckoutFlowTest extends TestCase
             'status' => 'paid_successfully',
             'gateway_status' => 'PAID',
         ]);
+        // Payment only puts the ad up for review; its period starts on approval.
         $this->assertDatabaseHas('ad_requests', [
             'id' => $adRequest->id,
-            'starts_at' => '2026-03-16 06:15:00',
-            'ends_at' => '2026-04-16 06:15:00',
+            'starts_at' => null,
+            'ends_at' => null,
         ]);
     }
 
@@ -1308,7 +1315,8 @@ class AdRequestCheckoutFlowTest extends TestCase
             'price_per_month' => 1000,
             'total_amount' => 1000,
             'ad_text' => 'Completed booking',
-            'status' => 'paid_successfully',
+            // Only an approved ad has a running period that can finish.
+            'status' => 'approved',
             'starts_at' => Carbon::create(2026, 3, 16, 6, 15, 0, 'Africa/Cairo'),
             'ends_at' => Carbon::create(2026, 4, 16, 6, 15, 0, 'Africa/Cairo'),
             'created_at' => Carbon::create(2026, 3, 16, 6, 15, 0, 'Africa/Cairo'),
@@ -1332,6 +1340,115 @@ class AdRequestCheckoutFlowTest extends TestCase
             'id' => $adRequest->id,
             'status' => 'completed',
         ]);
+    }
+
+    public function test_approving_a_paid_ad_starts_its_display_period_from_the_approval(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 5, 5, 10, 0, 0, 'Africa/Cairo'));
+
+        $user = $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $adRequest = $this->createPaidAdAwaitingReview($user, $adSpace);
+
+        // The admin reviews it two weeks after the payment.
+        Carbon::setTestNow(Carbon::create(2026, 5, 19, 12, 30, 0, 'Africa/Cairo'));
+
+        $this->assertTrue(app(AdRequestService::class)->approve($adRequest));
+
+        $this->assertDatabaseHas('ad_requests', [
+            'id' => $adRequest->id,
+            'status' => 'approved',
+            'starts_at' => '2026-05-19 12:30:00',
+            'ends_at' => '2026-06-19 12:30:00',
+        ]);
+
+        // Only a request still awaiting review can be approved.
+        $this->assertFalse(app(AdRequestService::class)->approve($adRequest->fresh()));
+    }
+
+    public function test_a_paid_ad_awaiting_review_never_runs_out_before_it_is_approved(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 5, 5, 10, 0, 0, 'Africa/Cairo'));
+
+        $user = $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $adRequest = $this->createPaidAdAwaitingReview($user, $adSpace);
+
+        // Well past the month the doctor paid for.
+        Carbon::setTestNow(Carbon::create(2026, 7, 1, 10, 0, 0, 'Africa/Cairo'));
+        Artisan::call('ads:release-expired-reservations');
+
+        $this->assertDatabaseHas('ad_requests', [
+            'id' => $adRequest->id,
+            'status' => 'paid_successfully',
+            'ends_at' => null,
+        ]);
+        $this->assertDatabaseHas('ad_spaces', [
+            'id' => $adSpace->id,
+            'is_available' => 0,
+        ]);
+    }
+
+    public function test_rejecting_a_paid_ad_frees_its_ad_space(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $adRequest = $this->createPaidAdAwaitingReview($user, $adSpace);
+
+        $this->assertTrue(app(AdRequestService::class)->reject($adRequest));
+
+        $this->assertDatabaseHas('ad_requests', [
+            'id' => $adRequest->id,
+            'status' => 'rejected',
+        ]);
+        $this->assertDatabaseHas('ad_spaces', [
+            'id' => $adSpace->id,
+            'is_available' => 1,
+        ]);
+    }
+
+    public function test_a_late_payment_update_does_not_undo_an_approval(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 5, 5, 10, 0, 0, 'Africa/Cairo'));
+
+        $user = $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+        $adRequest = $this->createPaidAdAwaitingReview($user, $adSpace);
+        app(AdRequestService::class)->approve($adRequest);
+
+        // The gateway reports the same payment again after the approval.
+        app(OrderService::class)->markPaid($adRequest->order()->first(), 'fawry');
+
+        $this->assertDatabaseHas('ad_requests', [
+            'id' => $adRequest->id,
+            'status' => 'approved',
+            'starts_at' => '2026-05-05 10:00:00',
+            'ends_at' => '2026-06-05 10:00:00',
+        ]);
+    }
+
+    private function createPaidAdAwaitingReview(User $user, AdSpace $adSpace): AdRequest
+    {
+        $adSpace->forceFill(['is_available' => false])->save();
+
+        $adRequest = AdRequest::query()->create([
+            'user_id' => $user->id,
+            'ad_space_id' => $adSpace->id,
+            'duration_months' => 1,
+            'price_per_month' => 1000,
+            'total_amount' => 1000,
+            'ad_text' => 'Paid campaign awaiting review',
+            'status' => 'paid_successfully',
+        ]);
+        $this->createOrderForAdRequest($adRequest, [
+            'status' => 'paid_successfully',
+            'payment_method' => 'fawry',
+            'provider' => 'fawry',
+            'gateway_status' => 'PAID',
+            'paid_at' => now(),
+        ]);
+
+        return $adRequest;
     }
 
     private function seedAuthenticatedUser(): User
