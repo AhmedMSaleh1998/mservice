@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\AdRequests\Tables;
 
 use App\Filament\Resources\AdRequests\AdRequestResource;
-use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -39,6 +38,7 @@ class AdRequestsTable
                 TextColumn::make('status')
                     ->label(__('Status'))
                     ->badge()
+                    ->formatStateUsing(fn (?string $state): string => AdRequestResource::statusLabel($state))
                     ->color(fn ($state) => match ($state) {
                         'pending_payment' => 'warning',
                         'payment_expired' => 'gray',
@@ -51,7 +51,8 @@ class AdRequestsTable
                     })
                     ->sortable(),
                 TextColumn::make('order.payment_method')
-                    ->label(__('Payment Method')),
+                    ->label(__('Payment Method'))
+                    ->formatStateUsing(fn (?string $state): ?string => AdRequestResource::paymentMethodLabel($state)),
                 TextColumn::make('created_at')
                     ->label(__('Created At'))
                     ->dateTime()
@@ -69,34 +70,8 @@ class AdRequestsTable
                     EditAction::make(),
                     ViewAction::make()
                         ->url(fn (AdRequest $record) => AdRequestResource::getUrl('view', ['record' => $record])),
-                    Action::make('approve')
-                        ->label(__('Approve'))
-                        ->icon('heroicon-o-check-circle')
-                        ->color('success')
-                        ->requiresConfirmation()
-                        ->action(function (AdRequest $record) {
-                            $record->update(['status' => 'approved']);
-
-                            \Filament\Notifications\Notification::make()
-                                ->title(__('Approved'))
-                                ->success()
-                                ->send();
-                        })
-                        ->visible(fn (AdRequest $record) => $record->status === 'paid_successfully'),
-                    Action::make('reject')
-                        ->label(__('Reject'))
-                        ->icon('heroicon-o-x-circle')
-                        ->color('danger')
-                        ->requiresConfirmation()
-                        ->action(function (AdRequest $record) {
-                            $record->update(['status' => 'rejected']);
-
-                            \Filament\Notifications\Notification::make()
-                                ->title(__('Rejected'))
-                                ->warning()
-                                ->send();
-                        })
-                        ->visible(fn (AdRequest $record) => $record->status === 'paid_successfully'),
+                    AdRequestResource::approveAction(),
+                    AdRequestResource::rejectAction(),
                 ]),
             ])
             ->toolbarActions([

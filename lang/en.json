@@ -501,5 +501,12 @@
   "Device token saved successfully.": "Device token saved successfully.",
   "Device token removed successfully.": "Device token removed successfully.",
   "Notification marked as read.": "Notification marked as read.",
-  "All notifications marked as read.": "All notifications marked as read."
+  "All notifications marked as read.": "All notifications marked as read.",
+  "Starts At": "Starts At",
+  "Ends At": "Ends At",
+  "The ad starts showing now and runs for its paid duration.": "The ad starts showing now and runs for its paid duration.",
+  "This request is no longer awaiting approval.": "This request is no longer awaiting approval.",
+  "The ad is shown until :date.": "The ad is shown until :date.",
+  "The ad space becomes available again. Refund the payment to the doctor separately.": "The ad space becomes available again. Refund the payment to the doctor separately.",
+  "Only paid requests can be approved or rejected.": "Only paid requests can be approved or rejected."
 }

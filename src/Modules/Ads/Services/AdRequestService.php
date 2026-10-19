@@ -82,8 +82,9 @@ class AdRequestService
             $totalAmount = $baseAmount + $subscriptionAmount;
             $isFreeRequest = $this->orderService->isFreeAmount($totalAmount);
             $requestStatus = $isFreeRequest ? 'paid_successfully' : 'pending_payment';
-            $startsAt = $isFreeRequest ? now() : null;
-            $endsAt = $isFreeRequest ? $startsAt->copy()->addMonthsNoOverflow($durationMonths) : null;
+            // The display period starts when an admin approves the ad.
+            $startsAt = null;
+            $endsAt = null;
             $file = $data['design_image'] ?? null;
             $pricing = $this->buildPricingSummary($adSpace, $durationMonths, $pricePerMonth, $baseAmount, $subscriptionCharge);
 
@@ -286,6 +287,68 @@ class AdRequestService
             }
 
             return $lockedAdRequest->fresh(['adSpace.service', 'media', 'order']);
+        });
+    }
+
+    /**
+     * Approves a paid ad. Its display period starts now rather than at payment,
+     * so the doctor gets every day they paid for however long the review took.
+     */
+    public function approve(AdRequest $adRequest): bool
+    {
+        return DB::transaction(function () use ($adRequest): bool {
+            $lockedAdRequest = AdRequest::query()
+                ->lockForUpdate()
+                ->find($adRequest->id);
+
+            if (! $lockedAdRequest || $lockedAdRequest->status !== 'paid_successfully') {
+                return false;
+            }
+
+            $startsAt = now();
+
+            $lockedAdRequest->forceFill([
+                'status' => 'approved',
+                'starts_at' => $startsAt,
+                'ends_at' => $startsAt->copy()->addMonthsNoOverflow((int) $lockedAdRequest->duration_months),
+            ])->save();
+
+            return true;
+        });
+    }
+
+    /**
+     * Rejects a paid ad and frees its ad space for other doctors. Refunding the
+     * payment happens outside the system.
+     */
+    public function reject(AdRequest $adRequest): bool
+    {
+        return DB::transaction(function () use ($adRequest): bool {
+            $lockedAdRequest = AdRequest::query()
+                ->lockForUpdate()
+                ->find($adRequest->id);
+
+            if (! $lockedAdRequest || $lockedAdRequest->status !== 'paid_successfully') {
+                return false;
+            }
+
+            $adSpace = AdSpace::query()
+                ->lockForUpdate()
+                ->find($lockedAdRequest->ad_space_id);
+
+            if ($adSpace && ! $adSpace->is_available) {
+                $adSpace->forceFill([
+                    'is_available' => true,
+                ])->save();
+            }
+
+            $lockedAdRequest->forceFill([
+                'status' => 'rejected',
+                'starts_at' => null,
+                'ends_at' => null,
+            ])->save();
+
+            return true;
         });
     }
 
