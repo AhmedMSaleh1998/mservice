@@ -49,6 +49,12 @@ return [
         'normalize_receivers' => env('COMMUNITY_SMS_NORMALIZE_RECEIVERS', true),
     ],
 
+    // Firebase Cloud Messaging. The service account is read by kreait/laravel-firebase
+    // from FIREBASE_CREDENTIALS; this flag only switches push sending on.
+    'fcm' => [
+        'enabled' => env('FCM_ENABLED', false),
+    ],
+
     'oracle' => [
         'export_enabled' => env('ORACLE_EXPORT_ENABLED', true),
         'register_lookup_enabled' => env('ORACLE_REGISTER_LOOKUP_ENABLED', true),

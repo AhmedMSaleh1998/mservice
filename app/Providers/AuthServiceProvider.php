@@ -6,6 +6,7 @@ use App\Models\Admin;
 use App\Models\ContactInfo;
 use App\Models\RegistrationRequest;
 use App\Models\Role;
+use App\Policies\AdminNotificationPolicy;
 use App\Policies\AdminPolicy;
 use App\Policies\AdRequestPolicy;
 use App\Policies\AdSpacePolicy;
@@ -55,6 +56,7 @@ use Modules\Core\Models\Religion;
 use Modules\Core\Models\SmsMessage;
 use Modules\Courses\Models\Course;
 use Modules\MedicalGuide\Models\MedicalGuide;
+use Modules\Notifications\Models\AdminNotification;
 use Modules\Pages\Models\Page;
 use Modules\Procedures\Models\Procedure;
 use Modules\Services\Models\RestUnit;
@@ -73,6 +75,7 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         Admin::class => AdminPolicy::class,
+        AdminNotification::class => AdminNotificationPolicy::class,
         AdRequest::class => AdRequestPolicy::class,
         AdSpace::class => AdSpacePolicy::class,
         Banner::class => BannerPolicy::class,

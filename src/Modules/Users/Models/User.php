@@ -82,4 +82,14 @@ class User extends Authenticatable implements  HasMedia
     {
         return $this->hasMany(\Modules\Travels\Models\TravelBooking::class);
     }
+
+    public function deviceTokens(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\Modules\Notifications\Models\DeviceToken::class);
+    }
+
+    public function userNotifications(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\Modules\Notifications\Models\UserNotification::class);
+    }
 }

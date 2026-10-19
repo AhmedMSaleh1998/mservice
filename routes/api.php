@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\CommunitySmsDlrController;
 use App\Http\Controllers\Api\CourseBookingsController;
 use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\ContactUsController;
+use App\Http\Controllers\Api\DeviceTokensController;
 use App\Http\Controllers\Api\GradesController;
 use App\Http\Controllers\Api\DoctorMedicalGuideController;
 use App\Http\Controllers\Api\HomeController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\Api\MembershipController;
 use App\Http\Controllers\Api\MyCoursesController;
 use App\Http\Controllers\Api\NationalitiesController;
 use App\Http\Controllers\Api\NewRegisterController;
+use App\Http\Controllers\Api\NotificationsController;
 use App\Http\Controllers\Api\OrdersController;
 use App\Http\Controllers\Api\OtpSendController;
 use App\Http\Controllers\Api\PagesController;
@@ -113,6 +115,16 @@ Route::middleware(ValidateHeadersMiddleware::class)->prefix('v1')->group(functio
         Route::post('auth/change-phone-verify', [ChangePhoneController::class, 'verify']);
 
         Route::post('support-tickets', [SupportTicketsController::class, 'store']);
+
+        Route::post('device-tokens', [DeviceTokensController::class, 'store']);
+        Route::delete('device-tokens', [DeviceTokensController::class, 'destroy']);
+
+        Route::prefix('notifications')->controller(NotificationsController::class)->group(function () {
+            Route::get('/', 'index');
+            Route::get('unread-count', 'unread');
+            Route::post('read-all', 'readAll');
+            Route::post('{notification}/read', 'read')->whereNumber('notification');
+        });
 
         Route::prefix('services')->group(function () {
             Route::controller(ServicesController::class)->group(function () {
