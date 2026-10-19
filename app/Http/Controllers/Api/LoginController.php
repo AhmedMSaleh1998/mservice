@@ -24,6 +24,12 @@ class LoginController extends Controller
 
     public function logout(Request $request)
     {
+        // The app sends its FCM token on logout so the device stops receiving
+        // this account's push notifications.
+        if ($request->filled('fcm_token')) {
+            $request->user()?->deviceTokens()->where('token', (string) $request->input('fcm_token'))->delete();
+        }
+
         $this->authService->logout();
         return response()->json([
             'message' => __('Logout successfully'),

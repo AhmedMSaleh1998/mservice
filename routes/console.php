@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 use Modules\Ads\Models\AdRequest;
 use Modules\Core\Models\Order;
@@ -71,3 +72,13 @@ Schedule::command('payments:expire-abandoned-orders')
         ->whereNull('merchant_ref_num')
         ->where('created_at', '<=', now()->subDays(2))
         ->exists());
+
+// No supervisor-managed queue worker runs on this server, so the scheduler
+// drains the queue: admin notifications are sent from queued jobs. Runs in the
+// background so a long send never holds up the other scheduled commands, and
+// only spawns while jobs are actually waiting.
+Schedule::command('queue:work --queue=notifications,default --stop-when-empty --max-time=55 --timeout=85 --tries=1')
+    ->everyMinute()
+    ->withoutOverlapping(expiresAt: 10)
+    ->runInBackground()
+    ->when(fn (): bool => DB::table('jobs')->exists());
