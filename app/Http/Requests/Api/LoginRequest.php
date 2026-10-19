@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Modules\Notifications\Services\DeviceTokenService;
 
 class LoginRequest extends FormRequest
 {
@@ -13,6 +15,8 @@ class LoginRequest extends FormRequest
             'password' => ['required', 'string'],
             'remember' => ['sometimes', 'boolean'],
             'device_name' => ['sometimes', 'string'],
+            'fcm_token' => ['sometimes', 'nullable', 'string', 'max:512'],
+            'platform' => ['sometimes', 'nullable', 'string', Rule::in(DeviceTokenService::PLATFORMS)],
         ];
     }
 }

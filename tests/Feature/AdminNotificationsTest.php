@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Services\Sms\CommunitySmsService;
+use App\Support\PhoneNumberNormalizer;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -91,6 +92,56 @@ class AdminNotificationsTest extends TestCase
         $this->assertDatabaseHas('device_tokens', ['user_id' => $second->id, 'token' => 'token-abc']);
 
         $this->deleteJson('/api/v1/device-tokens', ['token' => 'token-abc'])->assertOk();
+        $this->assertSame(0, DeviceToken::query()->count());
+    }
+
+    public function test_login_registers_the_fcm_token_sent_with_it_and_logout_removes_it(): void
+    {
+        $user = $this->createUser([
+            'phone' => PhoneNumberNormalizer::normalize('01011111111'),
+            'password' => 'secret123',
+        ]);
+
+        $authToken = $this->withHeaders(['deviceId' => 'device-1'])
+            ->postJson('/api/v1/auth/login', [
+                'phone' => '01011111111',
+                'password' => 'secret123',
+                'fcm_token' => 'token-from-login',
+                'platform' => 'ios',
+            ])
+            ->assertOk()
+            ->json('data.auth_token');
+
+        $this->assertDatabaseHas('device_tokens', [
+            'user_id' => $user->id,
+            'token' => 'token-from-login',
+            'platform' => 'ios',
+            'device_id' => 'device-1',
+        ]);
+
+        // The app calls logout with the bearer token only; drop the session the
+        // login left behind in the test so Sanctum authenticates by the token.
+        $this->flushSession();
+        $this->app['auth']->forgetGuards();
+
+        $this->withToken($authToken)
+            ->postJson('/api/v1/auth/logout', ['fcm_token' => 'token-from-login'])
+            ->assertOk();
+
+        $this->assertDatabaseMissing('device_tokens', ['token' => 'token-from-login']);
+    }
+
+    public function test_login_works_without_an_fcm_token(): void
+    {
+        $this->createUser([
+            'phone' => PhoneNumberNormalizer::normalize('01011111111'),
+            'password' => 'secret123',
+        ]);
+
+        $this->postJson('/api/v1/auth/login', ['phone' => '01011111111', 'password' => 'secret123'])
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['auth_token']]);
+
         $this->assertSame(0, DeviceToken::query()->count());
     }
 
@@ -364,6 +415,38 @@ class AdminNotificationsTest extends TestCase
             $table->timestamp('read_at')->nullable();
             $table->timestamps();
             $table->unique(['user_id', 'admin_notification_id']);
+        });
+
+        Schema::connection('sqlite')->create('personal_access_tokens', function (Blueprint $table): void {
+            $table->id();
+            $table->string('tokenable_type');
+            $table->unsignedBigInteger('tokenable_id');
+            $table->text('name');
+            $table->string('token', 64)->unique();
+            $table->text('abilities')->nullable();
+            $table->timestamp('last_used_at')->nullable();
+            $table->timestamp('expires_at')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::connection('sqlite')->create('media', function (Blueprint $table): void {
+            $table->id();
+            $table->string('model_type');
+            $table->unsignedBigInteger('model_id');
+            $table->uuid('uuid')->nullable()->unique();
+            $table->string('collection_name');
+            $table->string('name');
+            $table->string('file_name');
+            $table->string('mime_type')->nullable();
+            $table->string('disk');
+            $table->string('conversions_disk')->nullable();
+            $table->unsignedBigInteger('size');
+            $table->text('manipulations');
+            $table->text('custom_properties');
+            $table->text('generated_conversions');
+            $table->text('responsive_images');
+            $table->unsignedInteger('order_column')->nullable();
+            $table->nullableTimestamps();
         });
 
         Schema::connection('sqlite')->create('job_batches', function (Blueprint $table): void {
