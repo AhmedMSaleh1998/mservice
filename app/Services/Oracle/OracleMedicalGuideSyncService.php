@@ -191,7 +191,9 @@ class OracleMedicalGuideSyncService
         }
 
         return [
-            'name' => $this->translation(__('Clinic')),
+            // Both languages explicitly: the sync runs from the scheduler, where
+            // __() would store the English word for the Arabic name too.
+            'name' => ['ar' => 'عيادة', 'en' => 'Clinic'],
             'address' => $this->translation($address ?? ''),
             'phones' => $phones,
         ];
