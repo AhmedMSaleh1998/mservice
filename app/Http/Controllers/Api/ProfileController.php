@@ -6,13 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\UpdateProfileRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Modules\Users\Resources\NormalUserResource;
+use Modules\Users\Resources\ProfileResource;
 
 class ProfileController extends Controller
 {
     public function show(Request $request)
     {
-        return NormalUserResource::make($request->user());
+        return ProfileResource::make($request->user());
     }
 
     public function update(UpdateProfileRequest $request)
@@ -32,6 +32,6 @@ class ProfileController extends Controller
         $user->save();
         $user->fresh();
 
-        return NormalUserResource::make($user);
+        return ProfileResource::make($user);
     }
 }

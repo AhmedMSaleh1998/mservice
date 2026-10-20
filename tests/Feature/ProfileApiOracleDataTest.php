@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 use Mockery;
 use Modules\Core\Services\OrderService;
+use Modules\MedicalGuide\Models\MedicalGuide;
+use Modules\MedicalGuide\Models\MedicalGuidePlace;
 use Modules\Memberships\Services\MembershipService;
 use Modules\Users\Models\User;
 use Tests\TestCase;
@@ -100,6 +102,110 @@ class ProfileApiOracleDataTest extends TestCase
         $response->assertJsonPath('data.oracle_profile.register_no', '213934');
         $response->assertJsonPath('data.oracle_profile.consult_id', 4);
         $response->assertJsonPath('data.oracle_profile.consult_name', 'إستشاري');
+
+        // No medical guide record synced for this doctor yet.
+        $response->assertJsonPath('data.clinics', []);
+        $response->assertJsonPath('data.specialties', []);
+        $response->assertJsonPath('data.membership_status', null);
+    }
+
+    public function test_profile_show_returns_the_doctors_clinics_and_specialties_from_the_synced_record(): void
+    {
+        $user = $this->createDoctor('99793');
+        $this->fakeOracleProfile();
+
+        $guide = MedicalGuide::query()->create([
+            'reg_number' => '99793',
+            'title' => ['ar' => 'الحسنين محمد محمود محمد'],
+            'description' => ['ar' => 'الطب النفسي'],
+            'is_active' => true,
+            'oracle_payload' => [
+                'REGISTER_NO' => 99793,
+                'specialization' => [
+                    [
+                        'general' => 'الطب النفسي',
+                        'main_sub' => 'الطب النفسي',
+                        'detail' => 'الطب النفسي',
+                        'consultant' => 'إستشاري أول',
+                        'reg_year' => '2017-08-07T00:00:00',
+                    ],
+                    [
+                        'general' => 'الأمراض العصبية',
+                        'main_sub' => '',
+                        'detail' => null,
+                        'consultant' => '',
+                        'reg_year' => null,
+                    ],
+                    // An item with no name at any level is skipped.
+                    ['general' => '', 'consultant' => 'أخصائي'],
+                ],
+                'clinics' => null,
+            ],
+        ]);
+        MedicalGuidePlace::query()->create([
+            'medical_guide_id' => $guide->id,
+            'name' => ['ar' => 'عيادة'],
+            'address' => ['ar' => '24 ش الجولف'],
+            'phones' => ['0106665656', '022254544'],
+            'is_active' => true,
+        ]);
+
+        $response = $this->withHeaders(['lang' => 'ar'])->getJson('/api/v1/profile/show');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.specialties', [
+            ['name' => 'الطب النفسي', 'degree' => 'إستشاري أول', 'date' => '07/08/2017'],
+            ['name' => 'الأمراض العصبية', 'degree' => null, 'date' => null],
+        ]);
+        $response->assertJsonCount(1, 'data.clinics');
+        $response->assertJsonPath('data.clinics.0.address', '24 ش الجولف');
+        $response->assertJsonPath('data.clinics.0.phones', ['0106665656', '022254544']);
+        $response->assertJsonPath('data.membership_status', null);
+    }
+
+    public function test_profile_show_returns_empty_specialties_when_the_record_has_none(): void
+    {
+        $this->createDoctor('172539');
+        $this->fakeOracleProfile();
+
+        MedicalGuide::query()->create([
+            'reg_number' => '172539',
+            'title' => ['ar' => 'طبيب'],
+            'is_active' => true,
+            'oracle_payload' => ['REGISTER_NO' => 172539, 'specialization' => null, 'clinics' => null],
+        ]);
+
+        $this->getJson('/api/v1/profile/show')
+            ->assertOk()
+            ->assertJsonPath('data.specialties', [])
+            ->assertJsonPath('data.clinics', []);
+    }
+
+    private function createDoctor(string $regNumber): User
+    {
+        $user = User::query()->create([
+            'name' => 'Doctor',
+            'phone' => '01012345678',
+            'email' => 'doctor@example.com',
+            'password' => bcrypt('secret123'),
+            'national_id' => '29901011234567',
+            'reg_number' => $regNumber,
+            'active' => true,
+            'lang' => 'ar',
+            'notification_enabled' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        return $user;
+    }
+
+    private function fakeOracleProfile(): void
+    {
+        $oracleService = Mockery::mock(OracleDoctorDataLookupService::class);
+        $oracleService->shouldReceive('findByRegisterNo')->andReturn(null);
+
+        app()->instance(MembershipService::class, new MembershipService(Mockery::mock(OrderService::class), $oracleService));
     }
 
     private function createTables(): void
@@ -139,6 +245,35 @@ class ProfileApiOracleDataTest extends TestCase
             $table->json('generated_conversions');
             $table->json('responsive_images');
             $table->unsignedInteger('order_column')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::connection('sqlite')->create('medical_guides', function (Blueprint $table): void {
+            $table->id();
+            $table->string('reg_number')->nullable();
+            $table->json('title');
+            $table->json('description')->nullable();
+            $table->unsignedBigInteger('specialty_id')->nullable();
+            $table->unsignedBigInteger('province_id')->nullable();
+            $table->boolean('is_featured')->default(false);
+            $table->boolean('is_active')->default(true);
+            $table->json('oracle_payload')->nullable();
+            $table->timestamp('oracle_synced_at')->nullable();
+            $table->timestamp('oracle_last_changed_at')->nullable();
+            $table->softDeletes();
+            $table->timestamps();
+        });
+
+        Schema::connection('sqlite')->create('medical_guide_places', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('medical_guide_id');
+            $table->json('name');
+            $table->json('address')->nullable();
+            $table->decimal('lat', 10, 7)->nullable();
+            $table->decimal('lng', 10, 7)->nullable();
+            $table->json('phones')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->softDeletes();
             $table->timestamps();
         });
     }
