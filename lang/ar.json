@@ -747,5 +747,21 @@
     "This request is no longer awaiting approval.": "هذا الطلب لم يعد بانتظار الموافقة.",
     "The ad is shown until :date.": "سيُعرض الإعلان حتى :date.",
     "The ad space becomes available again. Refund the payment to the doctor separately.": "ستصبح المساحة الإعلانية متاحة مرة أخرى. يتم رد المبلغ للطبيب بشكل منفصل.",
-    "Only paid requests can be approved or rejected.": "يمكن قبول أو رفض الطلبات المدفوعة فقط."
+    "Only paid requests can be approved or rejected.": "يمكن قبول أو رفض الطلبات المدفوعة فقط.",
+    "Ad": "إعلان",
+    "Ads": "الإعلانات",
+    "Ad State": "حالة الإعلان",
+    "Running": "نشط",
+    "Ended": "منتهي",
+    ":count days left": "متبقي :count يوم",
+    "Visible in app": "ظاهر في التطبيق",
+    "Hide ad": "إخفاء الإعلان",
+    "Show ad": "إظهار الإعلان",
+    "The ad is now hidden from the app.": "تم إخفاء الإعلان من التطبيق.",
+    "The ad is now shown in the app.": "أصبح الإعلان ظاهرًا في التطبيق.",
+    "Turn off to hide the ad from the app. Its display period is not extended.": "عند الإيقاف يُخفى الإعلان من التطبيق، ولا تُمدَّد فترة عرضه.",
+    "Ad Content": "محتوى الإعلان",
+    "Request Details": "تفاصيل الطلب",
+    "Uploading a new image replaces the current one.": "رفع صورة جديدة يستبدل الصورة الحالية.",
+    "Edit": "تعديل"
 }

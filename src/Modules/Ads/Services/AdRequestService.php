@@ -28,6 +28,7 @@ class AdRequestService
     {
         return AdRequest::query()
             ->approved()
+            ->visible()
             ->when($serviceId, fn ($query) => $query->forService($serviceId))
             ->with(['adSpace.service', 'media', 'order'])
             ->latest()

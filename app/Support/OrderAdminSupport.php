@@ -503,11 +503,8 @@ class OrderAdminSupport
     {
         // `unit_type` now stores a human-readable target label (room group / bed / whole unit).
         return match ($type) {
-            'single_rooms' => __('Single room'),
-            'double_rooms' => __('Double room'),
-            'single_bed' => __('Triple room'),
             null, '' => '-',
-            default => (string) $type,
+            default => (string) RestUnitBooking::unitTypeLabel($type),
         };
     }
 

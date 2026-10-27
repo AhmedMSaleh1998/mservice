@@ -444,6 +444,42 @@ class AdRequestCheckoutFlowTest extends TestCase
         $response->assertJsonPath('data.0.ad_space.id', $adSpace->id);
     }
 
+    public function test_approved_skips_ads_hidden_by_admin(): void
+    {
+        $user = $this->seedAuthenticatedUser();
+        $adSpace = $this->seedAdSpace();
+
+        $shownAd = AdRequest::query()->create([
+            'user_id' => $user->id,
+            'ad_space_id' => $adSpace->id,
+            'duration_months' => 1,
+            'price_per_month' => 1000,
+            'total_amount' => 1000,
+            'status' => 'approved',
+            'starts_at' => now(),
+            'ends_at' => now()->addMonth(),
+        ]);
+
+        AdRequest::query()->create([
+            'user_id' => $user->id,
+            'ad_space_id' => $adSpace->id,
+            'duration_months' => 1,
+            'price_per_month' => 1000,
+            'total_amount' => 1000,
+            'status' => 'approved',
+            'is_visible' => false,
+            'starts_at' => now(),
+            'ends_at' => now()->addMonth(),
+        ]);
+
+        $this
+            ->withHeaders(['lang' => 'en'])
+            ->getJson('/api/v1/ads')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $shownAd->id);
+    }
+
     public function test_approved_filters_ads_by_service(): void
     {
         $user = $this->seedAuthenticatedUser();
@@ -1617,6 +1653,7 @@ class AdRequestCheckoutFlowTest extends TestCase
             $table->text('ad_text')->nullable();
             $table->string('design_image')->nullable();
             $table->string('status')->default('pending_payment');
+            $table->boolean('is_visible')->default(true);
             $table->timestamp('starts_at')->nullable();
             $table->timestamp('ends_at')->nullable();
             $table->timestamps();

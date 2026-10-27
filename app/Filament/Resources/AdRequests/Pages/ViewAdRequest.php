@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\AdRequests\Pages;
 
 use App\Filament\Resources\AdRequests\AdRequestResource;
+use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Database\Eloquent\Model;
 
@@ -15,6 +16,8 @@ class ViewAdRequest extends ViewRecord
         return [
             AdRequestResource::approveAction(),
             AdRequestResource::rejectAction(),
+            AdRequestResource::toggleVisibilityAction(),
+            EditAction::make(),
         ];
     }
 
