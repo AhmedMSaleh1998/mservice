@@ -508,5 +508,21 @@
   "This request is no longer awaiting approval.": "This request is no longer awaiting approval.",
   "The ad is shown until :date.": "The ad is shown until :date.",
   "The ad space becomes available again. Refund the payment to the doctor separately.": "The ad space becomes available again. Refund the payment to the doctor separately.",
-  "Only paid requests can be approved or rejected.": "Only paid requests can be approved or rejected."
+  "Only paid requests can be approved or rejected.": "Only paid requests can be approved or rejected.",
+  "Ad": "Ad",
+  "Ads": "Ads",
+  "Ad State": "Ad State",
+  "Running": "Running",
+  "Ended": "Ended",
+  ":count days left": ":count days left",
+  "Visible in app": "Visible in app",
+  "Hide ad": "Hide ad",
+  "Show ad": "Show ad",
+  "The ad is now hidden from the app.": "The ad is now hidden from the app.",
+  "The ad is now shown in the app.": "The ad is now shown in the app.",
+  "Turn off to hide the ad from the app. Its display period is not extended.": "Turn off to hide the ad from the app. Its display period is not extended.",
+  "Ad Content": "Ad Content",
+  "Request Details": "Request Details",
+  "Uploading a new image replaces the current one.": "Uploading a new image replaces the current one.",
+  "Edit": "Edit"
 }

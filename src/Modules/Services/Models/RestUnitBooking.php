@@ -168,14 +168,25 @@ class RestUnitBooking extends CustomModel implements HasMedia
     public function targetLabel(): string
     {
         if ($this->rest_unit_room_id) {
-            return (string) ($this->room?->label() ?? $this->unit_type ?? __('Room'));
+            return (string) ($this->room?->label() ?? self::unitTypeLabel($this->unit_type) ?? __('Room'));
         }
 
         if ($this->rest_unit_bed_id) {
             return (string) ($this->bed?->label ?? __('Bed'));
         }
 
-        return $this->restUnit?->isWholeUnit() ? __('Whole unit') : (string) ($this->unit_type ?? __('Room'));
+        return $this->restUnit?->isWholeUnit() ? __('Whole unit') : (string) (self::unitTypeLabel($this->unit_type) ?? __('Room'));
+    }
+
+    /** Translate the raw keys legacy bookings stored in `unit_type`; newer rows already hold a label. */
+    public static function unitTypeLabel(?string $unitType): ?string
+    {
+        return match ($unitType) {
+            'single_room', 'single_rooms' => __('Single room'),
+            'double_room', 'double_rooms' => __('Double room'),
+            'triple_room', 'triple_rooms', 'single_bed' => __('Triple room'),
+            default => $unitType,
+        };
     }
 
     public static function blocksInventoryStatus(?string $status): bool

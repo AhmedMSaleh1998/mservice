@@ -3,12 +3,17 @@
 namespace App\Filament\Resources\AdRequests\Schemas;
 
 use App\Filament\Resources\AdRequests\AdRequestResource;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
+use Modules\Ads\Enums\AdRequestStatusEnum;
 use Modules\Ads\Models\AdRequest;
 
 class AdRequestForm
@@ -17,59 +22,107 @@ class AdRequestForm
     {
         return $schema
             ->components([
-                Section::make(__('Ad Request'))
+                Grid::make(['default' => 1, 'lg' => 3])
                     ->schema([
-                        Placeholder::make('user_name')
-                            ->label(__('User'))
-                            ->content(fn ($record) => $record?->user?->name ?? '-'),
-                        Placeholder::make('ad_space_name')
-                            ->label(__('Ad Space'))
-                            ->content(fn (?AdRequest $record): string => AdRequestResource::getAdSpaceLabel($record?->adSpace)),
-                        TextInput::make('duration_months')
-                            ->label(__('Duration Months'))
-                            ->numeric()
-                            ->disabled(),
-                        TextInput::make('price_per_month')
-                            ->label(__('Price Per Month'))
-                            ->disabled(),
-                        TextInput::make('total_amount')
-                            ->label(__('Total Amount'))
-                            ->disabled(),
-                        Textarea::make('ad_text')
-                            ->label(__('Ad Text'))
-                            ->disabled()
-                            ->columnSpanFull(),
-                        TextInput::make('design_image_path')
-                            ->label(__('Design Image Path'))
-                            ->disabled()
-                            ->columnSpanFull(),
+                        Group::make([
+                            Section::make(__('Ad Content'))
+                                ->icon(Heroicon::OutlinedPhoto)
+                                ->schema([
+                                    SpatieMediaLibraryFileUpload::make('design_image_media')
+                                        ->label(__('Design Image'))
+                                        ->collection('design_image')
+                                        ->image()
+                                        ->imagePreviewHeight('280')
+                                        ->openable()
+                                        ->downloadable()
+                                        ->maxSize(5120)
+                                        ->helperText(__('Uploading a new image replaces the current one.')),
+                                    Textarea::make('ad_text')
+                                        ->label(__('Ad Text'))
+                                        ->rows(4)
+                                        ->disabled(),
+                                ]),
+                            Section::make(__('Request Details'))
+                                ->icon(Heroicon::OutlinedClipboardDocumentList)
+                                ->schema([
+                                    TextEntry::make('user.name')
+                                        ->label(__('User'))
+                                        ->placeholder('-'),
+                                    TextEntry::make('user.reg_number')
+                                        ->label(__('Registration Number'))
+                                        ->placeholder('-'),
+                                    TextEntry::make('ad_space_name')
+                                        ->label(__('Ad Space'))
+                                        ->state(fn (?AdRequest $record): string => AdRequestResource::getAdSpaceLabel($record?->adSpace)),
+                                    TextEntry::make('duration_months')
+                                        ->label(__('Duration Months')),
+                                    TextEntry::make('price_per_month')
+                                        ->label(__('Price Per Month'))
+                                        ->money('EGP'),
+                                    TextEntry::make('total_amount')
+                                        ->label(__('Total Amount'))
+                                        ->money('EGP')
+                                        ->weight('bold'),
+                                ])
+                                ->columns(['default' => 1, 'sm' => 2, 'xl' => 3]),
+                        ])
+                            ->columnSpan(['lg' => 2]),
+                        Group::make([
+                            Section::make(__('Status'))
+                                ->icon(Heroicon::OutlinedSignal)
+                                ->schema([
+                                    Select::make('status')
+                                        ->label(__('Status'))
+                                        ->options(AdRequestStatusEnum::options([
+                                            AdRequestStatusEnum::PENDING_PAYMENT,
+                                            AdRequestStatusEnum::PAYMENT_EXPIRED,
+                                            AdRequestStatusEnum::PAID_SUCCESSFULLY,
+                                            AdRequestStatusEnum::COMPLETED,
+                                            AdRequestStatusEnum::APPROVED,
+                                            AdRequestStatusEnum::REJECTED,
+                                        ]))
+                                        ->native(false)
+                                        ->required(),
+                                    Toggle::make('is_visible')
+                                        ->label(__('Visible in app'))
+                                        ->helperText(__('Turn off to hide the ad from the app. Its display period is not extended.'))
+                                        ->onColor('success')
+                                        ->visible(fn (?AdRequest $record): bool => $record?->isRunning() ?? false),
+                                    TextEntry::make('display_state')
+                                        ->label(__('Ad State'))
+                                        ->badge()
+                                        ->state(fn (AdRequest $record): string => $record->displayState()->label())
+                                        ->color(fn (AdRequest $record): string => $record->displayState()->color())
+                                        ->helperText(fn (AdRequest $record): ?string => AdRequestResource::daysLeftLabel($record))
+                                        ->visible(fn (?AdRequest $record): bool => $record?->isPublished() ?? false),
+                                    Grid::make(2)
+                                        ->schema([
+                                            TextEntry::make('starts_at')
+                                                ->label(__('Starts At'))
+                                                ->dateTime('Y-m-d H:i')
+                                                ->placeholder('-'),
+                                            TextEntry::make('ends_at')
+                                                ->label(__('Ends At'))
+                                                ->dateTime('Y-m-d H:i')
+                                                ->placeholder('-'),
+                                        ]),
+                                ]),
+                            Section::make(__('Payment'))
+                                ->icon(Heroicon::OutlinedCreditCard)
+                                ->schema([
+                                    TextEntry::make('order.payment_method')
+                                        ->label(__('Payment Method'))
+                                        ->formatStateUsing(fn ($state) => AdRequestResource::paymentMethodLabel($state))
+                                        ->placeholder('-'),
+                                    TextEntry::make('created_at')
+                                        ->label(__('Created At'))
+                                        ->dateTime('Y-m-d H:i'),
+                                ])
+                                ->columns(2),
+                        ])
+                            ->columnSpan(['lg' => 1]),
                     ])
-                    ->columns(2)
                     ->columnSpanFull(),
-                Section::make(__('Status'))
-                    ->schema([
-                        Select::make('status')
-                            ->label(__('Status'))
-                            ->options([
-                                'pending_payment' => __('Pending Payment'),
-                                'payment_expired' => __('Payment Expired'),
-                                'paid_successfully' => __('Paid Successfully'),
-                                'completed' => __('Completed'),
-                                'approved' => __('Approved'),
-                                'rejected' => __('Rejected'),
-                            ])
-                            ->required(),
-                        Placeholder::make('order_payment_method')
-                            ->label(__('Payment Method'))
-                            ->content(fn ($record) => $record?->order?->payment_method ?? '-'),
-                        Placeholder::make('starts_at')
-                            ->label(__('Starts At'))
-                            ->content(fn ($record) => optional($record?->starts_at)->format('Y-m-d H:i:s') ?? '-'),
-                        Placeholder::make('ends_at')
-                            ->label(__('Ends At'))
-                            ->content(fn ($record) => optional($record?->ends_at)->format('Y-m-d H:i:s') ?? '-'),
-                    ])
-                    ->columns(2),
             ]);
     }
 }

@@ -169,7 +169,8 @@ return [
             ],
         ],
         'exclude' => [
-            //
+            // Lists approved ad requests, so it runs on the AdRequest permissions.
+            \App\Filament\Resources\Ads\AdResource::class,
         ],
     ],
 

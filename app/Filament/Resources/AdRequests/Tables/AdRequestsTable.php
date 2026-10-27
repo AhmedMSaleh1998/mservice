@@ -7,7 +7,9 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Modules\Ads\Enums\AdRequestStatusEnum;
 use Modules\Ads\Models\AdRequest;
 
 class AdRequestsTable
@@ -38,17 +40,8 @@ class AdRequestsTable
                 TextColumn::make('status')
                     ->label(__('Status'))
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => AdRequestResource::statusLabel($state))
-                    ->color(fn ($state) => match ($state) {
-                        'pending_payment' => 'warning',
-                        'payment_expired' => 'gray',
-                        'pending_review' => 'info',
-                        'paid_successfully' => 'info',
-                        'completed' => 'success',
-                        'approved' => 'success',
-                        'rejected' => 'danger',
-                        default => 'gray',
-                    })
+                    ->formatStateUsing(fn (?string $state): string => AdRequestStatusEnum::labelFor($state))
+                    ->color(fn (?string $state): string => AdRequestStatusEnum::colorFor($state))
                     ->sortable(),
                 TextColumn::make('order.payment_method')
                     ->label(__('Payment Method'))
@@ -63,7 +56,14 @@ class AdRequestsTable
                     ->sortable(),
             ])
             ->filters([
-                //
+                SelectFilter::make('status')
+                    ->label(__('Status'))
+                    ->options(AdRequestStatusEnum::options())
+                    ->multiple()
+                    // The list opens on paid requests that never went live
+                    // (awaiting approval or rejected); approved ones live under
+                    // Ads. Clearing the filter shows every status.
+                    ->default(AdRequestStatusEnum::values(AdRequestStatusEnum::requestStatuses())),
             ])
             ->recordActions([
                 ActionGroup::make([

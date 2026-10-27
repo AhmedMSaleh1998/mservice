@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Modules\Ads\Builders\AdRequestQueryBuilder;
+use Modules\Ads\Enums\AdDisplayStateEnum;
+use Modules\Ads\Enums\AdRequestStatusEnum;
 use Modules\Core\Models\Order;
 use Modules\Core\Models\CustomModel;
 use Modules\Users\Models\User;
@@ -35,6 +37,7 @@ class AdRequest extends CustomModel implements HasMedia
         'ad_text',
         'design_image',
         'status',
+        'is_visible',
         'starts_at',
         'ends_at',
     ];
@@ -43,6 +46,7 @@ class AdRequest extends CustomModel implements HasMedia
         'duration_months' => 'integer',
         'price_per_month' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'is_visible' => 'boolean',
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
     ];
@@ -65,6 +69,29 @@ class AdRequest extends CustomModel implements HasMedia
     public function order(): MorphOne
     {
         return $this->morphOne(Order::class, 'orderable');
+    }
+
+    public function statusEnum(): ?AdRequestStatusEnum
+    {
+        return AdRequestStatusEnum::tryFrom((string) $this->status);
+    }
+
+    /** Approved at some point, whether still running or already ended. */
+    public function isPublished(): bool
+    {
+        return in_array($this->statusEnum(), AdRequestStatusEnum::publishedStatuses(), true);
+    }
+
+    /** Approved and still inside its display period (it may still be hidden). */
+    public function isRunning(): bool
+    {
+        return $this->statusEnum() === AdRequestStatusEnum::APPROVED
+            && ($this->ends_at === null || $this->ends_at->isFuture());
+    }
+
+    public function displayState(): AdDisplayStateEnum
+    {
+        return $this->isRunning() ? AdDisplayStateEnum::RUNNING : AdDisplayStateEnum::ENDED;
     }
 
     public function registerMediaCollections(): void

@@ -16,6 +16,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Modules\Ads\Enums\AdRequestStatusEnum;
 use Modules\Ads\Models\AdSpace;
 use Modules\Ads\Models\AdRequest;
 use Modules\Ads\Services\AdRequestService;
@@ -94,7 +95,7 @@ class AdRequestResource extends Resource
                     ->success()
                     ->send();
             })
-            ->visible(fn (AdRequest $record): bool => $record->status === 'paid_successfully');
+            ->visible(fn (AdRequest $record): bool => $record->statusEnum() === AdRequestStatusEnum::PAID_SUCCESSFULLY);
     }
 
     public static function rejectAction(): Action
@@ -122,22 +123,40 @@ class AdRequestResource extends Resource
                     ->warning()
                     ->send();
             })
-            ->visible(fn (AdRequest $record): bool => $record->status === 'paid_successfully');
+            ->visible(fn (AdRequest $record): bool => $record->statusEnum() === AdRequestStatusEnum::PAID_SUCCESSFULLY);
     }
 
-    public static function statusLabel(?string $status): string
+    /** Hides a running ad from the app or shows it again; its period is not extended. */
+    public static function toggleVisibilityAction(): Action
     {
-        return match ($status) {
-            'pending_payment' => __('Pending Payment'),
-            'payment_expired' => __('Payment Expired'),
-            'pending_review' => __('Pending Review'),
-            'paid_successfully' => __('Paid Successfully'),
-            'approved' => __('Approved'),
-            'rejected' => __('Rejected'),
-            'completed' => __('Completed'),
-            'cancelled' => __('Cancelled'),
-            default => (string) $status,
-        };
+        return Action::make('toggleVisibility')
+            ->label(fn (AdRequest $record): string => $record->is_visible ? __('Hide ad') : __('Show ad'))
+            ->icon(fn (AdRequest $record): string => $record->is_visible ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
+            ->color(fn (AdRequest $record): string => $record->is_visible ? 'gray' : 'success')
+            ->requiresConfirmation()
+            ->action(function (AdRequest $record): void {
+                $record->update(['is_visible' => ! $record->is_visible]);
+
+                static::notifyVisibilityChanged($record);
+            })
+            ->visible(fn (AdRequest $record): bool => $record->isRunning() && static::canEdit($record));
+    }
+
+    public static function notifyVisibilityChanged(AdRequest $record): void
+    {
+        Notification::make()
+            ->title($record->is_visible ? __('The ad is now shown in the app.') : __('The ad is now hidden from the app.'))
+            ->success()
+            ->send();
+    }
+
+    public static function daysLeftLabel(AdRequest $record): ?string
+    {
+        if (! $record->isRunning() || ! $record->ends_at) {
+            return null;
+        }
+
+        return __(':count days left', ['count' => (int) ceil(now()->diffInDays($record->ends_at))]);
     }
 
     public static function paymentMethodLabel(?string $key): ?string
