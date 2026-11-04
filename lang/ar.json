@@ -763,5 +763,8 @@
     "Ad Content": "محتوى الإعلان",
     "Request Details": "تفاصيل الطلب",
     "Uploading a new image replaces the current one.": "رفع صورة جديدة يستبدل الصورة الحالية.",
-    "Edit": "تعديل"
+    "Edit": "تعديل",
+    "Used as the configurable base price for this service.": "السعر الأساسي لهذه الخدمة.",
+    "Visibility": "الظهور",
+    "Shown to members in the app.": "تظهر للأعضاء في التطبيق."
 }

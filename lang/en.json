@@ -524,5 +524,8 @@
   "Ad Content": "Ad Content",
   "Request Details": "Request Details",
   "Uploading a new image replaces the current one.": "Uploading a new image replaces the current one.",
-  "Edit": "Edit"
+  "Edit": "Edit",
+  "Used as the configurable base price for this service.": "Used as the configurable base price for this service.",
+  "Visibility": "Visibility",
+  "Shown to members in the app.": "Shown to members in the app."
 }
