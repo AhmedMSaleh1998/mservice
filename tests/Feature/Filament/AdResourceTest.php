@@ -18,6 +18,7 @@ use Modules\Ads\Enums\AdDisplayStateEnum;
 use Modules\Ads\Enums\AdRequestStatusEnum;
 use Modules\Ads\Models\AdRequest;
 use Modules\Ads\Models\AdSpace;
+use Modules\Ads\Services\AdRequestService;
 use Modules\Services\Models\Service;
 use Modules\Users\Models\User;
 use Spatie\Permission\Models\Permission;
@@ -175,6 +176,47 @@ class AdResourceTest extends TestCase
         $this->assertTrue($running->refresh()->is_visible);
     }
 
+    public function test_edit_page_moves_a_request_to_a_free_ad_space(): void
+    {
+        $running = $this->createAd(AdRequestStatusEnum::APPROVED, now()->subDay(), now()->addMonth());
+        $freeSpace = $this->createAdSpace('Travels', isAvailable: true);
+
+        Livewire::test(EditAdRequest::class, ['record' => $running->getKey()])
+            ->assertFormFieldIsEnabled('ad_space_id')
+            ->fillForm(['ad_space_id' => $freeSpace->id])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame($freeSpace->id, (int) $running->refresh()->ad_space_id);
+        // The old space is released and the new one reserved.
+        $this->assertTrue($this->adSpace->refresh()->is_available);
+        $this->assertFalse($freeSpace->refresh()->is_available);
+        // The paid amount is not recalculated for the new space.
+        $this->assertSame('1000.00', (string) $running->total_amount);
+    }
+
+    public function test_a_request_cannot_move_onto_a_space_another_request_holds(): void
+    {
+        $running = $this->createAd(AdRequestStatusEnum::APPROVED, now()->subDay(), now()->addMonth());
+        $takenSpace = $this->createAdSpace('Travels', isAvailable: false);
+
+        $this->assertFalse(app(AdRequestService::class)->changeAdSpace($running, $takenSpace->id));
+
+        $this->assertSame($this->adSpace->id, (int) $running->refresh()->ad_space_id);
+        $this->assertFalse($this->adSpace->refresh()->is_available);
+        $this->assertFalse($takenSpace->refresh()->is_available);
+    }
+
+    public function test_ad_space_is_locked_once_the_request_no_longer_holds_it(): void
+    {
+        $completed = $this->createAd(AdRequestStatusEnum::COMPLETED, now()->subMonths(2), now()->subMonth());
+
+        Livewire::test(EditAdRequest::class, ['record' => $completed->getKey()])
+            ->assertFormFieldIsDisabled('ad_space_id');
+
+        $this->assertFalse(app(AdRequestService::class)->changeAdSpace($completed, $this->createAdSpace('Travels', isAvailable: true)->id));
+    }
+
     public function test_edit_page_deactivates_ad_and_replaces_design_image(): void
     {
         $running = $this->createAd(AdRequestStatusEnum::APPROVED, now()->subDay(), now()->addMonth());
@@ -198,6 +240,21 @@ class AdResourceTest extends TestCase
         $this->assertSame(AdRequestStatusEnum::APPROVED, $running->statusEnum());
         $this->assertCount(1, $running->getMedia('design_image'));
         $this->assertNotSame($oldMedia->id, $running->getFirstMedia('design_image')->id);
+    }
+
+    private function createAdSpace(string $title, bool $isAvailable): AdSpace
+    {
+        $service = Service::query()->create([
+            'title' => ['en' => $title, 'ar' => $title],
+            'description' => ['en' => $title, 'ar' => $title],
+            'is_active' => true,
+        ]);
+
+        return AdSpace::query()->create([
+            'service_id' => $service->id,
+            'price_per_month' => 500,
+            'is_available' => $isAvailable,
+        ]);
     }
 
     private function createAd(AdRequestStatusEnum $status, $startsAt = null, $endsAt = null): AdRequest

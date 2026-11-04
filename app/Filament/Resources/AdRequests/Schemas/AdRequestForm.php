@@ -15,6 +15,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Modules\Ads\Enums\AdRequestStatusEnum;
 use Modules\Ads\Models\AdRequest;
+use Modules\Ads\Models\AdSpace;
 
 class AdRequestForm
 {
@@ -51,9 +52,26 @@ class AdRequestForm
                                     TextEntry::make('user.reg_number')
                                         ->label(__('Registration Number'))
                                         ->placeholder('-'),
-                                    TextEntry::make('ad_space_name')
+                                    // Saved through AdRequestService::changeAdSpace (see EditAdRequest),
+                                    // which releases the old space and reserves the new one.
+                                    Select::make('ad_space_id')
                                         ->label(__('Ad Space'))
-                                        ->state(fn (?AdRequest $record): string => AdRequestResource::getAdSpaceLabel($record?->adSpace)),
+                                        ->options(fn (?AdRequest $record): array => AdSpace::query()
+                                            ->with('service')
+                                            ->where(fn ($query) => $query
+                                                ->where('is_available', true)
+                                                ->orWhere('id', $record?->ad_space_id))
+                                            ->orderBy('order')
+                                            ->get()
+                                            ->mapWithKeys(fn (AdSpace $adSpace): array => [$adSpace->id => AdRequestResource::getAdSpaceLabel($adSpace)])
+                                            ->all())
+                                        ->native(false)
+                                        ->helperText(fn (?AdRequest $record): string => $record?->holdsAdSpace()
+                                            ? __('Only free ad spaces are listed. The paid amount stays the same.')
+                                            : __('The ad space can only be changed while the request still holds it.'))
+                                        ->disabled(fn (?AdRequest $record): bool => ! ($record?->holdsAdSpace() ?? false))
+                                        ->required()
+                                        ->columnSpanFull(),
                                     TextEntry::make('duration_months')
                                         ->label(__('Duration Months')),
                                     TextEntry::make('price_per_month')

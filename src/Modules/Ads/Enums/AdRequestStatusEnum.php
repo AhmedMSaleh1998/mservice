@@ -33,6 +33,17 @@ enum AdRequestStatusEnum: string
         return [self::APPROVED, self::COMPLETED];
     }
 
+    /**
+     * Statuses in which the request keeps its ad space reserved, so no other
+     * request can take it.
+     *
+     * @return array<self>
+     */
+    public static function spaceHoldingStatuses(): array
+    {
+        return [self::PENDING_PAYMENT, self::CHECKOUT_PENDING, self::PAID_SUCCESSFULLY, self::APPROVED];
+    }
+
     /** @param  array<self>|null  $cases */
     public static function values(?array $cases = null): array
     {
