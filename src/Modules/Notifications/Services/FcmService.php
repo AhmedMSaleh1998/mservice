@@ -4,6 +4,7 @@ namespace Modules\Notifications\Services;
 
 use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Messaging\CloudMessage;
+use Modules\Notifications\Enums\FcmErrorCodeEnum;
 
 class FcmService
 {
@@ -45,7 +46,17 @@ class FcmService
             $result['sent'] += $report->successes()->count();
             $result['failed'] += $report->failures()->count();
             array_push($result['invalid_tokens'], ...$report->invalidTokens(), ...$report->unknownTokens());
+
+            // A token issued by another Firebase project (sender mismatch) fails on
+            // every send, yet the SDK files it under neither invalid nor unknown.
+            foreach ($report->failures()->getItems() as $failure) {
+                if (FcmErrorCodeEnum::fromThrowable($failure->error())?->tokenIsUnusable()) {
+                    $result['invalid_tokens'][] = $failure->target()->value();
+                }
+            }
         }
+
+        $result['invalid_tokens'] = array_values(array_unique($result['invalid_tokens']));
 
         return $result;
     }

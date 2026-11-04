@@ -6,6 +6,7 @@ use App\Filament\Resources\AdRequests\AdRequestResource;
 use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Database\Eloquent\Model;
 use Modules\Ads\Enums\AdRequestStatusEnum;
 use Modules\Ads\Services\AdRequestService;
@@ -33,6 +34,26 @@ class EditAdRequest extends EditRecord
      */
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
+        // Moving to another ad space must release the old one and reserve the
+        // new one, so it goes through the service instead of a plain update.
+        if (array_key_exists('ad_space_id', $data)) {
+            $adSpaceId = (int) $data['ad_space_id'];
+            unset($data['ad_space_id']);
+
+            if ($adSpaceId !== (int) $record->ad_space_id) {
+                if (! app(AdRequestService::class)->changeAdSpace($record, $adSpaceId)) {
+                    Notification::make()
+                        ->title(__('This ad space is no longer available.'))
+                        ->danger()
+                        ->send();
+
+                    throw new Halt();
+                }
+
+                $record->refresh();
+            }
+        }
+
         $newStatus = AdRequestStatusEnum::tryFrom((string) ($data['status'] ?? $record->status));
 
         if ($newStatus === $record->statusEnum() || ! in_array($newStatus, [AdRequestStatusEnum::APPROVED, AdRequestStatusEnum::REJECTED], true)) {

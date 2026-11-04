@@ -76,6 +76,11 @@ class AdRequest extends CustomModel implements HasMedia
         return AdRequestStatusEnum::tryFrom((string) $this->status);
     }
 
+    public function holdsAdSpace(): bool
+    {
+        return in_array($this->statusEnum(), AdRequestStatusEnum::spaceHoldingStatuses(), true);
+    }
+
     /** Approved at some point, whether still running or already ended. */
     public function isPublished(): bool
     {
