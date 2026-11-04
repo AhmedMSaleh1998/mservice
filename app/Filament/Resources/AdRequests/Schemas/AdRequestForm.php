@@ -57,7 +57,8 @@ class AdRequestForm
                                     Select::make('ad_space_id')
                                         ->label(__('Ad Space'))
                                         ->options(fn (?AdRequest $record): array => AdSpace::query()
-                                            ->with('service')
+                                            // A deleted service still names its space here.
+                                            ->with(['service' => fn ($query) => $query->withTrashed()])
                                             ->where(fn ($query) => $query
                                                 ->where('is_available', true)
                                                 ->orWhere('id', $record?->ad_space_id))
@@ -66,10 +67,7 @@ class AdRequestForm
                                             ->mapWithKeys(fn (AdSpace $adSpace): array => [$adSpace->id => AdRequestResource::getAdSpaceLabel($adSpace)])
                                             ->all())
                                         ->native(false)
-                                        ->helperText(fn (?AdRequest $record): string => $record?->holdsAdSpace()
-                                            ? __('Only free ad spaces are listed. The paid amount stays the same.')
-                                            : __('The ad space can only be changed while the request still holds it.'))
-                                        ->disabled(fn (?AdRequest $record): bool => ! ($record?->holdsAdSpace() ?? false))
+                                        ->helperText(__('Only free ad spaces are listed. The paid amount stays the same.'))
                                         ->required()
                                         ->columnSpanFull(),
                                     TextEntry::make('duration_months')

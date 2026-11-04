@@ -354,9 +354,10 @@ class AdRequestService
     }
 
     /**
-     * Moves a request to another ad space: the old space is released and the
-     * new one reserved. Only a request still holding its space can move, and
-     * only onto a free space. The paid amount is left as it was.
+     * Moves a request to another ad space. A request that still holds its
+     * space releases it and reserves the new one, which must be free; any
+     * other request just points at the new space. The paid amount is left
+     * as it was.
      */
     public function changeAdSpace(AdRequest $adRequest, int $adSpaceId): bool
     {
@@ -365,13 +366,23 @@ class AdRequestService
                 ->lockForUpdate()
                 ->find($adRequest->id);
 
-            if (! $lockedAdRequest || ! $lockedAdRequest->holdsAdSpace()) {
+            if (! $lockedAdRequest) {
                 return false;
             }
 
             $currentSpaceId = (int) $lockedAdRequest->ad_space_id;
 
             if ($currentSpaceId === $adSpaceId) {
+                return true;
+            }
+
+            if (! $lockedAdRequest->holdsAdSpace()) {
+                if (! AdSpace::query()->whereKey($adSpaceId)->exists()) {
+                    return false;
+                }
+
+                $lockedAdRequest->forceFill(['ad_space_id' => $adSpaceId])->save();
+
                 return true;
             }
 
