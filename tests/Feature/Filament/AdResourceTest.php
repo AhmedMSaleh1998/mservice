@@ -207,14 +207,21 @@ class AdResourceTest extends TestCase
         $this->assertFalse($takenSpace->refresh()->is_available);
     }
 
-    public function test_ad_space_is_locked_once_the_request_no_longer_holds_it(): void
+    public function test_an_ended_request_moves_without_reserving_any_space(): void
     {
         $completed = $this->createAd(AdRequestStatusEnum::COMPLETED, now()->subMonths(2), now()->subMonth());
+        $freeSpace = $this->createAdSpace('Travels', isAvailable: true);
 
         Livewire::test(EditAdRequest::class, ['record' => $completed->getKey()])
-            ->assertFormFieldIsDisabled('ad_space_id');
+            ->assertFormFieldIsEnabled('ad_space_id')
+            ->fillForm(['ad_space_id' => $freeSpace->id])
+            ->call('save')
+            ->assertHasNoFormErrors();
 
-        $this->assertFalse(app(AdRequestService::class)->changeAdSpace($completed, $this->createAdSpace('Travels', isAvailable: true)->id));
+        $this->assertSame($freeSpace->id, (int) $completed->refresh()->ad_space_id);
+        // It held nothing, so neither space's reservation changes.
+        $this->assertTrue($freeSpace->refresh()->is_available);
+        $this->assertFalse($this->adSpace->refresh()->is_available);
     }
 
     public function test_edit_page_deactivates_ad_and_replaces_design_image(): void
