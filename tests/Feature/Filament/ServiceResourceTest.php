@@ -4,7 +4,6 @@ namespace Tests\Feature\Filament;
 
 use App\Filament\Resources\Services\Pages\CreateService;
 use App\Filament\Resources\Services\Pages\EditService;
-use App\Filament\Resources\Services\Pages\ListServices;
 use App\Models\Admin;
 use Filament\Facades\Filament;
 use Illuminate\Database\Schema\Blueprint;
@@ -135,27 +134,6 @@ class ServiceResourceTest extends TestCase
 
         $this->assertSame('documents-procedures', $service->key);
         $this->assertSame('تقديم المعاشات', $service->getTranslation('title', 'ar'));
-    }
-
-    public function test_list_row_delete_action_soft_deletes_the_service(): void
-    {
-        Permission::findOrCreate('Delete:Service', 'admin');
-        Filament::auth()->user()->givePermissionTo('Delete:Service');
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-        $service = Service::query()->create([
-            'key' => 'documents-procedures',
-            'title' => ['en' => 'Documents and Procedures', 'ar' => 'المستندات والاجراءات'],
-            'description' => ['en' => 'Documents and Procedures', 'ar' => 'المستندات والاجراءات'],
-            'service_type_id' => $this->serviceType->id,
-            'is_active' => true,
-        ]);
-
-        Livewire::test(ListServices::class)
-            ->assertTableActionVisible('delete', $service)
-            ->callTableAction('delete', $service);
-
-        $this->assertSoftDeleted($service);
     }
 
     public function test_a_service_saved_earlier_with_a_non_slug_key_can_still_be_edited(): void

@@ -27,7 +27,10 @@ class ServiceForm
                             Section::make(__('Service Details'))
                                 ->icon(Heroicon::OutlinedDocumentText)
                                 ->schema([
+                                    // Already inside a section card, so the language switch is a
+                                    // compact bar rather than a second card nested in the first.
                                     TranslatableTabs::make('anyLabel')
+                                        ->contained(false)
                                         ->schema([
                                             TextInput::make('title')
                                                 ->label(__('Title'))
